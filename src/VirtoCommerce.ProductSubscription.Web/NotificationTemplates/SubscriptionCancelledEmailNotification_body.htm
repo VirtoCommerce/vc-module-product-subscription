@@ -1,0 +1,8 @@
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;color:#1f2933;line-height:1.5"><h2>Your subscription is cancelled</h2>
+<p>Hi {{ customer_name }}, we've cancelled this subscription. You won't be charged for it again.</p><table style="width:100%;border-collapse:collapse;margin:16px 0">
+{{ for s in subscriptions }}<tr>
+<td style="padding:8px 0;border-bottom:1px solid #e5e7eb">{{ s.product_name }}<br><span style="color:#6b7280;font-size:13px">Qty {{ s.quantity }} &middot; every {{ s.interval_count }} {{ s.interval_unit | string.downcase }}(s){{ if s.discount_value > 0 }} &middot; save {{ s.discount_value }}{{ if s.discount_type == "Percent" }}%{{ end }}{{ end }}</span></td>
+<td style="padding:8px 0;border-bottom:1px solid #e5e7eb;text-align:right;white-space:nowrap">Cancelled</td>
+</tr>{{ end }}
+</table>
+<p>Changed your mind? You can subscribe again from the product page any time.</p><p style="color:#6b7280;font-size:12px;margin-top:32px">You receive this email because you have a subscription at {{ store_name }}. Manage or cancel any time: <a href="{{ manage_url }}">{{ manage_url }}</a></p></div>

@@ -1,24 +1,146 @@
 {
   "product-subscription": {
+    "main-menu-title": "Subscriptions",
     "blades": {
-      "hello-world": {
-        "title": "Hello world blade"
+      "subscription-list": { "title": "Subscriptions", "empty": "No subscriptions yet. They appear here when customers subscribe at checkout." },
+      "subscription-detail": {
+        "subtitle": "Subscription",
+        "past-due": "The last renewal could not be paid. Renewals are on hold until the customer chooses a working card.",
+        "pending": "Waiting for the first payment to be authorized.",
+        "no-renewals": "No renewals yet."
+      },
+      "renewal-list": { "title": "Renewals", "empty": "No renewals match the filter." },
+      "renewal-detail": { "subtitle": "Renewal" },
+      "plan-list": { "title": "Subscription plans", "empty": "No plans yet. Add a plan to offer Subscribe & Save on products." },
+      "plan-detail": {
+        "subtitle": "Subscription plan",
+        "new-title": "New subscription plan",
+        "select-items": "Select products or categories",
+        "applies-help": "Customers can subscribe to these products and to every product in these categories. When several plans match a product, the plan with the highest priority wins."
       }
+    },
+    "commands": {
+      "renewals": "Renewals",
+      "plans": "Plans",
+      "run-scheduler": "Run scheduler",
+      "order-now": "Order now",
+      "skip": "Skip next",
+      "pause": "Pause",
+      "resume": "Resume",
+      "cancel": "Cancel subscription",
+      "process-now": "Process now",
+      "accept-review": "Accept changes",
+      "retry-payment": "Retry payment",
+      "open-order": "Open order",
+      "add-frequency": "Add frequency",
+      "add-products": "Add products or categories"
+    },
+    "dialogs": {
+      "scheduler": { "title": "Scheduler" },
+      "order-now": { "title": "Order now?", "message": "This places a renewal order right away and charges the saved card." },
+      "cancel": { "title": "Cancel subscription?", "message": "The customer won't be charged for this subscription again. They will receive a cancellation email." },
+      "process-now": { "title": "Process this renewal now?", "message": "This ignores the reminder and cutoff times: the order may be placed and charged immediately." },
+      "plan-save": { "title": "Save plan?", "message": "The plan has unsaved changes." },
+      "plan-delete": { "title": "Delete plan?", "message": "Existing subscriptions keep their frequency and discount, but customers can no longer subscribe with this plan." }
+    },
+    "widgets": {
+      "customer-subscriptions": { "title": "Subscriptions", "blade-title": "Customer subscriptions" }
+    },
+    "placeholders": {
+      "search-subscriptions": "Search by number, product, SKU or customer",
+      "search-renewals": "Search by number, order or customer",
+      "plan-name": "e.g. Subscribe & Save"
+    },
+    "labels": {
+      "number": "Number",
+      "status": "Status",
+      "state": "State",
+      "product": "Product",
+      "products": "products",
+      "categories": "categories",
+      "qty": "Qty",
+      "frequency": "Frequency",
+      "frequencies": "Delivery frequencies",
+      "customer": "Customer",
+      "next-order": "Next order",
+      "orders": "Orders",
+      "discount": "Discount",
+      "discount-type": "Discount type",
+      "discount-percent": "Discount, %",
+      "discount-amount": "Discount per item",
+      "payment-method": "Payment method",
+      "none": "None",
+      "name": "Name",
+      "description": "Description",
+      "ship-to": "Ships to",
+      "started": "Started",
+      "first-order": "First order",
+      "last-order": "Last order",
+      "cancelled": "Cancelled",
+      "paused-until": "Paused until",
+      "consent": "Consent",
+      "terms": "Terms",
+      "renewals": "Renewals",
+      "date": "Date",
+      "order": "Order",
+      "total": "Total",
+      "all-statuses": "All statuses",
+      "all-states": "All states",
+      "only-open": "Open only",
+      "delivery-date": "Delivery date",
+      "cutoff": "Cutoff",
+      "not-placed": "Not placed yet",
+      "reminder-total": "Reminder total (maximum)",
+      "breakdown": "Breakdown",
+      "shipping": "shipping",
+      "tax": "tax",
+      "payment": "Payment",
+      "attempts": "attempt(s)",
+      "next-attempt": "next attempt",
+      "authorized": "Authorized",
+      "expires": "expires",
+      "captured": "Captured",
+      "idempotency-key": "Idempotency key",
+      "items": "Items",
+      "list-price": "List price",
+      "history": "History",
+      "store": "Store",
+      "applies-to": "Applies to",
+      "priority": "Priority",
+      "active": "Active",
+      "every": "Every",
+      "unit": "Unit",
+      "default": "Default"
     }
   },
   "permissions": {
-    "product-subscription:access": "Open Product Subscription menu",
-    "product-subscription:create": "Create Product Subscription related data",
-    "product-subscription:read": "View Product Subscription related data",
-    "product-subscription:update": "Update Product Subscription related data",
-    "product-subscription:delete": "Delete Product Subscription related data"
+    "product-subscription:access": "Open the Subscriptions menu",
+    "product-subscription:read": "View subscriptions, renewals and plans",
+    "product-subscription:update": "Change, skip, pause, resume and cancel subscriptions",
+    "product-subscription:delete": "Delete subscriptions",
+    "product-subscription:plans:manage": "Create and edit subscription plans",
+    "product-subscription:renewals:process": "Process renewals, order now and retry payments"
   },
   "settings": {
     "ProductSubscription": {
-      "Enabled": {
-        "title": "Product Subscription Enabled",
-        "description": "Product Subscription Enabled setting"
-      }
+      "Enabled": { "title": "Subscriptions enabled", "description": "Show Subscribe & Save offers in this store" },
+      "ReminderLeadDays": { "title": "Reminder lead time, days", "description": "How many days before each delivery the reminder email is sent" },
+      "CutoffHours": { "title": "Cutoff, hours before delivery", "description": "After this point prices are re-checked and the order is placed" },
+      "RetryScheduleHours": { "title": "Payment retry schedule, hours", "description": "Comma-separated delays between payment retries after a temporary decline" },
+      "MaxRetriesPer30Days": { "title": "Maximum payment attempts per 30 days", "description": "Card network limit (Visa allows 15)" },
+      "PaymentActionWaitDays": { "title": "Days to wait for customer action", "description": "How long to wait for 3-D Secure confirmation or a review before failing or skipping the renewal" },
+      "NumberTemplate": { "title": "Subscription number template", "description": "" },
+      "Terms": {
+        "Version": { "title": "Subscription terms version", "description": "Change it when the terms text changes; customers accept the new version at checkout" },
+        "Text": { "title": "Subscription terms text", "description": "Shown before the payment fields at checkout (US auto-renewal disclosure)" }
+      },
+      "AnnualReminder": { "Enabled": { "title": "Send yearly reminder", "description": "Required in California, Minnesota and Connecticut" } },
+      "Renewal": { "NumberTemplate": { "title": "Renewal number template", "description": "" } },
+      "Scheduler": {
+        "Enabled": { "title": "Renewal scheduler enabled", "description": "" },
+        "CronExpression": { "title": "Renewal scheduler cron", "description": "How often renewals are checked (restart required)" }
+      },
+      "MockPayment": { "AuthorizationLifetimeMinutes": { "title": "Mock payment authorization lifetime, minutes", "description": "Shorten to test re-authorization before capture" } }
     }
   }
 }

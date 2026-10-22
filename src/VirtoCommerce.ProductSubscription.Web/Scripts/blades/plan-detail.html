@@ -1,0 +1,80 @@
+<div class="blade-content __medium-wide">
+    <div class="blade-inner">
+        <div class="inner-block" ng-if="blade.currentEntity">
+            <form class="form" name="planForm">
+                <div class="form-group">
+                    <label class="form-label">{{ 'product-subscription.labels.name' | translate }} <span class="error">*</span></label>
+                    <div class="form-input"><input ng-model="blade.currentEntity.name" required maxlength="256" placeholder="{{ 'product-subscription.placeholders.plan-name' | translate }}"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">{{ 'product-subscription.labels.description' | translate }}</label>
+                    <div class="form-input"><textarea ng-model="blade.currentEntity.description" rows="2" maxlength="2048"></textarea></div>
+                </div>
+                <div class="clearfix">
+                    <div class="column">
+                        <div class="form-group">
+                            <label class="form-label">{{ 'product-subscription.labels.store' | translate }} <span class="error">*</span></label>
+                            <div class="form-input">
+                                <select class="form-control" ng-model="blade.currentEntity.storeId" ng-options="s.id as s.name for s in stores" required></select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column">
+                        <div class="form-group">
+                            <label class="form-label">{{ 'product-subscription.labels.priority' | translate }}</label>
+                            <div class="form-input __number"><input type="number" ng-model="blade.currentEntity.priority"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" ng-model="blade.currentEntity.isActive"> {{ 'product-subscription.labels.active' | translate }}
+                    </label>
+                </div>
+
+                <div class="ps-section-title">{{ 'product-subscription.labels.discount' | translate }}</div>
+                <div class="clearfix">
+                    <div class="column">
+                        <div class="form-group">
+                            <label class="form-label">{{ 'product-subscription.labels.discount-type' | translate }}</label>
+                            <div class="form-input">
+                                <select class="form-control" ng-model="blade.currentEntity.discountType" ng-options="t as t for t in labels.discountTypes"></select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column">
+                        <div class="form-group">
+                            <label class="form-label">{{ blade.currentEntity.discountType === 'Percent' ? ('product-subscription.labels.discount-percent' | translate) : ('product-subscription.labels.discount-amount' | translate) }}</label>
+                            <div class="form-input __number"><input type="number" min="0" step="0.01" ng-model="blade.currentEntity.discountValue" ng-disabled="blade.currentEntity.discountType === 'None'"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ps-section-title">{{ 'product-subscription.labels.frequencies' | translate }}</div>
+                <table class="ps-table">
+                    <tr>
+                        <th>{{ 'product-subscription.labels.every' | translate }}</th>
+                        <th>{{ 'product-subscription.labels.unit' | translate }}</th>
+                        <th>{{ 'product-subscription.labels.default' | translate }}</th>
+                        <th></th>
+                    </tr>
+                    <tr ng-repeat="i in blade.currentEntity.intervals">
+                        <td style="width:110px"><div class="form-input __number"><input type="number" min="1" max="365" ng-model="i.count" required></div></td>
+                        <td><select class="form-control" ng-model="i.unit" ng-options="u as u for u in labels.intervalUnits"></select></td>
+                        <td><input type="radio" name="defaultInterval" ng-checked="i.isDefault" ng-click="setDefault(i)"></td>
+                        <td class="__right"><a href="" ng-click="removeInterval(i)" title="Remove"><i class="fas fa-trash-alt"></i></a></td>
+                    </tr>
+                </table>
+                <button type="button" class="btn" ng-click="addInterval()"><i class="fas fa-plus"></i> {{ 'product-subscription.commands.add-frequency' | translate }}</button>
+
+                <div class="ps-section-title">{{ 'product-subscription.labels.applies-to' | translate }}</div>
+                <p class="ps-muted">{{ 'product-subscription.blades.plan-detail.applies-help' | translate }}</p>
+                <div>
+                    <span class="ps-chip" ng-repeat="id in blade.currentEntity.categoryIds"><i class="fas fa-folder"></i> {{ names[id] || id }} <a ng-click="removeCategory(id)">&times;</a></span>
+                    <span class="ps-chip" ng-repeat="id in blade.currentEntity.productIds"><i class="fas fa-box"></i> {{ names[id] || id }} <a ng-click="removeProduct(id)">&times;</a></span>
+                </div>
+                <button type="button" class="btn" ng-click="selectCatalogItems()"><i class="fas fa-plus"></i> {{ 'product-subscription.commands.add-products' | translate }}</button>
+            </form>
+        </div>
+    </div>
+</div>

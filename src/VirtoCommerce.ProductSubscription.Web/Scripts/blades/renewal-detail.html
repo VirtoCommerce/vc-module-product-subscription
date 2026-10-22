@@ -1,0 +1,68 @@
+<div class="blade-content __medium-wide">
+    <div class="blade-inner">
+        <div class="inner-block" ng-if="blade.currentEntity">
+            <div class="ps-alert" ng-if="blade.currentEntity.reviewReason && blade.currentEntity.state === 'ReviewRequired'">{{ blade.currentEntity.reviewReason }}</div>
+            <div class="ps-alert __danger" ng-if="blade.currentEntity.lastErrorMessage && blade.currentEntity.state !== 'Completed'">{{ blade.currentEntity.lastErrorMessage }}</div>
+
+            <div class="ps-summary">
+                <div class="ps-stat">
+                    <div class="ps-stat-label">{{ 'product-subscription.labels.state' | translate }}</div>
+                    <div class="ps-stat-value"><span class="{{ labels.statusClass(blade.currentEntity.state) }}">{{ blade.currentEntity.state }}</span></div>
+                </div>
+                <div class="ps-stat">
+                    <div class="ps-stat-label">{{ 'product-subscription.labels.delivery-date' | translate }}</div>
+                    <div class="ps-stat-value">{{ blade.currentEntity.scheduledDate | date:'mediumDate' }}</div>
+                </div>
+                <div class="ps-stat">
+                    <div class="ps-stat-label">{{ 'product-subscription.labels.cutoff' | translate }}</div>
+                    <div class="ps-stat-value">{{ blade.currentEntity.cutoffDate | date:'short' }}</div>
+                </div>
+                <div class="ps-stat">
+                    <div class="ps-stat-label">{{ 'product-subscription.labels.total' | translate }}</div>
+                    <div class="ps-stat-value">{{ (blade.currentEntity.orderTotal || blade.currentEntity.previewTotal) | number:2 }} {{ blade.currentEntity.currency }}</div>
+                </div>
+            </div>
+
+            <table class="ps-table">
+                <tr><th>{{ 'product-subscription.labels.customer' | translate }}</th><td>{{ blade.currentEntity.customerName }} <span class="ps-muted">{{ blade.currentEntity.customerEmail }}</span></td></tr>
+                <tr><th>{{ 'product-subscription.labels.order' | translate }}</th><td><a href="" ng-click="openOrder()" ng-if="blade.currentEntity.orderId">{{ blade.currentEntity.orderNumber }}</a><span ng-if="!blade.currentEntity.orderId" class="ps-muted">{{ 'product-subscription.labels.not-placed' | translate }}</span></td></tr>
+                <tr><th>{{ 'product-subscription.labels.reminder-total' | translate }}</th><td>{{ blade.currentEntity.notifiedTotal != null ? (blade.currentEntity.notifiedTotal | number:2) + ' ' + blade.currentEntity.currency : '—' }}</td></tr>
+                <tr><th>{{ 'product-subscription.labels.breakdown' | translate }}</th><td>{{ 'product-subscription.labels.discount' | translate }} {{ blade.currentEntity.discountTotal | number:2 }} · {{ 'product-subscription.labels.shipping' | translate }} {{ blade.currentEntity.shippingTotal | number:2 }} · {{ 'product-subscription.labels.tax' | translate }} {{ blade.currentEntity.taxTotal | number:2 }}</td></tr>
+                <tr><th>{{ 'product-subscription.labels.payment' | translate }}</th><td>{{ blade.currentEntity.paymentMethodCode || '—' }} <span class="ps-muted" ng-if="blade.currentEntity.attemptCount">· {{ blade.currentEntity.attemptCount }} {{ 'product-subscription.labels.attempts' | translate }} · {{ blade.currentEntity.lastOutcome }}</span><span class="ps-muted" ng-if="blade.currentEntity.nextAttemptDate"> · {{ 'product-subscription.labels.next-attempt' | translate }} {{ blade.currentEntity.nextAttemptDate | date:'short' }}</span></td></tr>
+                <tr ng-if="blade.currentEntity.authorizedDate"><th>{{ 'product-subscription.labels.authorized' | translate }}</th><td>{{ blade.currentEntity.authorizedDate | date:'medium' }} <span class="ps-muted" ng-if="blade.currentEntity.authorizationExpiresDate">· {{ 'product-subscription.labels.expires' | translate }} {{ blade.currentEntity.authorizationExpiresDate | date:'short' }}</span></td></tr>
+                <tr ng-if="blade.currentEntity.capturedDate"><th>{{ 'product-subscription.labels.captured' | translate }}</th><td>{{ blade.currentEntity.capturedDate | date:'medium' }}</td></tr>
+                <tr><th>{{ 'product-subscription.labels.idempotency-key' | translate }}</th><td class="ps-muted">{{ blade.currentEntity.idempotencyKey }}</td></tr>
+            </table>
+
+            <div class="ps-section-title">{{ 'product-subscription.labels.items' | translate }}</div>
+            <table class="ps-table">
+                <tr>
+                    <th></th>
+                    <th>{{ 'product-subscription.labels.product' | translate }}</th>
+                    <th>{{ 'product-subscription.labels.qty' | translate }}</th>
+                    <th class="__right">{{ 'product-subscription.labels.list-price' | translate }}</th>
+                    <th class="__right">{{ 'product-subscription.labels.discount' | translate }}</th>
+                    <th class="__right">{{ 'product-subscription.labels.total' | translate }}</th>
+                </tr>
+                <tr ng-repeat="i in blade.currentEntity.items" class="__clickable" ng-click="openSubscription(i.subscriptionId)">
+                    <td style="width:46px"><img ng-src="{{ i.imageUrl }}" ng-if="i.imageUrl" alt=""></td>
+                    <td>{{ i.productName }}<div class="ps-muted">{{ i.sku }}</div>
+                        <div ng-if="!i.isAvailable || i.isExcluded" class="ps-pill __warning">{{ i.isExcluded ? 'Excluded from this delivery' : i.message }}</div></td>
+                    <td>{{ i.quantity }}</td>
+                    <td class="__right">{{ i.listPrice | number:2 }}</td>
+                    <td class="__right">{{ i.discountAmount | number:2 }}</td>
+                    <td class="__right">{{ i.total | number:2 }}</td>
+                </tr>
+            </table>
+
+            <div class="ps-section-title">{{ 'product-subscription.labels.history' | translate }}</div>
+            <ul class="ps-timeline">
+                <li ng-repeat="e in events" ng-class="{'__error': e.eventType === 'Error'}">
+                    <div class="ps-time">{{ e.eventDate | date:'medium' }} · {{ e.eventType }}<span ng-if="e.state"> · {{ e.state }}</span></div>
+                    <div>{{ e.message }}</div>
+                    <div class="ps-details" ng-if="e.details">{{ e.details }}</div>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>

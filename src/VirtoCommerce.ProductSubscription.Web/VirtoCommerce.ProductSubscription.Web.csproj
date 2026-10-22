@@ -19,6 +19,15 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="VirtoCommerce.NotificationsModule.TemplateLoader.FileSystem" Version="3.1018.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Update="NotificationTemplates\**">
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\VirtoCommerce.ProductSubscription.Core\VirtoCommerce.ProductSubscription.Core.csproj" />
     <ProjectReference Include="..\VirtoCommerce.ProductSubscription.Data\VirtoCommerce.ProductSubscription.Data.csproj" />
     <ProjectReference Include="..\VirtoCommerce.ProductSubscription.Data.MySql\VirtoCommerce.ProductSubscription.Data.MySql.csproj" />

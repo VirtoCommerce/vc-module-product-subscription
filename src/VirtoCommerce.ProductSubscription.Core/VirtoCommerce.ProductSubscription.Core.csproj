@@ -2,8 +2,15 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <SonarQubeTestProject>false</SonarQubeTestProject>
+    <NoWarn>1591;NU1608;NU1603</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="VirtoCommerce.Platform.Core" Version="3.1089.0" />
+    <PackageReference Include="VirtoCommerce.CoreModule.Core" Version="3.1012.0" />
+    <PackageReference Include="VirtoCommerce.CartModule.Core" Version="3.1012.0" />
+    <PackageReference Include="VirtoCommerce.OrdersModule.Core" Version="3.1018.0" />
+    <PackageReference Include="VirtoCommerce.PaymentModule.Core" Version="3.1012.0-alpha.6507" />
+    <PackageReference Include="VirtoCommerce.NotificationsModule.Core" Version="3.1018.0" />
+    <PackageReference Include="VirtoCommerce.StoreModule.Core" Version="3.1010.0" />
   </ItemGroup>
 </Project>

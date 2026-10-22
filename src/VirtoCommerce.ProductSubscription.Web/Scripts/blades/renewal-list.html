@@ -1,0 +1,48 @@
+<div class="bc blade-static">
+    <div class="form-group">
+        <div class="blade-search-panel">
+            <div class="form-input __search">
+                <input placeholder="{{'product-subscription.placeholders.search-renewals' | translate}}" ng-model="filter.keyword" ng-keyup="$event.which === 13 && filter.criteriaChanged()">
+                <button class="btn __other">
+                    <i class="btn-ico fa fa-remove" title="Clear" ng-click="filter.keyword=null;filter.criteriaChanged()"></i>
+                </button>
+            </div>
+            <div class="form-input">
+                <select class="form-control" ng-model="filter.state" ng-change="filter.criteriaChanged()" ng-options="s as s for s in labels.renewalStates">
+                    <option value="">{{ 'product-subscription.labels.all-states' | translate }}</option>
+                </select>
+            </div>
+            <label class="form-label" style="white-space:nowrap;margin-left:8px">
+                <input type="checkbox" ng-model="filter.onlyOpen" ng-change="filter.criteriaChanged()"> {{ 'product-subscription.labels.only-open' | translate }}
+            </label>
+        </div>
+    </div>
+</div>
+<div class="blade-static __bottom" ng-if="pageSettings.itemsPerPageCount < pageSettings.totalItems" ng-include="'pagerTemplate.html'"></div>
+<div class="blade-content __medium-wide">
+    <div class="blade-inner">
+        <div class="inner-block" ng-init="setGridOptions({
+                    useExternalSorting: true,
+                    rowTemplate: 'ps-renewal-list.row.html',
+                    columnDefs: [
+                        { name: 'number', displayName: 'product-subscription.labels.number', width: 150 },
+                        { name: 'state', displayName: 'product-subscription.labels.state', width: 160, cellTemplate: 'ps-renewal-status.cell.html' },
+                        { name: 'customerName', displayName: 'product-subscription.labels.customer' },
+                        { name: 'scheduledDate', displayName: 'product-subscription.labels.date', width: 110, cellFilter: 'date', sort: { direction: uiGridConstants.DESC } },
+                        { name: 'orderNumber', displayName: 'product-subscription.labels.order', width: 140 },
+                        { name: 'previewTotal', displayName: 'product-subscription.labels.total', width: 100, cellFilter: 'number:2' }
+                    ]})">
+            <div class="table-wrapper" ng-if="blade.currentEntities.length">
+                <div ui-grid="gridOptions" ui-grid-auto-resize ui-grid-save-state ui-grid-resize-columns ui-grid-move-columns ui-grid-height></div>
+            </div>
+            <div class="note" ng-if="!blade.currentEntities.length">{{ 'product-subscription.blades.renewal-list.empty' | translate }}</div>
+        </div>
+    </div>
+</div>
+
+<script type="text/ng-template" id="ps-renewal-list.row.html">
+    <div ng-click="grid.appScope.openDetailsBlade(row.entity)" ng-repeat="(colRenderIndex, col) in colContainer.renderedColumns track by col.uid" class="ui-grid-cell" ng-class="{'__selected': row.entity.id === grid.appScope.selectedNodeId}" ui-grid-cell></div>
+</script>
+<script type="text/ng-template" id="ps-renewal-status.cell.html">
+    <div class="ui-grid-cell-contents"><span class="{{ grid.appScope.labels.statusClass(row.entity.state) }}">{{ row.entity.state }}</span></div>
+</script>

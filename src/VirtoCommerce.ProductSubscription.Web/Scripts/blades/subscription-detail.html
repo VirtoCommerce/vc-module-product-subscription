@@ -1,0 +1,111 @@
+<div class="blade-content __medium-wide">
+    <div class="blade-inner">
+        <div class="inner-block" ng-if="blade.currentEntity">
+            <div class="ps-alert __danger" ng-if="blade.currentEntity.status === 'PastDue'">{{ 'product-subscription.blades.subscription-detail.past-due' | translate }}</div>
+            <div class="ps-alert __info" ng-if="blade.currentEntity.status === 'PendingActivation'">{{ 'product-subscription.blades.subscription-detail.pending' | translate }}</div>
+
+            <div class="ps-summary">
+                <div class="ps-stat">
+                    <div class="ps-stat-label">{{ 'product-subscription.labels.status' | translate }}</div>
+                    <div class="ps-stat-value"><span class="{{ labels.statusClass(blade.currentEntity.status) }}">{{ blade.currentEntity.status }}</span></div>
+                </div>
+                <div class="ps-stat">
+                    <div class="ps-stat-label">{{ 'product-subscription.labels.next-order' | translate }}</div>
+                    <div class="ps-stat-value">{{ blade.currentEntity.status === 'Cancelled' ? '—' : (blade.currentEntity.nextOrderDate | date:'mediumDate') }}</div>
+                </div>
+                <div class="ps-stat">
+                    <div class="ps-stat-label">{{ 'product-subscription.labels.orders' | translate }}</div>
+                    <div class="ps-stat-value">{{ blade.currentEntity.ordersCount }}</div>
+                </div>
+                <div class="ps-stat">
+                    <div class="ps-stat-label">{{ 'product-subscription.labels.discount' | translate }}</div>
+                    <div class="ps-stat-value">{{ labels.discount(blade.currentEntity.discountType, blade.currentEntity.discountValue) }}</div>
+                </div>
+            </div>
+
+            <div class="ps-section-title">{{ 'product-subscription.labels.product' | translate }}</div>
+            <table class="ps-table">
+                <tr>
+                    <td style="width:46px"><img ng-src="{{ blade.currentEntity.imageUrl }}" ng-if="blade.currentEntity.imageUrl" alt=""></td>
+                    <td><strong>{{ blade.currentEntity.productName }}</strong><div class="ps-muted">{{ blade.currentEntity.sku }} · {{ blade.currentEntity.planName }}</div></td>
+                </tr>
+            </table>
+
+            <form class="form" name="formScope">
+                <fieldset ng-disabled="blade.currentEntity.status === 'Cancelled'">
+                    <div class="clearfix">
+                        <div class="column">
+                            <div class="form-group">
+                                <label class="form-label">{{ 'product-subscription.labels.qty' | translate }}</label>
+                                <div class="form-input __number"><input type="number" min="1" max="9999" ng-model="edit.quantity" required></div>
+                            </div>
+                        </div>
+                        <div class="column">
+                            <div class="form-group">
+                                <label class="form-label">{{ 'product-subscription.labels.frequency' | translate }}</label>
+                                <div class="form-input">
+                                    <select class="form-control" ng-model="edit.interval">
+                                        <option ng-repeat="i in intervals" value="{{ i.unit + ':' + i.count }}">{{ intervalLabel(i) }}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="clearfix">
+                        <div class="column">
+                            <div class="form-group">
+                                <label class="form-label">{{ 'product-subscription.labels.next-order' | translate }}</label>
+                                <div class="form-input"><input type="date" ng-model="edit.nextOrderDate"></div>
+                            </div>
+                        </div>
+                        <div class="column">
+                            <div class="form-group">
+                                <label class="form-label">{{ 'product-subscription.labels.payment-method' | translate }}</label>
+                                <div class="form-input">
+                                    <select class="form-control" ng-model="edit.storedPaymentMethodId">
+                                        <option value="">{{ 'product-subscription.labels.none' | translate }}</option>
+                                        <option ng-repeat="m in paymentMethods" value="{{ m.id }}" ng-disabled="m.status !== 'Active' && m.id !== blade.currentEntity.storedPaymentMethodId">{{ m.brand }} •••• {{ m.last4 }} ({{ m.expirationMonth }}/{{ m.expirationYear }}){{ m.status !== 'Active' ? ' — ' + m.status : '' }}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+            </form>
+
+            <div class="ps-section-title">{{ 'product-subscription.labels.customer' | translate }}</div>
+            <table class="ps-table">
+                <tr><th>{{ 'product-subscription.labels.name' | translate }}</th><td>{{ blade.currentEntity.customerName }} <span class="ps-muted">{{ blade.currentEntity.customerEmail }}</span></td></tr>
+                <tr><th>{{ 'product-subscription.labels.ship-to' | translate }}</th><td>
+                    <span ng-if="blade.currentEntity.shippingAddress">{{ blade.currentEntity.shippingAddress.firstName }} {{ blade.currentEntity.shippingAddress.lastName }}, {{ blade.currentEntity.shippingAddress.line1 }}, {{ blade.currentEntity.shippingAddress.city }} {{ blade.currentEntity.shippingAddress.regionName || blade.currentEntity.shippingAddress.regionId }} {{ blade.currentEntity.shippingAddress.postalCode }}, {{ blade.currentEntity.shippingAddress.countryCode }}</span>
+                    <span class="ps-muted" ng-if="blade.currentEntity.shippingMethodCode"> · {{ blade.currentEntity.shippingMethodCode }} {{ blade.currentEntity.shippingMethodOption }}</span>
+                </td></tr>
+                <tr><th>{{ 'product-subscription.labels.started' | translate }}</th><td>{{ blade.currentEntity.startDate | date:'medium' }}</td></tr>
+                <tr><th>{{ 'product-subscription.labels.first-order' | translate }}</th><td><a href="" ng-click="openOrder(blade.currentEntity.initialOrderId)">{{ blade.currentEntity.initialOrderNumber }}</a></td></tr>
+                <tr ng-if="blade.currentEntity.lastOrderId && blade.currentEntity.lastOrderId !== blade.currentEntity.initialOrderId"><th>{{ 'product-subscription.labels.last-order' | translate }}</th><td><a href="" ng-click="openOrder(blade.currentEntity.lastOrderId)">{{ blade.currentEntity.lastOrderNumber }}</a> <span class="ps-muted">{{ blade.currentEntity.lastOrderDate | date:'medium' }}</span></td></tr>
+                <tr ng-if="blade.currentEntity.cancelledDate"><th>{{ 'product-subscription.labels.cancelled' | translate }}</th><td>{{ blade.currentEntity.cancelledDate | date:'medium' }} <span class="ps-muted">{{ blade.currentEntity.cancelReason }}</span></td></tr>
+                <tr ng-if="blade.currentEntity.pausedUntil"><th>{{ 'product-subscription.labels.paused-until' | translate }}</th><td>{{ blade.currentEntity.pausedUntil | date:'mediumDate' }}</td></tr>
+                <tr ng-if="consent"><th>{{ 'product-subscription.labels.consent' | translate }}</th><td>{{ 'product-subscription.labels.terms' | translate }} {{ consent.termsVersion }} · {{ consent.acceptedDate | date:'medium' }} <span class="ps-muted">{{ consent.ipAddress }}</span></td></tr>
+            </table>
+
+            <div class="ps-section-title">{{ 'product-subscription.labels.renewals' | translate }}</div>
+            <table class="ps-table" ng-if="renewals.length">
+                <tr>
+                    <th>{{ 'product-subscription.labels.number' | translate }}</th>
+                    <th>{{ 'product-subscription.labels.date' | translate }}</th>
+                    <th>{{ 'product-subscription.labels.state' | translate }}</th>
+                    <th>{{ 'product-subscription.labels.order' | translate }}</th>
+                    <th class="__right">{{ 'product-subscription.labels.total' | translate }}</th>
+                </tr>
+                <tr class="__clickable" ng-repeat="r in renewals" ng-click="openRenewal(r)">
+                    <td>{{ r.number }}</td>
+                    <td>{{ r.scheduledDate | date:'mediumDate' }}</td>
+                    <td><span class="{{ labels.statusClass(r.state) }}">{{ r.state }}</span></td>
+                    <td>{{ r.orderNumber || '—' }}</td>
+                    <td class="__right">{{ (r.orderTotal || r.previewTotal) | number:2 }} {{ r.currency }}</td>
+                </tr>
+            </table>
+            <div class="note" ng-if="!renewals.length">{{ 'product-subscription.blades.subscription-detail.no-renewals' | translate }}</div>
+        </div>
+    </div>
+</div>
