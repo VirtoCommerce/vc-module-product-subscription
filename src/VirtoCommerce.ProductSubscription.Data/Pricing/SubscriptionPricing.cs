@@ -221,7 +221,16 @@ public class SubscriptionPromoEvaluatorDecorator(IMarketingPromoEvaluator inner)
             return result;
         }
 
-        result ??= new PromotionResult();
+        // The inner policy caches its result, so never add to it: copy into a fresh result instead.
+        var combined = new PromotionResult();
+        foreach (var reward in result?.Rewards ?? [])
+        {
+            // Drop a subscription reward that may already be there (e.g. from a cached copy).
+            if (reward.PromotionId?.StartsWith(PromotionIdPrefix, StringComparison.Ordinal) != true)
+            {
+                combined.Rewards.Add(reward);
+            }
+        }
 
         foreach (var (entry, discount) in entries)
         {
@@ -242,9 +251,9 @@ public class SubscriptionPromoEvaluatorDecorator(IMarketingPromoEvaluator inner)
                 Quantity = 0,
             };
 
-            result.Rewards.Add(reward);
+            combined.Rewards.Add(reward);
         }
 
-        return result;
+        return combined;
     }
 }
