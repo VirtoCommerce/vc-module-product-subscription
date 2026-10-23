@@ -5,12 +5,15 @@ each run at desktop size (1440×900) and on a phone (Pixel 7: narrow, touch, mob
 
 | Project | Covers |
 |---|---|
-| `admin-desktop`, `admin-mobile` | menu entry; subscriptions list and search; schedule edit with server validation and reset; pause and resume; renewals list and detail (payment, items, history, open order); a subscription's renewals; plan editor with the catalog picker; plan create and delete; Run scheduler; no console errors |
-| `storefront-desktop`, `storefront-mobile` | Subscribe & Save on the product page; account subscriptions, deliveries and tabs; subscription detail with pause and resume; saved payment methods |
+| `admin-desktop`, `admin-mobile` | menu entry; subscriptions list and search; schedule edit with server validation and reset; pause and resume; renewals list and detail (payment, items, history, open order); a subscription's renewals; plan editor with the catalog picker; plan create and delete; Run scheduler; the customer emails (created, reminder with the maximum price, payment action, cancelled) in the notification journal; the contact's subscriptions widget (skipped unless the Customer module's Admin Shell plugin is installed); no console errors |
+| `storefront-desktop`, `storefront-mobile` | Subscribe & Save on the product page; account subscriptions, deliveries and tabs; subscription detail with pause and resume; saved payment methods; checkout terms (unchecked consent box, order blocked until accepted, consent recorded); one-click cancel (the dialog, dismissed); a renewal waiting for 3-D Secure confirmed with the mock bank (once, on the phone, when there is one) |
 
 The scenarios leave the data as they found it: edits are reset, a paused subscription is resumed, the temporary plan is
-deleted. They need a platform with the module and a storefront with at least one active subscription (with renewals)
-for the buyer, and an active plan; the module's demo data has them.
+deleted, the product added for the checkout scenario is removed. The checkout scenario blocks every request that would
+place an order. The 3-D Secure scenario pays the waiting renewal for good, so it runs once.
+
+They need a platform with the module and a storefront with at least one active subscription (with renewals) for the
+buyer, and an active plan; the module's demo data has them.
 
 ## Run
 

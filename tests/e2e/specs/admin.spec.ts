@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { command, confirm, isPhone, openRoute, topBlade, watchConsole } from "./shell";
+import { command, confirm, hasCommand, isPhone, openRoute, topBlade, watchConsole } from "./shell";
 
 // The Product Subscriptions back office in the Admin Shell, on a desktop and on a phone. Every scenario leaves the data
 // as it found it: edits are reset, a paused subscription is resumed, the temporary plan is deleted.
@@ -83,6 +83,7 @@ test("a subscription is paused and resumed", async ({ page }) => {
   await expect(blade.getByText("Pause subscription")).toBeVisible();
   await blade.locator(".vc-card", { hasText: "Pause subscription" }).getByRole("button", { name: "Pause", exact: true }).click();
   await expect(blade.locator(".ps-hero").getByText("Paused")).toBeVisible();
+  await expect.poll(() => hasCommand(page, "Resume")).toBe(true);
 
   await command(page, "Resume");
   await expect(blade.locator(".ps-hero").getByText("Active")).toBeVisible();
@@ -108,9 +109,13 @@ test("renewals are listed and a renewal shows its payment, items and history", a
 });
 
 test("a subscription opens its renewal from its renewals card", async ({ page }) => {
-  await openRoute(page, "/product-subscriptions");
-  await topBlade(page).getByText(SUBSCRIPTION_NUMBER).first().click();
+  // a subscription that has renewals (the newest one may not have any yet)
+  const renewals = await (await page.request.post("/api/product-subscription/renewals/search", { data: { take: 1 } })).json();
+  const subscriptionId = renewals.results?.[0]?.items?.[0]?.subscriptionId as string;
+  expect(subscriptionId, "a renewal with a subscription").toBeTruthy();
+  await openRoute(page, `/product-subscriptions/product-subscription/${subscriptionId}`);
   const subscription = topBlade(page);
+  await expect(subscription.getByText("Renewals")).toBeVisible();
   await subscription.locator(".ps-row").first().click();
   await expect(topBlade(page).getByText("Order and payment")).toBeVisible();
   await expect(topBlade(page).getByText(RENEWAL_NUMBER).first()).toBeVisible();
@@ -171,4 +176,51 @@ test("the scheduler runs on demand", async ({ page }) => {
   await openRoute(page, "/product-subscriptions");
   await command(page, "Run scheduler");
   await expect(page.getByText(/Scheduler processed \d+ renewals?\./)).toBeVisible();
+});
+
+test("the customer emails are rendered: created, reminder with the price, payment action, cancelled", async ({ page }) => {
+  // the platform's notification journal; without an SMTP server the messages stay unsent, but each is rendered
+  const response = await page.request.post("/api/notifications/journal", { data: { take: 200 } });
+  expect(response.ok()).toBeTruthy();
+  const { results } = (await response.json()) as { results: { notificationType: string; subject?: string; body?: string; to?: string }[] };
+  const byType = (type: string) => results.filter((x) => x.notificationType === type);
+
+  const reminder = byType("RenewalReminderEmailNotification")[0];
+  expect(reminder, "a renewal reminder").toBeTruthy();
+  expect(reminder.subject).toMatch(/next delivery/i);
+  // the reminder carries the maximum price of the delivery (US auto-renewal rules)
+  expect(reminder.body).toMatch(/\d+\.\d{2} [A-Z]{3}/);
+  expect(reminder.body).toContain("charge more than this without asking you");
+  expect(reminder.to).toContain("@");
+
+  for (const type of ["SubscriptionCreatedEmailNotification", "RenewalPaymentActionRequiredEmailNotification", "SubscriptionCanceledEmailNotification"]) {
+    const message = byType(type)[0];
+    expect(message, type).toBeTruthy();
+    expect(message.subject?.trim(), `${type} subject`).toBeTruthy();
+    expect(message.body?.length ?? 0, `${type} body`).toBeGreaterThan(100);
+  }
+});
+
+test("a contact's subscriptions open from the Customer module's contact blade", async ({ page }) => {
+  const manifest = await (await page.request.get("/api/apps/admin-shell/manifest")).json();
+  const plugins = ((manifest.plugins ?? []) as { id: string }[]).map((x) => x.id);
+  test.skip(!plugins.includes("VirtoCommerce.Customer"), "the Customer module's Admin Shell plugin isn't installed");
+
+  // the contact of a subscription's customer (the customer id is the customer's user account)
+  const subscriptions = await (await page.request.post("/api/product-subscription/subscriptions/search", { data: { take: 1 } })).json();
+  const userId = subscriptions.results?.[0]?.customerId as string;
+  const user = await (await page.request.get(`/api/platform/security/users/id/${userId}`)).json();
+  const memberId = user.memberId as string;
+  expect(memberId).toBeTruthy();
+
+  await openRoute(page, `/customers/customer-contact/${memberId}`);
+  const widget = page.locator(".vc-widget", { hasText: "Subscriptions" });
+  await expect(widget).toBeVisible();
+  await expect(widget).toContainText(/\d/);
+  await widget.click();
+
+  const list = topBlade(page);
+  await expect(list.getByText("Customer subscriptions")).toBeVisible();
+  await list.getByText(SUBSCRIPTION_NUMBER).first().click();
+  await expect(topBlade(page).getByText("Schedule")).toBeVisible();
 });

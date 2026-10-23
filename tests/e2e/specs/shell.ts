@@ -17,13 +17,19 @@ export async function openRoute(page: Page, route: string) {
 export async function command(page: Page, title: string) {
   const blade = topBlade(page);
   const pill = blade.locator(".vc-blade-toolbar-mobile__pill-action");
+  await blade.locator(".vc-blade-toolbar, .vc-blade-toolbar-mobile").first().waitFor({ state: "visible" });
   if (await pill.isVisible()) {
     if ((await pill.getAttribute("aria-label")) === title) return pill.click();
     await blade.locator(".vc-blade-toolbar-mobile__pill-more").click();
     return page.locator(`.vc-blade-toolbar-mobile__action[aria-label="${title}"]`).last().click();
   }
   const button = blade.locator(".vc-blade-toolbar").getByRole("button", { name: title, exact: true }).first();
-  if (await button.isVisible()) return button.click();
+  // the toolbar redraws while the blade reloads after a command: give the button a moment to come back
+  await button.waitFor({ state: "visible", timeout: 5_000 }).catch(() => undefined);
+  if (await button.isVisible()) {
+    await expect(button).toBeEnabled();
+    return button.click();
+  }
   await blade.locator(".vc-blade-toolbar").getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: title, exact: true }).last().click();
 }
