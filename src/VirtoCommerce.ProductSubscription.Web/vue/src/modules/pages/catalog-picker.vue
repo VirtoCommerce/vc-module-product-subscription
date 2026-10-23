@@ -11,6 +11,7 @@
       v-model:selection="selection"
       selection-mode="multiple"
       :items="items"
+      :loading="loading"
       :total-count="totalCount"
       :pagination="pagination"
       :searchable="true"
