@@ -88,3 +88,10 @@
 .ps-chip a { color: #64748b; cursor: pointer; }
 .ps-inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .ps-inline select, .ps-inline input { max-width: 160px; }
+
+/* Narrow (phone) blades: let long values wrap instead of running off the blade. */
+.ps-table td { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+    .ps-table { table-layout: fixed; width: 100%; }
+    .ps-table th { width: 38%; }
+}
