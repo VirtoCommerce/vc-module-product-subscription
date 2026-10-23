@@ -15,7 +15,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="FluentAssertions" Version="7.2.0" />
-    <PackageReference Include="VirtoCommerce.PaymentModule.Core" Version="3.1012.0-alpha.6507" />
+    <PackageReference Include="VirtoCommerce.PaymentModule.Core" Version="3.1011.0-alpha.315-vcst-6507" />
     <PackageReference Include="xunit.v3.assert" Version="3.2.2" />
     <PackageReference Include="xunit.v3.extensibility.core" Version="3.2.2" />
   </ItemGroup>

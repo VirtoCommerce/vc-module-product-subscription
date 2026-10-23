@@ -41,7 +41,7 @@ reference to the kit. Use one of these:
   <PackageReference Include="VirtoCommerce.ProductSubscription.ConnectorTestKit" Version="3.1000.0" />
   ```
 
-The kit depends on `VirtoCommerce.PaymentModule.Core` 3.1012.0-alpha.6507 or later (the version that adds the stored
+The kit depends on `VirtoCommerce.PaymentModule.Core` 3.1011.0-alpha.315-vcst-6507 or later (the version that adds the stored
 credential contract), `FluentAssertions` 7.2.0, `xunit.v3.assert` and `xunit.v3.extensibility.core` 3.2.2.
 
 ## 2. Implement the scenarios provider
