@@ -48,7 +48,7 @@ public class LegacySubscriptionImporter(
 
     protected virtual DateTime UtcNow => DateTime.UtcNow;
 
-    public virtual async Task<SubscriptionImportResult> ImportAsync(IList<LegacySubscriptionImportRecord> records, bool dryRun)
+    public virtual async Task<SubscriptionImportResult> ImportAsync(IList<LegacySubscriptionImportRecord> records, bool dryRun, bool applyPlanDiscount = false)
     {
         var result = AbstractTypeFactory<SubscriptionImportResult>.TryCreateInstance();
         result.DryRun = dryRun;
@@ -59,7 +59,7 @@ public class LegacySubscriptionImporter(
         }
 
         var now = UtcNow;
-        var entries = records.Select(x => new ImportEntry(x, CreateRecordResult(x))).ToList();
+        var entries = records.Select(x => new ImportEntry(x, CreateRecordResult(x)) { ApplyPlanDiscount = applyPlanDiscount }).ToList();
         result.TotalCount = entries.Count;
         result.Records = entries.Select(x => x.Result).ToList();
 
@@ -343,7 +343,7 @@ public class LegacySubscriptionImporter(
 
         subscription.IntervalUnit = record.IntervalUnit;
         subscription.IntervalCount = record.IntervalCount;
-        ApplyPlan(subscription, record, offer, messages);
+        ApplyPlan(subscription, record, offer, messages, entry.ApplyPlanDiscount);
 
         subscription.Status = MapStatus(record.Status);
         subscription.StartDate = ToUtc(record.StartDate) ?? now;
@@ -401,7 +401,7 @@ public class LegacySubscriptionImporter(
     /// Links the store's plan for the product when it offers the legacy frequency, and takes the discount from the record,
     /// or from the plan when the record has none.
     /// </summary>
-    protected virtual void ApplyPlan(Subscription subscription, LegacySubscriptionImportRecord record, SubscriptionOffer offer, IList<string> messages)
+    protected virtual void ApplyPlan(Subscription subscription, LegacySubscriptionImportRecord record, SubscriptionOffer offer, IList<string> messages, bool applyPlanDiscount)
     {
         var supportsInterval = offer?.Intervals?.Any(x => x.Unit == record.IntervalUnit && x.Count == record.IntervalCount) == true;
 
@@ -424,7 +424,7 @@ public class LegacySubscriptionImporter(
             subscription.DiscountType = record.DiscountType.Value;
             subscription.DiscountValue = record.DiscountType == SubscriptionDiscountType.None ? 0 : record.DiscountValue ?? 0;
         }
-        else if (subscription.PlanId != null)
+        else if (subscription.PlanId != null && applyPlanDiscount)
         {
             subscription.DiscountType = offer.DiscountType;
             subscription.DiscountValue = offer.DiscountValue;
@@ -518,6 +518,7 @@ public class LegacySubscriptionImporter(
         public LegacySubscriptionImportRecord Record { get; } = record;
         public SubscriptionImportRecordResult Result { get; } = result;
         public Subscription Subscription { get; set; }
+        public bool ApplyPlanDiscount { get; init; }
 
         /// <summary>Neither failed nor skipped so far.</summary>
         public bool IsPending => Result.Outcome == null;

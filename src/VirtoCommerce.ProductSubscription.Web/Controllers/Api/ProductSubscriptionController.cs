@@ -235,7 +235,7 @@ public class ProductSubscriptionController(
     /// </summary>
     [HttpPost("import/legacy")]
     [Authorize(Permissions.Import)]
-    public async Task<ActionResult<SubscriptionImportResult>> ImportLegacySubscriptions([FromBody] JToken body, [FromQuery] bool dryRun = true)
+    public async Task<ActionResult<SubscriptionImportResult>> ImportLegacySubscriptions([FromBody] JToken body, [FromQuery] bool dryRun = true, [FromQuery] bool applyPlanDiscount = false)
     {
         if (body == null || body.Type is JTokenType.Null or JTokenType.Undefined)
         {
@@ -257,7 +257,7 @@ public class ProductSubscriptionController(
             return BadRequest(new { message = "The request body has no subscriptions to import." });
         }
 
-        return Ok(await legacySubscriptionImporter.ImportAsync(records, dryRun));
+        return Ok(await legacySubscriptionImporter.ImportAsync(records, dryRun, applyPlanDiscount));
     }
 
     #endregion

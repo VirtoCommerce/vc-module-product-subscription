@@ -62,7 +62,11 @@ public interface ILegacySubscriptionImporter
 {
     /// <param name="records">Item-level records; see <see cref="LegacySubscriptionImportRecord"/>.</param>
     /// <param name="dryRun">Validate and report what would be created without saving anything.</param>
-    Task<SubscriptionImportResult> ImportAsync(IList<LegacySubscriptionImportRecord> records, bool dryRun);
+    /// <param name="applyPlanDiscount">
+    /// Give imported subscriptions the discount of the matched plan. Off by default: legacy customers keep the price they
+    /// agreed to unless the merchant decides otherwise (a record's own discount always applies).
+    /// </param>
+    Task<SubscriptionImportResult> ImportAsync(IList<LegacySubscriptionImportRecord> records, bool dryRun, bool applyPlanDiscount = false);
 }
 
 public class SubscriptionChange

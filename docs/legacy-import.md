@@ -37,8 +37,10 @@ Import rules:
 - **Plan.** The importer asks for the active plan that the store offers for the product. The plan is linked only when it
   offers the legacy frequency. Otherwise the subscription is imported without a plan, keeps the legacy frequency, and the
   result says so.
-- **Discount.** A discount in the record is kept. Without one, a linked plan's discount is used; without a plan there is
-  no subscription discount. The old module has no subscription discount, so the JSON mapper never sets one.
+- **Discount.** A discount in the record is kept. Without one, imported subscriptions get **no** subscription discount,
+  so legacy customers keep the price they agreed to. Pass `applyPlanDiscount=true` to give them the linked plan's
+  discount instead (e.g. `POST api/product-subscription/import/legacy?dryRun=true&applyPlanDiscount=true`). The old
+  module has no subscription discount, so the JSON mapper never sets one.
 - **Next order date.** Never in the past: a date before tomorrow is moved to tomorrow (now + 1 day), and the result says
   so. With the default store settings, the reminder email goes out and the order is placed on the first scheduler run
   after that date minus the cutoff, so check the dry-run dates before the real import.

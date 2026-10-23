@@ -326,13 +326,29 @@ public class LegacySubscriptionImporterTests
     // Plan matching
 
     [Fact]
-    public async Task ImportAsync_PlanOffersLegacyFrequency_LinksPlanAndTakesItsDiscount()
+    public async Task ImportAsync_PlanOffersLegacyFrequency_ByDefault_LinksPlanButKeepsTheLegacyPrice()
     {
         // Arrange
         _offers[ProductId] = CreateOffer((SubscriptionIntervalUnit.Week, 2), (SubscriptionIntervalUnit.Month, 1));
 
         // Act
-        var result = await CreateSut().ImportAsync([CreateRecord()], dryRun: false);
+        await CreateSut().ImportAsync([CreateRecord()], dryRun: false);
+
+        // Assert
+        var subscription = _saved.Should().ContainSingle().Subject;
+        subscription.PlanId.Should().Be("plan-1");
+        subscription.DiscountType.Should().Be(SubscriptionDiscountType.None);
+        subscription.DiscountValue.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ImportAsync_PlanOffersLegacyFrequency_WithApplyPlanDiscount_LinksPlanAndTakesItsDiscount()
+    {
+        // Arrange
+        _offers[ProductId] = CreateOffer((SubscriptionIntervalUnit.Week, 2), (SubscriptionIntervalUnit.Month, 1));
+
+        // Act
+        var result = await CreateSut().ImportAsync([CreateRecord()], dryRun: false, applyPlanDiscount: true);
 
         // Assert
         var subscription = _saved.Should().ContainSingle().Subject;
