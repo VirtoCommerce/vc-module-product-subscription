@@ -24,5 +24,6 @@
     <ProjectReference Include="..\..\src\VirtoCommerce.ProductSubscription.Data\VirtoCommerce.ProductSubscription.Data.csproj" />
     <ProjectReference Include="..\..\src\VirtoCommerce.ProductSubscription.Xapi\VirtoCommerce.ProductSubscription.Xapi.csproj" />
     <ProjectReference Include="..\..\src\VirtoCommerce.ProductSubscription.Web\VirtoCommerce.ProductSubscription.Web.csproj" />
+    <ProjectReference Include="..\VirtoCommerce.ProductSubscription.ConnectorTestKit\VirtoCommerce.ProductSubscription.ConnectorTestKit.csproj" />
   </ItemGroup>
 </Project>
