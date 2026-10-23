@@ -19,11 +19,23 @@ namespace VirtoCommerce.ProductSubscription.Data.Payments;
 /// subscription engine, xAPI, frontend and payment-failure flows can be built and tested before any sandbox exists.
 /// Only registered when <c>ProductSubscription:EnableMockPaymentMethod</c> is true; never enable it in production.
 /// </summary>
-public class MockStoredCardPaymentMethod(
-    IStoredPaymentMethodService storedPaymentMethodService,
-    IStoredPaymentMethodSearchService storedPaymentMethodSearchService)
-    : PaymentMethod(ModuleConstants.MockPaymentMethodCode), ISupportStoredCredentialFlow, ISupportCaptureFlow, ISupportRefundFlow
+public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredentialFlow, ISupportCaptureFlow, ISupportRefundFlow
 {
+    private readonly IStoredPaymentMethodService _storedPaymentMethodService;
+    private readonly IStoredPaymentMethodSearchService _storedPaymentMethodSearchService;
+
+    public MockStoredCardPaymentMethod(
+        IStoredPaymentMethodService storedPaymentMethodService,
+        IStoredPaymentMethodSearchService storedPaymentMethodSearchService)
+        : base(ModuleConstants.MockPaymentMethodCode)
+    {
+        _storedPaymentMethodService = storedPaymentMethodService;
+        _storedPaymentMethodSearchService = storedPaymentMethodSearchService;
+
+        // Shown to customers when the store sets no localized name.
+        Name = "Credit card (test)";
+    }
+
     public static class TestCards
     {
         /// <summary>Always succeeds.</summary>
@@ -87,7 +99,7 @@ public class MockStoredCardPaymentMethod(
         StoredPaymentMethod storedMethod = null;
         if (!string.IsNullOrEmpty(storedPaymentMethodId))
         {
-            storedMethod = await storedPaymentMethodService.GetByIdAsync(storedPaymentMethodId);
+            storedMethod = await _storedPaymentMethodService.GetByIdAsync(storedPaymentMethodId);
             if (storedMethod == null || order == null || storedMethod.CustomerId != order.CustomerId || storedMethod.Status != StoredPaymentMethodStatus.Active)
             {
                 return Fail("This saved card can't be used.");
@@ -153,12 +165,12 @@ public class MockStoredCardPaymentMethod(
             newMethod.ConsentId = parameters["consentId"];
             newMethod.IsDefault = !await HasStoredMethodsAsync(order.CustomerId, order.StoreId);
 
-            await storedPaymentMethodService.SaveChangesAsync([newMethod]);
+            await _storedPaymentMethodService.SaveChangesAsync([newMethod]);
         }
         else if (storedMethod != null)
         {
             storedMethod.LastUsedDate = DateTime.UtcNow;
-            await storedPaymentMethodService.SaveChangesAsync([storedMethod]);
+            await _storedPaymentMethodService.SaveChangesAsync([storedMethod]);
         }
 
         return new PostProcessPaymentRequestResult
@@ -309,7 +321,7 @@ public class MockStoredCardPaymentMethod(
         criteria.StoreId = storeId;
         criteria.Statuses = [StoredPaymentMethodStatus.Active];
         criteria.Take = 0;
-        return (await storedPaymentMethodSearchService.SearchAsync(criteria)).TotalCount > 0;
+        return (await _storedPaymentMethodSearchService.SearchAsync(criteria)).TotalCount > 0;
     }
 
     private static PostProcessPaymentRequestResult Fail(string message, string code = null)

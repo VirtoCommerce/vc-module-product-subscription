@@ -21,9 +21,14 @@ namespace VirtoCommerce.ProductSubscription.Data.Handlers;
 /// creates subscriptions from a new order, activates them when the first payment is authorized,
 /// and hands renewal orders to the renewal processor (customer completed a payment, shipment shipped → capture).
 /// </summary>
-public class OrderChangedEventHandler(IBackgroundJobClient backgroundJobClient) : IEventHandler<OrderChangedEvent>
+public class OrderChangedEventHandler(
+    IBackgroundJobClient backgroundJobClient,
+    ISubscriptionManager subscriptionManager,
+    IDistributedLock distributedLock,
+    ILogger<OrderChangedEventHandler> logger)
+    : IEventHandler<OrderChangedEvent>
 {
-    public virtual Task Handle(OrderChangedEvent message)
+    public virtual async Task Handle(OrderChangedEvent message)
     {
         foreach (var entry in message.ChangedEntries)
         {
@@ -33,11 +38,34 @@ public class OrderChangedEventHandler(IBackgroundJobClient backgroundJobClient) 
                 continue;
             }
 
-            // Run outside the order save, so a subscription problem can never fail the customer's checkout.
+            if (entry.EntryState == EntryState.Added && !string.IsNullOrEmpty(order.ShoppingCartId))
+            {
+                await CreateSubscriptionsAsync(order);
+            }
+
+            // Activation and renewal handling run outside the order save, so they can never fail the customer's checkout.
             backgroundJobClient.Enqueue<OrderChangedJob>(x => x.ProcessAsync(order.Id, entry.EntryState == EntryState.Added));
         }
+    }
 
-        return Task.CompletedTask;
+    /// <summary>
+    /// Runs inline: right after the order is saved, xCart removes the ordered lines from the cart, and the cart change
+    /// deletes their subscription choices. Creating the subscriptions here, before that, keeps the choices available.
+    /// </summary>
+    protected virtual async Task CreateSubscriptionsAsync(CustomerOrder order)
+    {
+        try
+        {
+            await distributedLock.ExecuteAsync(
+                $"product-subscription:order:{order.Id}",
+                _ => subscriptionManager.CreateFromOrderAsync(order),
+                TimeSpan.FromSeconds(30));
+        }
+        catch (Exception ex)
+        {
+            // Never fail checkout; the background job retries from whatever choices are left.
+            logger.LogError(ex, "Failed to create subscriptions for order {OrderNumber}", order.Number);
+        }
     }
 }
 
