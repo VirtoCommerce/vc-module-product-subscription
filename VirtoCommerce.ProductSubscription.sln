@@ -2,25 +2,25 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.4.11605.240 stable
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{0D0290EC-8525-419B-9BDC-A0C1DE8F66DF}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8D3EB6F4-48A4-4373-B11D-511AABC3E770}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Web", "src\VirtoCommerce.ProductSubscription.Web\VirtoCommerce.ProductSubscription.Web.csproj", "{5DB64D15-9747-4EB0-B4E5-26EAD27DA1D7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Web", "src\VirtoCommerce.ProductSubscription.Web\VirtoCommerce.ProductSubscription.Web.csproj", "{3D9950AD-1C85-46B0-B0F9-264B3443AFDD}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Data", "src\VirtoCommerce.ProductSubscription.Data\VirtoCommerce.ProductSubscription.Data.csproj", "{F9E9629B-E2EE-4763-BA6E-6B2E1EDB1CBD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Data", "src\VirtoCommerce.ProductSubscription.Data\VirtoCommerce.ProductSubscription.Data.csproj", "{5A7240D3-32F8-4123-9716-599A56BB695D}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Core", "src\VirtoCommerce.ProductSubscription.Core\VirtoCommerce.ProductSubscription.Core.csproj", "{29A4267C-BFC2-4301-B986-7B0A1E850093}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Core", "src\VirtoCommerce.ProductSubscription.Core\VirtoCommerce.ProductSubscription.Core.csproj", "{7EC05C23-A1D6-456C-B18B-C63268781D45}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Data.MySql", "src\VirtoCommerce.ProductSubscription.Data.MySql\VirtoCommerce.ProductSubscription.Data.MySql.csproj", "{3D762335-DA7D-4252-8115-DC79624D121A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Data.MySql", "src\VirtoCommerce.ProductSubscription.Data.MySql\VirtoCommerce.ProductSubscription.Data.MySql.csproj", "{37AABCDA-B4AB-4417-A295-2D93BC70AF54}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Data.PostgreSql", "src\VirtoCommerce.ProductSubscription.Data.PostgreSql\VirtoCommerce.ProductSubscription.Data.PostgreSql.csproj", "{EFA58BD2-7822-4FF7-853A-982431512BF6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Data.PostgreSql", "src\VirtoCommerce.ProductSubscription.Data.PostgreSql\VirtoCommerce.ProductSubscription.Data.PostgreSql.csproj", "{62AA18DA-9C8D-4954-B065-020B2CBA6F0B}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Data.SqlServer", "src\VirtoCommerce.ProductSubscription.Data.SqlServer\VirtoCommerce.ProductSubscription.Data.SqlServer.csproj", "{C8D15FC0-08CD-4F10-A31A-A2D4B6BF222C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Data.SqlServer", "src\VirtoCommerce.ProductSubscription.Data.SqlServer\VirtoCommerce.ProductSubscription.Data.SqlServer.csproj", "{935601FB-AF02-4001-AD59-9781D936809A}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Xapi", "src\VirtoCommerce.ProductSubscription.Xapi\VirtoCommerce.ProductSubscription.Xapi.csproj", "{7BE04B8B-A4E4-420F-A0AE-BEE36469692A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Xapi", "src\VirtoCommerce.ProductSubscription.Xapi\VirtoCommerce.ProductSubscription.Xapi.csproj", "{3B2A3D38-896D-4E81-A28A-2DBF30B5E457}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{243AF6D8-B74C-463C-8FF1-8BE303E6AE97}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{89D284EB-F803-4DA2-85D1-4207AD43C573}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Tests", "tests\VirtoCommerce.ProductSubscription.Tests\VirtoCommerce.ProductSubscription.Tests.csproj", "{D75BCE96-D3C4-4893-9FF2-3668B4FC53F9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.Tests", "tests\VirtoCommerce.ProductSubscription.Tests\VirtoCommerce.ProductSubscription.Tests.csproj", "{2FBC4392-55D3-4477-B3B1-461849C056F2}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VirtoCommerce.ProductSubscription.ConnectorTestKit", "tests\VirtoCommerce.ProductSubscription.ConnectorTestKit\VirtoCommerce.ProductSubscription.ConnectorTestKit.csproj", "{1BFCD3BF-F545-4A53-B84C-5D7635E778AF}"
 EndProject
@@ -93,6 +93,6 @@ Global
 		{1BFCD3BF-F545-4A53-B84C-5D7635E778AF} = {89D284EB-F803-4DA2-85D1-4207AD43C573}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {88B47709-EB4E-46FF-A22C-A9FBAD872F32}
+		SolutionGuid = {3D276A44-35FA-4CB9-BCA7-DDEC01E703D3}
 	EndGlobalSection
 EndGlobal
