@@ -274,7 +274,7 @@ public class LegacySubscriptionImporterTests
     // Next order date
 
     [Fact]
-    public async Task ImportAsync_NextOrderDateInPast_MovesItToTomorrow()
+    public async Task ImportAsync_NextOrderDateInPast_MovesItPastTheReminderWindow()
     {
         // Arrange
         var before = DateTime.UtcNow;
@@ -285,8 +285,9 @@ public class LegacySubscriptionImporterTests
 
         // Assert
         var subscription = _saved.Should().ContainSingle().Subject;
-        subscription.NextOrderDate.Should().BeOnOrAfter(before.AddDays(1)).And.BeOnOrBefore(DateTime.UtcNow.AddDays(1));
-        result.Records.Single().Messages.Should().Contain(x => x.Contains("before tomorrow"));
+        // Tomorrow plus the default reminder lead time (3 days), so the reminder goes out before the first charge.
+        subscription.NextOrderDate.Should().BeOnOrAfter(before.AddDays(4)).And.BeOnOrBefore(DateTime.UtcNow.AddDays(4));
+        result.Records.Single().Messages.Should().Contain(x => x.Contains("too soon for a reminder"));
     }
 
     [Fact]

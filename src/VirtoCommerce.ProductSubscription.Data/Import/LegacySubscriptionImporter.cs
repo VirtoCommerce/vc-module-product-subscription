@@ -1,4 +1,6 @@
 using System;
+using VirtoCommerce.Platform.Core.Settings;
+using VirtoCommerce.ProductSubscription.Core;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -346,7 +348,7 @@ public class LegacySubscriptionImporter(
         subscription.Status = MapStatus(record.Status);
         subscription.StartDate = ToUtc(record.StartDate) ?? now;
         subscription.LastOrderDate = ToUtc(record.LastOrderDate);
-        subscription.NextOrderDate = GetNextOrderDate(subscription, record, now, messages);
+        subscription.NextOrderDate = GetNextOrderDate(subscription, record, now, messages, GetReminderLeadDays(store));
 
         if (subscription.Status == SubscriptionStatus.Cancelled)
         {
@@ -377,7 +379,7 @@ public class LegacySubscriptionImporter(
 
         if (subscription.Status == SubscriptionStatus.Active && string.IsNullOrEmpty(subscription.PaymentMethodCode))
         {
-            messages.Add("No payment method: renewal orders are placed without a payment until the customer adds a saved card.");
+            messages.Add("No saved card: each renewal asks the customer to pay on the order page until a card is saved.");
         }
 
         if (subscription.ShippingAddress == null && subscription.Status != SubscriptionStatus.Cancelled)
@@ -432,9 +434,16 @@ public class LegacySubscriptionImporter(
         }
     }
 
-    protected virtual DateTime GetNextOrderDate(Subscription subscription, LegacySubscriptionImportRecord record, DateTime now, IList<string> messages)
+    protected static int GetReminderLeadDays(Store store)
     {
-        var earliest = now.AddDays(1);
+        var setting = ModuleConstants.Settings.Store.ReminderLeadDays;
+        return store.Settings != null ? store.Settings.GetValue<int>(setting) : Convert.ToInt32(setting.DefaultValue);
+    }
+
+    protected virtual DateTime GetNextOrderDate(Subscription subscription, LegacySubscriptionImportRecord record, DateTime now, IList<string> messages, int reminderLeadDays)
+    {
+        // Leave room for the reminder email before the first charge in the new module.
+        var earliest = now.AddDays(1 + Math.Max(0, reminderLeadDays));
         var next = ToUtc(record.NextOrderDate)
                    ?? SubscriptionSchedule.NextAfter(subscription.LastOrderDate ?? subscription.StartDate, subscription.IntervalUnit, subscription.IntervalCount, now);
 
@@ -442,7 +451,7 @@ public class LegacySubscriptionImporter(
         {
             if (subscription.Status != SubscriptionStatus.Cancelled)
             {
-                messages.Add($"The next order date {next:yyyy-MM-dd} is before tomorrow; moved to {earliest:yyyy-MM-dd}.");
+                messages.Add($"The next order date {next:yyyy-MM-dd} is too soon for a reminder; moved to {earliest:yyyy-MM-dd}.");
             }
 
             next = earliest;

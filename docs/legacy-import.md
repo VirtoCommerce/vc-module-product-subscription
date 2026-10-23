@@ -56,13 +56,11 @@ Imported subscriptions therefore get `StoredPaymentMethodId = null` and keep the
 status, so active subscriptions keep renewing:
 
 1. The scheduler creates the renewal, sends the reminder and places the order as usual. Renewal carts only offer
-   payment methods that support saved cards (`ISupportStoredCredentialFlow`), so the order gets a payment for the old
-   payment method only if that method supports saved cards; otherwise the order is placed **without a payment**.
-2. When the renewal reaches `Ordered`, the renewal processor finds no saved card and closes the renewal as `Completed`,
-   with the event "Order placed without a payment; payment is collected separately" (or "This payment method doesn't
-   support automatic charging; payment is collected separately" when the order has a payment). It does not charge,
-   retry, email a payment request or set the subscription to `PastDue`; the next renewal is scheduled as usual. Like the
-   old module, the payment has to be collected outside the renewal flow.
+   payment methods that support saved cards (`ISupportStoredCredentialFlow`).
+2. When the renewal reaches `Ordered` and there is no saved card, the renewal goes to `PaymentActionRequired`: the
+   customer gets the "confirm payment" email with a link to the order payment page, where they pay with a card and can
+   save it for the next deliveries. Orders paid with a method that can't charge saved cards (for example invoice terms)
+   are closed as `Completed` with "payment is collected separately".
 3. Once the customer (in the storefront) or an admin (`PUT api/product-subscription/subscriptions/{id}` with
    `storedPaymentMethodId`) sets a saved card, renewals are charged automatically.
 
