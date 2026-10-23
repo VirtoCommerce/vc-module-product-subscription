@@ -524,7 +524,9 @@ public class SavedPaymentMethodCommandHandler(
         var usedBy = (await subscriptionSearchService.SearchAsync(usage)).TotalCount;
         if (usedBy > 0)
         {
-            throw new InvalidOperationException($"This card pays for {usedBy} subscription(s). Choose another card for them first.");
+            throw new InvalidOperationException(usedBy == 1
+                ? "This card pays for a subscription. Choose another card for it first."
+                : $"This card pays for {usedBy} subscriptions. Choose another card for them first.");
         }
 
         var criteria = AbstractTypeFactory<PaymentMethodsSearchCriteria>.TryCreateInstance();

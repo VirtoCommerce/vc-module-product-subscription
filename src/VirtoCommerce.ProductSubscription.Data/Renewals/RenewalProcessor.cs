@@ -306,6 +306,17 @@ public class RenewalProcessor(
             }
         }
 
+        // A placed order still waiting for its payment (retry or customer confirmation) must finish first,
+        // or the customer could end up with two orders for the same delivery.
+        var placedCriteria = AbstractTypeFactory<RenewalSearchCriteria>.TryCreateInstance();
+        placedCriteria.SubscriptionId = subscription.Id;
+        placedCriteria.States = [RenewalState.Ordered, RenewalState.PaymentActionRequired, RenewalState.RetryScheduled];
+        placedCriteria.Take = 1;
+        if ((await renewalSearchService.SearchAsync(placedCriteria)).TotalCount > 0)
+        {
+            throw new InvalidOperationException("Your last order for this subscription is still waiting for payment. Complete it first.");
+        }
+
         var store = await storeService.GetNoCloneAsync(subscription.StoreId);
         var renewal = await CreateRenewalAsync([subscription], store, isManual: true);
         return await ProcessAsync(renewal.Id, ignoreSchedule: true);
