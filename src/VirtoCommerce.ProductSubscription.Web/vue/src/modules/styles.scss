@@ -1,0 +1,417 @@
+// Shared styles of the Product Subscriptions blades. Colors come from vc-shell's tokens (light and dark themes);
+// spacing uses logical properties, since the host mirrors only its own CSS for right-to-left languages.
+
+.ps-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 20px 32px;
+  container-type: inline-size;
+}
+
+.ps-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.ps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.ps-card.ps-grid {
+  display: grid;
+}
+
+.ps-narrow {
+  max-width: 260px;
+}
+
+.ps-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ps-inline {
+  display: inline-flex;
+}
+
+.ps-muted {
+  color: var(--neutrals-500);
+  font-size: 13px;
+}
+
+.ps-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.ps-link {
+  color: var(--primary-500);
+  text-decoration: none;
+  font-weight: 500;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+  }
+}
+
+// product, plan and item cells: a name over a muted line
+.ps-product-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  &__name {
+    color: var(--neutrals-900);
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+}
+
+// the subscription's product, above its numbers
+.ps-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--card-border-color, var(--neutrals-200));
+  border-radius: 10px;
+  background: var(--card-background, var(--neutrals-50));
+
+  &__image {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--neutrals-100);
+    color: var(--neutrals-400);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    color: var(--neutrals-950);
+    font-size: 16px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+}
+
+.ps-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+
+  @container (max-width: 520px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ps-stat {
+  padding: 12px 14px;
+  border: 1px solid var(--card-border-color, var(--neutrals-200));
+  border-radius: 10px;
+  background: var(--card-background, transparent);
+  min-width: 0;
+
+  &__label {
+    color: var(--neutrals-500);
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__value {
+    margin-block-start: 6px;
+    color: var(--neutrals-950);
+    font-size: 17px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+}
+
+// label / value pairs; one column on narrow blades and phones
+.ps-info {
+  display: grid;
+  grid-template-columns: minmax(140px, max-content) 1fr;
+  gap: 10px 20px;
+  margin: 0;
+  padding: 16px;
+  font-size: 14px;
+
+  dt {
+    color: var(--neutrals-500);
+  }
+
+  dd {
+    margin: 0;
+    color: var(--neutrals-900);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  @container (max-width: 520px) {
+    grid-template-columns: 1fr;
+    gap: 2px;
+
+    dd {
+      margin-block-end: 10px;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .ps-info {
+    grid-template-columns: 1fr;
+    gap: 2px;
+
+    dd {
+      margin-block-end: 10px;
+    }
+  }
+
+  .ps-page {
+    padding: 12px 12px 24px;
+  }
+
+  .ps-narrow {
+    max-width: none;
+  }
+}
+
+// a plan's frequency: count, unit, default, remove
+.ps-interval {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+
+  &__count {
+    flex: 0 0 110px;
+  }
+
+  &__unit {
+    flex: 1 1 160px;
+  }
+
+  &__default {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 38px;
+    color: var(--neutrals-700);
+    font-size: 14px;
+    cursor: pointer;
+
+    input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary-500);
+    }
+  }
+}
+
+.ps-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ps-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding-block: 4px;
+  padding-inline: 10px 6px;
+  border: 1px solid var(--neutrals-200);
+  border-radius: 999px;
+  background: var(--neutrals-50);
+  color: var(--neutrals-800);
+  font-size: 13px;
+
+  &__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  & &__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--neutrals-500);
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      background: var(--neutrals-200);
+      color: var(--neutrals-900);
+    }
+  }
+}
+
+.ps-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--neutrals-700);
+}
+
+// a renewal's history, newest first (nested for the host's "[dir] ol" reset)
+.ps-page .ps-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 16px;
+
+  &__item {
+    position: relative;
+    padding-block: 0 14px;
+    padding-inline: 18px 0;
+    border-inline-start: 2px solid var(--neutrals-200);
+    font-size: 14px;
+    color: var(--neutrals-900);
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset-inline-start: -6px;
+      inset-block-start: 4px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--primary-500);
+    }
+
+    &:last-child {
+      padding-block-end: 0;
+    }
+
+    &--error::before {
+      background: var(--danger-500);
+    }
+  }
+
+  &__details {
+    margin-block-start: 4px;
+    color: var(--neutrals-500);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+// clickable rows of a card (a subscription's renewals, a renewal's items). Nested selectors: the host's preflight
+// resets buttons as "[dir] button", which outranks a single class.
+.ps-page .ps-rows {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.ps-rows .ps-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 0;
+  border-block-end: 1px solid var(--neutrals-100);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--neutrals-50);
+  }
+
+  &--active {
+    background: var(--primary-50);
+  }
+
+  &__main,
+  &__side {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  &__side {
+    align-items: flex-end;
+    flex: none;
+  }
+
+  &__title,
+  &__amount {
+    color: var(--neutrals-900);
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  &__amount {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+li:last-child > .ps-row {
+  border-block-end: 0;
+}
+
+.ps-row__grow {
+  flex: 1;
+}
+
+.ps-row__image {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--neutrals-100);
+  color: var(--neutrals-400);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}

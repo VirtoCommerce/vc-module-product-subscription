@@ -1,0 +1,16 @@
+{
+  "remote": { "name": "product_subscription_admin", "exposed": "./Module" },
+  "contributions": {
+    "menu": [
+      {
+        "id": "product-subscriptions",
+        "title": "Subscriptions",
+        "titleKey": "PRODUCT_SUBSCRIPTION.MENU.TITLE",
+        "icon": "lucide-repeat",
+        "route": "/product-subscriptions",
+        "permission": "product-subscription:access",
+        "priority": 950
+      }
+    ]
+  }
+}
