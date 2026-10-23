@@ -91,7 +91,3 @@
 
 /* Narrow (phone) blades: let long values wrap instead of running off the blade. */
 .ps-table td { overflow-wrap: anywhere; }
-@media (max-width: 600px) {
-    .ps-table { table-layout: fixed; width: 100%; }
-    .ps-table th { width: 38%; }
-}
