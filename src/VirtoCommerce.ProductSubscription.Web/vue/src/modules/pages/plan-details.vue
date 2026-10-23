@@ -357,6 +357,15 @@ const bladeToolbar = ref<IBladeToolbar[]>([
     disabled: computed(() => !form.isModified.value),
     clickHandler: () => form.revert(),
   },
+  // before Delete: on phones the first enabled item becomes the main button, and Delete shouldn't be it
+  {
+    id: "refresh",
+    title: computed(() => t("PRODUCT_SUBSCRIPTION.TOOLBAR.REFRESH")),
+    icon: "lucide-refresh-cw",
+    isVisible: computed(() => !isNew.value),
+    disabled: computed(() => form.isModified.value),
+    clickHandler: () => load(),
+  },
   {
     id: "delete",
     title: computed(() => t("PRODUCT_SUBSCRIPTION.TOOLBAR.DELETE")),
