@@ -65,7 +65,8 @@ public class RenewalProcessor(
 
         var processed = 0;
         var criteria = AbstractTypeFactory<RenewalSearchCriteria>.TryCreateInstance();
-        criteria.DueBefore = now;
+        // Read the clock again: renewals created just above are due "now" too and get their reminder in this run.
+        criteria.DueBefore = UtcNow;
         criteria.OnlyOpen = true;
         criteria.Take = 50;
         criteria.Sort = "NextProcessingDate";
