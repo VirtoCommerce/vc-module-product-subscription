@@ -348,6 +348,8 @@ public class LegacySubscriptionImporter(
         subscription.Status = MapStatus(record.Status);
         subscription.StartDate = ToUtc(record.StartDate) ?? now;
         subscription.LastOrderDate = ToUtc(record.LastOrderDate);
+        // Keep the customer's legacy billing day for later monthly deliveries.
+        subscription.AnchorDay = (ToUtc(record.NextOrderDate) ?? subscription.StartDate).Day;
         subscription.NextOrderDate = GetNextOrderDate(subscription, record, now, messages, GetReminderLeadDays(store));
 
         if (subscription.Status == SubscriptionStatus.Cancelled)
@@ -445,7 +447,7 @@ public class LegacySubscriptionImporter(
         // Leave room for the reminder email before the first charge in the new module.
         var earliest = now.AddDays(1 + Math.Max(0, reminderLeadDays));
         var next = ToUtc(record.NextOrderDate)
-                   ?? SubscriptionSchedule.NextAfter(subscription.LastOrderDate ?? subscription.StartDate, subscription.IntervalUnit, subscription.IntervalCount, now);
+                   ?? SubscriptionSchedule.NextAfter(subscription.LastOrderDate ?? subscription.StartDate, subscription.IntervalUnit, subscription.IntervalCount, now, subscription.EffectiveAnchorDay);
 
         if (next < earliest)
         {

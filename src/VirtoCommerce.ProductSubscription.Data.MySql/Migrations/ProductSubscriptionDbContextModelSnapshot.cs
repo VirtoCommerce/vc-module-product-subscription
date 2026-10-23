@@ -392,6 +392,9 @@ namespace VirtoCommerce.ProductSubscription.Data.MySql.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)");
 
+                    b.Property<int?>("AnchorDay")
+                        .HasColumnType("int");
+
                     b.Property<string>("CancelReason")
                         .HasMaxLength(2048)
                         .HasColumnType("varchar(2048)");

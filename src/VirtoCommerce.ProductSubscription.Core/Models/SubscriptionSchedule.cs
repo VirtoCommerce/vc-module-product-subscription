@@ -20,16 +20,38 @@ public static class SubscriptionSchedule
     }
 
     /// <summary>
+    /// Like <see cref="AddInterval(DateTime, SubscriptionIntervalUnit, int)"/>, but monthly and yearly steps land on
+    /// <paramref name="anchorDay"/> (clamped to the month's length), so Jan 31 → Feb 28 → Mar 31 instead of staying on the 28th.
+    /// </summary>
+    public static DateTime AddInterval(DateTime date, SubscriptionIntervalUnit unit, int count, int? anchorDay)
+    {
+        var next = AddInterval(date, unit, count);
+        if (anchorDay is not (>= 1 and <= 31) || unit is not (SubscriptionIntervalUnit.Month or SubscriptionIntervalUnit.Year))
+        {
+            return next;
+        }
+
+        var day = Math.Min(anchorDay.Value, DateTime.DaysInMonth(next.Year, next.Month));
+        return new DateTime(next.Year, next.Month, day, next.Hour, next.Minute, next.Second, next.Kind).AddTicks(next.Ticks % TimeSpan.TicksPerSecond);
+    }
+
+    /// <summary>
     /// Advances the next order date from its previous value (never from "now"), skipping whole intervals
     /// until it lands in the future, so a late scheduler run never shifts the schedule.
     /// </summary>
     public static DateTime NextAfter(DateTime previous, SubscriptionIntervalUnit unit, int count, DateTime utcNow)
     {
-        var next = AddInterval(previous, unit, count);
+        return NextAfter(previous, unit, count, utcNow, anchorDay: null);
+    }
+
+    /// <inheritdoc cref="NextAfter(DateTime, SubscriptionIntervalUnit, int, DateTime)"/>
+    public static DateTime NextAfter(DateTime previous, SubscriptionIntervalUnit unit, int count, DateTime utcNow, int? anchorDay)
+    {
+        var next = AddInterval(previous, unit, count, anchorDay);
         var guard = 0;
         while (next <= utcNow && guard++ < 1000)
         {
-            next = AddInterval(next, unit, count);
+            next = AddInterval(next, unit, count, anchorDay);
         }
 
         return next;

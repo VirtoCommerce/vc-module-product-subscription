@@ -85,8 +85,8 @@ public class MockConnectorScenarios : ConnectorTestScenarios
         RetryWithSameKeySucceeds = true,
     };
 
-    // The mock keeps no token registry, so a deleted token still charges.
-    public override ConnectorCapabilities Capabilities { get; } = new() { RejectsDeletedToken = false };
+    // The mock remembers deleted tokens and declines charges against them.
+    public override ConnectorCapabilities Capabilities { get; } = new() { RejectsDeletedToken = true };
 
     // The flag the mock's customer-present flow (PostProcessPaymentAsync) uses for 3-D Secure: code=authentication_required.
     public override IReadOnlyCollection<string> RequiresActionPublicParameters => ["code"];

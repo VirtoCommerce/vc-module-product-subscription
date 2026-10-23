@@ -57,6 +57,8 @@ public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredenti
     // Replays of the same idempotency key return the same result, like real providers.
     private static readonly ConcurrentDictionary<string, ProcessStoredPaymentRequestResult> _idempotencyCache = new();
     private static readonly ConcurrentDictionary<string, bool> _providerErrorsGiven = new();
+    // Tokens deleted at the "provider": like a real gateway, they can't be charged any more.
+    private static readonly ConcurrentDictionary<string, bool> _revokedTokens = new();
 
     public override PaymentMethodType PaymentMethodType => PaymentMethodType.Standard;
 
@@ -247,7 +249,7 @@ public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredenti
     protected virtual ProcessStoredPaymentRequestResult Evaluate(ProcessStoredPaymentRequest request)
     {
         // Like a real gateway: there is nothing to charge without a stored card and its provider token.
-        if (request.StoredPaymentMethod == null || string.IsNullOrEmpty(request.StoredPaymentMethod.Token))
+        if (request.StoredPaymentMethod == null || string.IsNullOrEmpty(request.StoredPaymentMethod.Token) || _revokedTokens.ContainsKey(request.StoredPaymentMethod.Token))
         {
             return new ProcessStoredPaymentRequestResult { Outcome = ChargeOutcome.HardDecline, IsSuccess = false, RawCode = "invalid_token", RawMessage = "No stored card token", ErrorMessage = "There is no saved card to charge." };
         }
@@ -317,6 +319,12 @@ public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredenti
 
     public override Task<DeleteStoredPaymentMethodRequestResult> DeleteStoredPaymentMethodAsync(DeleteStoredPaymentMethodRequest request, CancellationToken cancellationToken = default)
     {
+        var token = request?.StoredPaymentMethod?.Token;
+        if (!string.IsNullOrEmpty(token))
+        {
+            _revokedTokens[token] = true;
+        }
+
         return Task.FromResult(new DeleteStoredPaymentMethodRequestResult { IsSuccess = true });
     }
 

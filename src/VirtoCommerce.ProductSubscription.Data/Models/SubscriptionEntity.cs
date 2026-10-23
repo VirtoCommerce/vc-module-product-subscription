@@ -69,6 +69,7 @@ public class SubscriptionEntity : AuditableEntity, IDataEntity<SubscriptionEntit
 
     public DateTime StartDate { get; set; }
     public DateTime NextOrderDate { get; set; }
+    public int? AnchorDay { get; set; }
     public DateTime? PausedUntil { get; set; }
     public int SkipCount { get; set; }
     public DateTime? CancelledDate { get; set; }
@@ -152,6 +153,7 @@ public class SubscriptionEntity : AuditableEntity, IDataEntity<SubscriptionEntit
         model.Status = Status;
         model.StartDate = StartDate;
         model.NextOrderDate = NextOrderDate;
+        model.AnchorDay = AnchorDay;
         model.PausedUntil = PausedUntil;
         model.SkipCount = SkipCount;
         model.CancelledDate = CancelledDate;
@@ -210,6 +212,7 @@ public class SubscriptionEntity : AuditableEntity, IDataEntity<SubscriptionEntit
         Status = model.Status;
         StartDate = model.StartDate;
         NextOrderDate = model.NextOrderDate;
+        AnchorDay = model.AnchorDay;
         PausedUntil = model.PausedUntil;
         SkipCount = model.SkipCount;
         CancelledDate = model.CancelledDate;
@@ -260,6 +263,7 @@ public class SubscriptionEntity : AuditableEntity, IDataEntity<SubscriptionEntit
         target.Status = Status;
         target.StartDate = StartDate;
         target.NextOrderDate = NextOrderDate;
+        target.AnchorDay = AnchorDay;
         target.PausedUntil = PausedUntil;
         target.SkipCount = SkipCount;
         target.CancelledDate = CancelledDate;

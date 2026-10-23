@@ -243,4 +243,114 @@ public class SubscriptionScheduleTests
         // Assert
         result.Should().Be(expected);
     }
+
+    // Anchor day
+
+    [Fact]
+    public void AddInterval_MonthlyWithAnchor31_ReturnsToThe31stAfterAShortMonth()
+    {
+        // Arrange
+        var date = new DateTime(2025, 1, 31, 10, 0, 0, DateTimeKind.Utc);
+
+        // Act
+        var feb = SubscriptionSchedule.AddInterval(date, SubscriptionIntervalUnit.Month, 1, anchorDay: 31);
+        var mar = SubscriptionSchedule.AddInterval(feb, SubscriptionIntervalUnit.Month, 1, anchorDay: 31);
+        var apr = SubscriptionSchedule.AddInterval(mar, SubscriptionIntervalUnit.Month, 1, anchorDay: 31);
+
+        // Assert
+        feb.Should().Be(new DateTime(2025, 2, 28, 10, 0, 0, DateTimeKind.Utc));
+        mar.Should().Be(new DateTime(2025, 3, 31, 10, 0, 0, DateTimeKind.Utc));
+        apr.Should().Be(new DateTime(2025, 4, 30, 10, 0, 0, DateTimeKind.Utc));
+        apr.Kind.Should().Be(DateTimeKind.Utc);
+    }
+
+    [Fact]
+    public void AddInterval_MonthlyWithoutAnchor_DriftsToThe28th()
+    {
+        // Arrange
+        var feb = SubscriptionSchedule.AddInterval(new DateTime(2025, 1, 31, 0, 0, 0, DateTimeKind.Utc), SubscriptionIntervalUnit.Month, 1);
+
+        // Act
+        var mar = SubscriptionSchedule.AddInterval(feb, SubscriptionIntervalUnit.Month, 1);
+
+        // Assert: the reason the anchor exists
+        mar.Day.Should().Be(28);
+    }
+
+    [Fact]
+    public void AddInterval_LeapYear_ClampsTo29thAndReturnsTo31st()
+    {
+        // Act
+        var feb = SubscriptionSchedule.AddInterval(new DateTime(2028, 1, 31, 0, 0, 0, DateTimeKind.Utc), SubscriptionIntervalUnit.Month, 1, anchorDay: 31);
+        var mar = SubscriptionSchedule.AddInterval(feb, SubscriptionIntervalUnit.Month, 1, anchorDay: 31);
+
+        // Assert
+        feb.Should().Be(new DateTime(2028, 2, 29, 0, 0, 0, DateTimeKind.Utc));
+        mar.Day.Should().Be(31);
+    }
+
+    [Fact]
+    public void AddInterval_YearlyFromFeb29_KeepsThe29thInLeapYears()
+    {
+        // Arrange
+        var start = new DateTime(2024, 2, 29, 0, 0, 0, DateTimeKind.Utc);
+
+        // Act
+        var y2025 = SubscriptionSchedule.AddInterval(start, SubscriptionIntervalUnit.Year, 1, anchorDay: 29);
+        var y2028 = SubscriptionSchedule.AddInterval(y2025, SubscriptionIntervalUnit.Year, 3, anchorDay: 29);
+
+        // Assert
+        y2025.Should().Be(new DateTime(2025, 2, 28, 0, 0, 0, DateTimeKind.Utc));
+        y2028.Should().Be(new DateTime(2028, 2, 29, 0, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Theory]
+    [InlineData(SubscriptionIntervalUnit.Day, 3)]
+    [InlineData(SubscriptionIntervalUnit.Week, 2)]
+    public void AddInterval_DayAndWeek_IgnoreTheAnchor(SubscriptionIntervalUnit unit, int count)
+    {
+        // Act
+        var anchored = SubscriptionSchedule.AddInterval(_start, unit, count, anchorDay: 31);
+
+        // Assert
+        anchored.Should().Be(SubscriptionSchedule.AddInterval(_start, unit, count));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(32)]
+    public void AddInterval_InvalidAnchor_IsIgnored(int anchorDay)
+    {
+        // Act
+        var anchored = SubscriptionSchedule.AddInterval(_start, SubscriptionIntervalUnit.Month, 1, anchorDay);
+
+        // Assert
+        anchored.Should().Be(SubscriptionSchedule.AddInterval(_start, SubscriptionIntervalUnit.Month, 1));
+    }
+
+    [Fact]
+    public void NextAfter_WithAnchor_SkipsIntervalsAndKeepsTheDay()
+    {
+        // Arrange
+        var previous = new DateTime(2025, 1, 31, 9, 0, 0, DateTimeKind.Utc);
+        var now = new DateTime(2025, 4, 2, 0, 0, 0, DateTimeKind.Utc);
+
+        // Act
+        var next = SubscriptionSchedule.NextAfter(previous, SubscriptionIntervalUnit.Month, 1, now, anchorDay: 31);
+
+        // Assert: Feb 28 and Mar 31 are past, Apr 30 is next
+        next.Should().Be(new DateTime(2025, 4, 30, 9, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void EffectiveAnchorDay_FallsBackToStartDate()
+    {
+        // Arrange
+        var subscription = new Subscription { StartDate = new DateTime(2025, 1, 31, 0, 0, 0, DateTimeKind.Utc) };
+
+        // Act & Assert
+        subscription.EffectiveAnchorDay.Should().Be(31);
+        subscription.AnchorDay = 15;
+        subscription.EffectiveAnchorDay.Should().Be(15);
+    }
 }

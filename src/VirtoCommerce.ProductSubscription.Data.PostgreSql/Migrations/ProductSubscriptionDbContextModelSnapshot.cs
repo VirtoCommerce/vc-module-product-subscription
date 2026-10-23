@@ -392,6 +392,9 @@ namespace VirtoCommerce.ProductSubscription.Data.PostgreSql.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<int?>("AnchorDay")
+                        .HasColumnType("integer");
+
                     b.Property<string>("CancelReason")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");

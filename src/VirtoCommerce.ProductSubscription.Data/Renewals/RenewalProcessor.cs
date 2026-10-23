@@ -359,7 +359,7 @@ public class RenewalProcessor(
             var subscriptions = await LoadSubscriptionsAsync(renewal, onlyActive: false);
             foreach (var subscription in subscriptions)
             {
-                subscription.NextOrderDate = SubscriptionSchedule.NextAfter(subscription.NextOrderDate, subscription.IntervalUnit, subscription.IntervalCount, UtcNow);
+                subscription.NextOrderDate = SubscriptionSchedule.NextAfter(subscription.NextOrderDate, subscription.IntervalUnit, subscription.IntervalCount, UtcNow, subscription.EffectiveAnchorDay);
                 subscription.SkipCount++;
                 if (subscription.CurrentRenewalId == renewal.Id)
                 {
@@ -387,7 +387,7 @@ public class RenewalProcessor(
             var subscriptions = await LoadSubscriptionsAsync(renewal, onlyActive: false);
             foreach (var subscription in subscriptions)
             {
-                subscription.NextOrderDate = SubscriptionSchedule.NextAfter(subscription.NextOrderDate, subscription.IntervalUnit, subscription.IntervalCount, UtcNow);
+                subscription.NextOrderDate = SubscriptionSchedule.NextAfter(subscription.NextOrderDate, subscription.IntervalUnit, subscription.IntervalCount, UtcNow, subscription.EffectiveAnchorDay);
                 if (subscription.CurrentRenewalId == renewal.Id)
                 {
                     subscription.CurrentRenewalId = null;
@@ -1047,9 +1047,16 @@ public class RenewalProcessor(
                 subscription.OrdersCount++;
             }
 
-            subscription.NextOrderDate = renewal.IsManual
-                ? SubscriptionSchedule.AddInterval(now, subscription.IntervalUnit, subscription.IntervalCount)
-                : SubscriptionSchedule.NextAfter(subscription.NextOrderDate, subscription.IntervalUnit, subscription.IntervalCount, now);
+            if (renewal.IsManual)
+            {
+                // "Order now" restarts the schedule from today.
+                subscription.AnchorDay = now.Day;
+                subscription.NextOrderDate = SubscriptionSchedule.AddInterval(now, subscription.IntervalUnit, subscription.IntervalCount, subscription.AnchorDay);
+            }
+            else
+            {
+                subscription.NextOrderDate = SubscriptionSchedule.NextAfter(subscription.NextOrderDate, subscription.IntervalUnit, subscription.IntervalCount, now, subscription.EffectiveAnchorDay);
+            }
 
             if (subscription.CurrentRenewalId == renewal.Id)
             {

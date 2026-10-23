@@ -37,8 +37,17 @@ public class Subscription : AuditableEntity, ICloneable
 
     public DateTime StartDate { get; set; }
 
-    /// <summary>Date the next order is placed. The schedule always advances from this date, so it never drifts.</summary>
+    /// <summary>Date the next order is placed. The schedule always advances from this date.</summary>
     public DateTime NextOrderDate { get; set; }
+
+    /// <summary>
+    /// Day of month monthly and yearly deliveries keep (1–31), so a short month doesn't move every later delivery:
+    /// started on the 31st means Jan 31, Feb 28, Mar 31. Null for older data: the day of <see cref="StartDate"/> is used.
+    /// </summary>
+    public int? AnchorDay { get; set; }
+
+    /// <summary>The anchor day in effect.</summary>
+    public int EffectiveAnchorDay => AnchorDay ?? StartDate.Day;
 
     public DateTime? PausedUntil { get; set; }
     public int SkipCount { get; set; }

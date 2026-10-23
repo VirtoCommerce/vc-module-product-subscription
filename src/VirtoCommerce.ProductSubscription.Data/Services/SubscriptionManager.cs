@@ -106,7 +106,9 @@ public class SubscriptionManager(
             subscription.DiscountValue = plan.DiscountValue;
             subscription.Status = paymentAuthorized ? SubscriptionStatus.Active : SubscriptionStatus.PendingActivation;
             subscription.StartDate = now;
-            subscription.NextOrderDate = SubscriptionSchedule.AddInterval(order.CreatedDate == default ? now : order.CreatedDate, subscription.IntervalUnit, subscription.IntervalCount);
+            var placedDate = order.CreatedDate == default ? now : order.CreatedDate;
+            subscription.AnchorDay = placedDate.Day;
+            subscription.NextOrderDate = SubscriptionSchedule.AddInterval(placedDate, subscription.IntervalUnit, subscription.IntervalCount, subscription.AnchorDay);
             subscription.Currency = order.Currency;
             subscription.LanguageCode = order.LanguageCode;
             subscription.ShippingAddress = shippingAddress;
@@ -183,7 +185,7 @@ public class SubscriptionManager(
 
         await DetachFromOpenRenewalAsync(subscription, "Skipped by customer");
 
-        subscription.NextOrderDate = SubscriptionSchedule.AddInterval(subscription.NextOrderDate, subscription.IntervalUnit, subscription.IntervalCount);
+        subscription.NextOrderDate = SubscriptionSchedule.AddInterval(subscription.NextOrderDate, subscription.IntervalUnit, subscription.IntervalCount, subscription.EffectiveAnchorDay);
         subscription.SkipCount++;
         await subscriptionService.SaveChangesAsync([subscription]);
 
@@ -277,7 +279,7 @@ public class SubscriptionManager(
             {
                 // Keep the anchor: the next order is one new interval after the last order (or after today).
                 var anchor = subscription.LastOrderDate ?? subscription.StartDate;
-                var next = SubscriptionSchedule.AddInterval(anchor, unit, count);
+                var next = SubscriptionSchedule.AddInterval(anchor, unit, count, subscription.EffectiveAnchorDay);
                 var earliest = DateTime.UtcNow.AddDays(1);
                 subscription.NextOrderDate = next < earliest ? earliest : next;
                 subscription.IntervalUnit = unit;
@@ -310,6 +312,8 @@ public class SubscriptionManager(
             }
 
             subscription.NextOrderDate = date;
+            // The customer picked a day: later monthly deliveries keep it.
+            subscription.AnchorDay = date.Day;
             detach = true;
         }
 
