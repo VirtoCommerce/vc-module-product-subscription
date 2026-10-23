@@ -27,6 +27,7 @@ using VirtoCommerce.ProductSubscription.Data.BackgroundJobs;
 using VirtoCommerce.ProductSubscription.Data.Handlers;
 using VirtoCommerce.ProductSubscription.Data.MySql;
 using VirtoCommerce.ProductSubscription.Data.Payments;
+using VirtoCommerce.XCart.Core.Services;
 using VirtoCommerce.ProductSubscription.Data.PostgreSql;
 using VirtoCommerce.ProductSubscription.Data.Pricing;
 using VirtoCommerce.ProductSubscription.Data.Renewals;
@@ -103,6 +104,7 @@ public class Module : IModule, IHasConfiguration
             builder.AddMiddleware(typeof(SubscriptionPromoEntriesMiddleware));
         });
         DecoratePromoEvaluator(serviceCollection);
+        DecorateCartAvailMethods(serviceCollection);
 
         _ = new GraphQLBuilder(serviceCollection, builder =>
         {
@@ -165,7 +167,20 @@ public class Module : IModule, IHasConfiguration
 
     private static void DecoratePromoEvaluator(IServiceCollection services)
     {
-        var descriptor = services.LastOrDefault(x => x.ServiceType == typeof(IMarketingPromoEvaluator));
+        Decorate<IMarketingPromoEvaluator>(services, (_, inner) => new SubscriptionPromoEvaluatorDecorator(inner));
+    }
+
+    private static void DecorateCartAvailMethods(IServiceCollection services)
+    {
+        Decorate<ICartAvailMethodsService>(services, (provider, inner) =>
+            new SubscriptionCartAvailMethodsDecorator(inner, provider.GetRequiredService<ISubscriptionCartItemSearchService>()));
+    }
+
+    /// <summary>Wraps the last registration of <typeparamref name="TService"/>, keeping its lifetime.</summary>
+    private static void Decorate<TService>(IServiceCollection services, Func<IServiceProvider, TService, TService> decorate)
+        where TService : class
+    {
+        var descriptor = services.LastOrDefault(x => x.ServiceType == typeof(TService));
         if (descriptor == null)
         {
             return;
@@ -173,16 +188,13 @@ public class Module : IModule, IHasConfiguration
 
         services.Remove(descriptor);
 
-        Func<IServiceProvider, IMarketingPromoEvaluator> createInner = descriptor switch
+        Func<IServiceProvider, TService> createInner = descriptor switch
         {
-            { ImplementationInstance: IMarketingPromoEvaluator instance } => _ => instance,
-            { ImplementationFactory: not null } => provider => (IMarketingPromoEvaluator)descriptor.ImplementationFactory(provider),
-            _ => provider => (IMarketingPromoEvaluator)ActivatorUtilities.CreateInstance(provider, descriptor.ImplementationType),
+            { ImplementationInstance: TService instance } => _ => instance,
+            { ImplementationFactory: not null } => provider => (TService)descriptor.ImplementationFactory(provider),
+            _ => provider => (TService)ActivatorUtilities.CreateInstance(provider, descriptor.ImplementationType),
         };
 
-        services.Add(new ServiceDescriptor(
-            typeof(IMarketingPromoEvaluator),
-            provider => new SubscriptionPromoEvaluatorDecorator(createInner(provider)),
-            descriptor.Lifetime));
+        services.Add(new ServiceDescriptor(typeof(TService), provider => decorate(provider, createInner(provider)), descriptor.Lifetime));
     }
 }

@@ -392,13 +392,42 @@ public class SubscriptionManager(
         }
     }
 
+    /// <summary>
+    /// The card that paid the order: a card saved with this order, otherwise the customer's saved card for the
+    /// payment method that was charged since the order was placed, otherwise their default card.
+    /// </summary>
     protected virtual async Task<StoredPaymentMethod> FindStoredPaymentMethodAsync(CustomerOrder order)
     {
         var criteria = AbstractTypeFactory<StoredPaymentMethodSearchCriteria>.TryCreateInstance();
         criteria.InitialOrderId = order.Id;
         criteria.Statuses = [StoredPaymentMethodStatus.Active];
         criteria.Take = 1;
-        return (await storedPaymentMethodSearchService.SearchAsync(criteria)).Results.FirstOrDefault();
+        var savedWithOrder = (await storedPaymentMethodSearchService.SearchAsync(criteria)).Results.FirstOrDefault();
+        if (savedWithOrder != null || string.IsNullOrEmpty(order.CustomerId))
+        {
+            return savedWithOrder;
+        }
+
+        var paymentMethodCode = order.InPayments?
+            .Where(x => _paidStatuses.Contains(x.PaymentStatus))
+            .Select(x => x.GatewayCode)
+            .FirstOrDefault(x => !string.IsNullOrEmpty(x));
+
+        var customerCriteria = AbstractTypeFactory<StoredPaymentMethodSearchCriteria>.TryCreateInstance();
+        customerCriteria.StoreId = order.StoreId;
+        customerCriteria.CustomerId = order.CustomerId;
+        customerCriteria.PaymentMethodCode = paymentMethodCode;
+        customerCriteria.Statuses = [StoredPaymentMethodStatus.Active];
+        customerCriteria.Take = 100;
+        var cards = (await storedPaymentMethodSearchService.SearchAsync(customerCriteria)).Results;
+
+        var placedDate = order.CreatedDate == default ? DateTime.MinValue : order.CreatedDate.AddMinutes(-1);
+
+        return cards
+                   .Where(x => x.LastUsedDate >= placedDate)
+                   .OrderByDescending(x => x.LastUsedDate)
+                   .FirstOrDefault()
+               ?? cards.FirstOrDefault(x => x.IsDefault);
     }
 
     protected virtual async Task<string> FindConsentIdAsync(CustomerOrder order)
