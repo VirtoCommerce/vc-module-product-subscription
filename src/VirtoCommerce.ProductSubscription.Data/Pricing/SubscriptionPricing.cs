@@ -113,13 +113,14 @@ public class SubscriptionPromoEntriesMiddleware(
                 return;
             }
 
+            // xCart builds promotion entries per line without an owner, so checkout discounts (keyed by line id)
+            // are matched to entries by the line's product.
+            var lineProductIds = (cart.Items ?? []).Where(x => !string.IsNullOrEmpty(x.Id)).ToDictionary(x => x.Id, x => x.ProductId);
+
             foreach (var entry in (context.PromoEntries ?? []).Concat(context.CartPromoEntries ?? []))
             {
-                var key = entry.Owner is LineItem lineItem && !string.IsNullOrEmpty(lineItem.Id) && discounts.ContainsKey(lineItem.Id)
-                    ? lineItem.Id
-                    : entry.ProductId;
-
-                if (key != null && discounts.TryGetValue(key, out var discount))
+                var discount = FindDiscount(entry, discounts, lineProductIds);
+                if (discount != null)
                 {
                     SubscriptionPromoAttributes.Set(entry, discount);
                 }
@@ -129,6 +130,32 @@ public class SubscriptionPromoEntriesMiddleware(
         {
             // Never break cart calculation because of the subscription discount.
         }
+    }
+
+    private static SubscriptionLineDiscount FindDiscount(
+        ProductPromoEntry entry,
+        Dictionary<string, SubscriptionLineDiscount> discounts,
+        Dictionary<string, string> lineProductIds)
+    {
+        if (entry.Owner is LineItem lineItem && !string.IsNullOrEmpty(lineItem.Id) && discounts.TryGetValue(lineItem.Id, out var byLine))
+        {
+            return byLine;
+        }
+
+        if (string.IsNullOrEmpty(entry.ProductId))
+        {
+            return null;
+        }
+
+        if (discounts.TryGetValue(entry.ProductId, out var byProduct))
+        {
+            return byProduct;
+        }
+
+        return discounts
+            .Where(x => lineProductIds.TryGetValue(x.Key, out var productId) && productId == entry.ProductId)
+            .Select(x => x.Value)
+            .FirstOrDefault();
     }
 
     /// <summary>Returns discounts keyed by cart line id.</summary>

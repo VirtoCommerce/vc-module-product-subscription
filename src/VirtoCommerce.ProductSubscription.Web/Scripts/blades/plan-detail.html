@@ -3,7 +3,7 @@
         <div class="inner-block" ng-if="blade.currentEntity">
             <form class="form" name="planForm">
                 <div class="form-group">
-                    <label class="form-label">{{ 'product-subscription.labels.name' | translate }} <span class="error">*</span></label>
+                    <label class="form-label">{{ 'product-subscription.labels.name' | translate }} *</label>
                     <div class="form-input"><input ng-model="blade.currentEntity.name" required maxlength="256" placeholder="{{ 'product-subscription.placeholders.plan-name' | translate }}"></div>
                 </div>
                 <div class="form-group">
@@ -13,7 +13,7 @@
                 <div class="clearfix">
                     <div class="column">
                         <div class="form-group">
-                            <label class="form-label">{{ 'product-subscription.labels.store' | translate }} <span class="error">*</span></label>
+                            <label class="form-label">{{ 'product-subscription.labels.store' | translate }} *</label>
                             <div class="form-input">
                                 <select class="form-control" ng-model="blade.currentEntity.storeId" ng-options="s.id as s.name for s in stores" required></select>
                             </div>

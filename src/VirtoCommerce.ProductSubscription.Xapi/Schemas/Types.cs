@@ -34,6 +34,7 @@ public class SubscriptionOfferType : ExtendableGraphType<SubscriptionOffer>
         Name = "SubscriptionOffer";
         Description = "Subscribe & Save offer for a product.";
 
+        Field(x => x.ProductId);
         Field(x => x.PlanId);
         Field(x => x.PlanName);
         Field(x => x.Description, nullable: true);
