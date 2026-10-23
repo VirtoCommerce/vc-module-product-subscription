@@ -1,10 +1,10 @@
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;color:#1f2933;line-height:1.5"><h2>Your delivery needs your OK</h2>
 <p>Hi {{ customer_name }}, something changed since your reminder:</p>
 <p style="background:#fef3c7;padding:12px;border-radius:6px">{{ renewal.review_reason }}</p><table style="width:100%;border-collapse:collapse;margin:16px 0">
-{{ for i in renewal.items }}{{ if !i.is_excluded }}<tr>
-<td style="padding:8px 0;border-bottom:1px solid #e5e7eb">{{ i.product_name }} &times; {{ i.quantity }}{{ if !i.is_available }}<br><span style="color:#b91c1c;font-size:13px">{{ i.message }}</span>{{ end }}</td>
+{% for i in renewal.items %}{% unless i.is_excluded %}<tr>
+<td style="padding:8px 0;border-bottom:1px solid #e5e7eb">{{ i.product_name }} &times; {{ i.quantity }}{% unless i.is_available %}<br><span style="color:#b91c1c;font-size:13px">{{ i.message }}</span>{% endunless %}</td>
 <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;text-align:right">{{ i.total | math.format "0.00" }} {{ renewal.currency }}</td>
-</tr>{{ end }}{{ end }}
+</tr>{% endunless %}{% endfor %}
 </table>
 <p>Confirm the delivery as it is now, or skip it. If we don't hear from you, we'll skip this delivery and your subscription continues as usual.</p>
 <p><a href="{{ manage_url }}" style="display:inline-block;background:#1f5fbf;color:#ffffff;padding:10px 18px;border-radius:6px;text-decoration:none">Review delivery</a></p><p style="color:#6b7280;font-size:12px;margin-top:32px">You receive this email because you have a subscription at {{ store_name }}. Manage or cancel any time: <a href="{{ manage_url }}">{{ manage_url }}</a></p></div>

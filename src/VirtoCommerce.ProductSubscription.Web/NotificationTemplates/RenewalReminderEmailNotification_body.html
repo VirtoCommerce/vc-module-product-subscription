@@ -1,9 +1,9 @@
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;color:#1f2933;line-height:1.5"><h2>Your next delivery is coming up</h2>
 <p>Hi {{ customer_name }}, here's what we'll send on <strong>{{ renewal.scheduled_date | date.to_string "%b %d, %Y" }}</strong>:</p><table style="width:100%;border-collapse:collapse;margin:16px 0">
-{{ for i in renewal.items }}{{ if !i.is_excluded }}<tr>
-<td style="padding:8px 0;border-bottom:1px solid #e5e7eb">{{ i.product_name }} &times; {{ i.quantity }}{{ if !i.is_available }}<br><span style="color:#b91c1c;font-size:13px">{{ i.message }}</span>{{ end }}</td>
+{% for i in renewal.items %}{% unless i.is_excluded %}<tr>
+<td style="padding:8px 0;border-bottom:1px solid #e5e7eb">{{ i.product_name }} &times; {{ i.quantity }}{% unless i.is_available %}<br><span style="color:#b91c1c;font-size:13px">{{ i.message }}</span>{% endunless %}</td>
 <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;text-align:right">{{ i.total | math.format "0.00" }} {{ renewal.currency }}</td>
-</tr>{{ end }}{{ end }}
+</tr>{% endunless %}{% endfor %}
 </table>
 <p style="font-size:16px"><strong>Total: {{ renewal.notified_total | math.format "0.00" }} {{ renewal.currency }}</strong> (including the subscription discount, shipping and tax). We won't charge more than this without asking you.</p>
 <p>Want to change something? You can skip or change this delivery until <strong>{{ renewal.cutoff_date | date.to_string "%b %d, %Y %H:%M" }} UTC</strong>.</p>
