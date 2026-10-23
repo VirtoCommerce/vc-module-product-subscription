@@ -34,7 +34,7 @@ reference to the kit. Use one of these:
 - **Package** from a local feed until the kit is published:
 
   ```shell
-  dotnet pack tests/VirtoCommerce.ProductSubscription.ConnectorTestKit -c Release -o ../.local-nuget
+  dotnet pack tests/VirtoCommerce.ProductSubscription.ConnectorTestKit -c Release -o ../.local-nuget -p:IsPackable=true
   ```
 
   ```xml

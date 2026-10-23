@@ -6,7 +6,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IsTestProject>false</IsTestProject>
-    <IsPackable>true</IsPackable>
+    <IsPackable>false</IsPackable>
     <SonarQubeTestProject>true</SonarQubeTestProject>
     <Description>Contract tests for Virto Commerce payment connectors that implement the stored credential (card on file) flow.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
