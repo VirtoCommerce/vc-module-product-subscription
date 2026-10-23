@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.GenericCrud;
+using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.CustomerModule.Core.Model;
 using VirtoCommerce.CustomerModule.Core.Services;
 using VirtoCommerce.NotificationsModule.Core.Extensions;
@@ -30,6 +32,7 @@ public class SubscriptionNotificationService(
     INotificationSender notificationSender,
     IStoreService storeService,
     IMemberService memberService,
+    Func<UserManager<ApplicationUser>> userManagerFactory,
     ILogger<SubscriptionNotificationService> logger)
     : ISubscriptionNotificationService
 {
@@ -115,7 +118,21 @@ public class SubscriptionNotificationService(
             return null;
         }
 
+        // Orders keep the customer's user account id, not the contact id: same lookup as the Orders module.
         var member = await memberService.GetByIdAsync(customerId);
-        return (member as Contact)?.Emails?.FirstOrDefault() ?? member?.Emails?.FirstOrDefault();
+        if (member != null)
+        {
+            return member.Emails?.FirstOrDefault();
+        }
+
+        using var userManager = userManagerFactory();
+        var user = await userManager.FindByIdAsync(customerId);
+        if (!string.IsNullOrEmpty(user?.Email))
+        {
+            return user.Email;
+        }
+
+        var contact = string.IsNullOrEmpty(user?.MemberId) ? null : await memberService.GetByIdAsync(user.MemberId);
+        return contact?.Emails?.FirstOrDefault();
     }
 }
