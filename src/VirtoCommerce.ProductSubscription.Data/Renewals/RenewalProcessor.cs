@@ -704,9 +704,20 @@ public class RenewalProcessor(
         var paymentMethod = await GetPaymentMethodAsync(order.StoreId, payment.GatewayCode);
         var storedMethod = string.IsNullOrEmpty(renewal.StoredPaymentMethodId) ? null : await storedPaymentMethodService.GetByIdAsync(renewal.StoredPaymentMethodId);
 
-        if (paymentMethod is not ISupportStoredCredentialFlow || storedMethod == null)
+        if (paymentMethod is not ISupportStoredCredentialFlow)
         {
+            // E.g. invoice terms: the order is the deliverable and payment follows outside the subscription.
             renewal.ChangeState(RenewalState.Completed, "Order placed. This payment method doesn't support automatic charging; payment is collected separately.");
+            return;
+        }
+
+        if (storedMethod == null)
+        {
+            // A card payment with no card on file (e.g. an imported subscription): the customer pays on the order page,
+            // where the card can be saved for the next deliveries.
+            await OnRequiresActionAsync(renewal, store, order,
+                "Please add a card to pay for this delivery.",
+                "No saved card on the subscription; the customer has to pay");
             return;
         }
 
@@ -823,11 +834,16 @@ public class RenewalProcessor(
         }
     }
 
-    protected virtual async Task OnRequiresActionAsync(Renewal renewal, Store store, CustomerOrder order)
+    protected virtual async Task OnRequiresActionAsync(
+        Renewal renewal,
+        Store store,
+        CustomerOrder order,
+        string customerMessage = "Your bank asked you to confirm this payment.",
+        string reason = "The bank requires authentication (3-D Secure)")
     {
         var waitDays = store.Settings.GetValue<int>(ModuleConstants.Settings.Store.PaymentActionWaitDays);
-        renewal.LastErrorMessage = "Your bank asked you to confirm this payment.";
-        renewal.ChangeState(RenewalState.PaymentActionRequired, "The bank requires authentication (3-D Secure)", UtcNow.AddDays(Math.Max(1, waitDays)));
+        renewal.LastErrorMessage = customerMessage;
+        renewal.ChangeState(RenewalState.PaymentActionRequired, reason, UtcNow.AddDays(Math.Max(1, waitDays)));
 
         var subscriptions = await LoadSubscriptionsAsync(renewal, onlyActive: false);
         var storeUrl = await notificationService.GetStoreUrlAsync(renewal.StoreId);

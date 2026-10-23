@@ -91,20 +91,6 @@ public class MockConnectorScenarios : ConnectorTestScenarios
     // The flag the mock's customer-present flow (PostProcessPaymentAsync) uses for 3-D Secure: code=authentication_required.
     public override IReadOnlyCollection<string> RequiresActionPublicParameters => ["code"];
 
-    public override IReadOnlyDictionary<string, string> KnownIssues => new Dictionary<string, string>
-    {
-        [nameof(StoredCredentialConnectorContractTests.Store_RequiresAction_GivesStorefrontARecoveryPath)] =
-            "BUG: MockStoredCardPaymentMethod.StorePaymentMethodAsync returns RequiresAction (3220) without RecoveryUrl or PublicParameters; " +
-            "its own PostProcessPaymentAsync flags 3-D Secure with PublicParameters[\"code\"] = \"authentication_required\", but the store result only puts it in RawCode (logs only).",
-        [nameof(StoredCredentialConnectorContractTests.Charge_RequiresAction_GivesStorefrontARecoveryPath)] =
-            "BUG: MockStoredCardPaymentMethod.ProcessStoredPaymentAsync returns RequiresAction (3184) with only RawCode \"1A\": no RecoveryUrl and no PublicParameters[\"code\"], " +
-            "so nothing in the result tells the storefront how to recover (RenewalProcessor builds its own order payment URL instead).",
-        [nameof(StoredCredentialConnectorContractTests.Charge_WithoutStoredPaymentMethod_NeverSucceeds)] =
-            "BUG: MockStoredCardPaymentMethod.ProcessStoredPaymentAsync returns Succeeded when StoredPaymentMethod is null (Evaluate falls through to success when Last4 is null).",
-        [nameof(StoredCredentialConnectorContractTests.Charge_StoredMethodWithoutToken_NeverSucceeds)] =
-            "BUG: MockStoredCardPaymentMethod.ProcessStoredPaymentAsync never looks at StoredPaymentMethod.Token, so a stored method without a provider token is charged successfully.",
-    };
-
     // The mock sends nothing on the wire; it echoes the network transaction id it would have referenced.
     public override Task<string> GetReferencedNetworkTransactionIdAsync(ProcessStoredPaymentRequest request, ProcessStoredPaymentRequestResult result, CancellationToken cancellationToken)
     {

@@ -489,6 +489,7 @@ public class MockStoredCardPaymentMethodTests
                 Id = "spm-1",
                 CustomerId = "customer-1",
                 Last4 = last4,
+                Token = "mock_tok_test",
                 NetworkTransactionId = "ntid-original",
             },
             Amount = amount,

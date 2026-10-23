@@ -200,7 +200,7 @@ public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredenti
         var threeDsCompleted = string.Equals(parameters["threeDsCompleted"], "true", StringComparison.OrdinalIgnoreCase);
         if (last4 == TestCards.ThreeDsOnSave && !threeDsCompleted)
         {
-            return Task.FromResult(new StorePaymentMethodRequestResult { Outcome = ChargeOutcome.RequiresAction, IsSuccess = false, ErrorMessage = "Your bank needs you to confirm this card (3-D Secure).", RawCode = "authentication_required" });
+            return Task.FromResult(new StorePaymentMethodRequestResult { Outcome = ChargeOutcome.RequiresAction, IsSuccess = false, ErrorMessage = "Your bank needs you to confirm this card (3-D Secure).", RawCode = "authentication_required", PublicParameters = new() { ["code"] = "authentication_required" } });
         }
 
         var method = AbstractTypeFactory<StoredPaymentMethod>.TryCreateInstance();
@@ -246,7 +246,13 @@ public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredenti
 
     protected virtual ProcessStoredPaymentRequestResult Evaluate(ProcessStoredPaymentRequest request)
     {
-        var last4 = request.StoredPaymentMethod?.Last4;
+        // Like a real gateway: there is nothing to charge without a stored card and its provider token.
+        if (request.StoredPaymentMethod == null || string.IsNullOrEmpty(request.StoredPaymentMethod.Token))
+        {
+            return new ProcessStoredPaymentRequestResult { Outcome = ChargeOutcome.HardDecline, IsSuccess = false, RawCode = "invalid_token", RawMessage = "No stored card token", ErrorMessage = "There is no saved card to charge." };
+        }
+
+        var last4 = request.StoredPaymentMethod.Last4;
         var amountText = request.Amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
         if (amountText.EndsWith(ProviderErrorAmountSuffix) && _providerErrorsGiven.TryAdd(request.IdempotencyKey ?? Guid.NewGuid().ToString(), true))
@@ -257,7 +263,7 @@ public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredenti
         switch (last4)
         {
             case TestCards.ThreeDsOnRenewal when request.Reason != MerchantInitiatedReason.Reauthorization:
-                return new ProcessStoredPaymentRequestResult { Outcome = ChargeOutcome.RequiresAction, IsSuccess = false, RawCode = "1A", RawMessage = "Authentication required" };
+                return new ProcessStoredPaymentRequestResult { Outcome = ChargeOutcome.RequiresAction, IsSuccess = false, RawCode = "1A", RawMessage = "Authentication required", PublicParameters = new() { ["code"] = "authentication_required" } };
 
             case TestCards.InsufficientFunds:
                 return new ProcessStoredPaymentRequestResult { Outcome = ChargeOutcome.SoftDecline, IsSuccess = false, RawCode = "51", AdviceCode = "02", RetryAfter = TimeSpan.FromHours(24), RawMessage = "Insufficient funds" };
