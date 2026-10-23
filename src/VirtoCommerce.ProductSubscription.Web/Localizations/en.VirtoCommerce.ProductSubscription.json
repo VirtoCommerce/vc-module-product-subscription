@@ -1,0 +1,24 @@
+{
+  "product-subscription": {
+    "blades": {
+      "hello-world": {
+        "title": "Hello world blade"
+      }
+    }
+  },
+  "permissions": {
+    "product-subscription:access": "Open Product Subscription menu",
+    "product-subscription:create": "Create Product Subscription related data",
+    "product-subscription:read": "View Product Subscription related data",
+    "product-subscription:update": "Update Product Subscription related data",
+    "product-subscription:delete": "Delete Product Subscription related data"
+  },
+  "settings": {
+    "ProductSubscription": {
+      "Enabled": {
+        "title": "Product Subscription Enabled",
+        "description": "Product Subscription Enabled setting"
+      }
+    }
+  }
+}

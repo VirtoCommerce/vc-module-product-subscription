@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<module>
+  <id>VirtoCommerce.ProductSubscription</id>
+  <version>3.1000.0</version>
+  <version-tag></version-tag>
+
+  <platformVersion>3.1089.0</platformVersion>
+  <dependencies>
+    <dependency id="VirtoCommerce.Xapi" version="3.1027.0" />
+  </dependencies>
+
+  <title>Virto Commerce Product Subscription</title>
+  <description>Virto Commerce Product Subscription</description>
+
+  <authors>
+    <author>Oleg Zhuk</author>
+  </authors>
+  <owners>
+    <owner>Virto Commerce</owner>
+  </owners>
+
+  <projectUrl>https://github.com/Virto Commerce/vc-module-product-subscription</projectUrl>
+  <iconUrl>Modules/$(VirtoCommerce.ProductSubscription)/Content/logo.png</iconUrl>
+  <requireLicenseAcceptance>false</requireLicenseAcceptance>
+
+  <assemblyFile>VirtoCommerce.ProductSubscription.Web.dll</assemblyFile>
+  <moduleType>VirtoCommerce.ProductSubscription.Web.Module, VirtoCommerce.ProductSubscription.Web</moduleType>
+
+  <releaseNotes>First version.</releaseNotes>
+  <copyright>Copyright © 2026 Virto Commerce. All rights reserved</copyright>
+  <tags>extension module</tags>
+  <useFullTypeNameInSwagger>false</useFullTypeNameInSwagger>
+</module>
