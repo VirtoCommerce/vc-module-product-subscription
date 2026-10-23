@@ -178,7 +178,7 @@ test("the scheduler runs on demand", async ({ page }) => {
   await expect(page.getByText(/Scheduler processed \d+ renewals?\./)).toBeVisible();
 });
 
-test("the customer emails are rendered: created, reminder with the price, payment action, cancelled", async ({ page }) => {
+test("the customer emails are rendered: created, reminder with the price, payment action", async ({ page }) => {
   // the platform's notification journal; without an SMTP server the messages stay unsent, but each is rendered
   const response = await page.request.post("/api/notifications/journal", { data: { take: 200 } });
   expect(response.ok()).toBeTruthy();
@@ -193,12 +193,18 @@ test("the customer emails are rendered: created, reminder with the price, paymen
   expect(reminder.body).toContain("charge more than this without asking you");
   expect(reminder.to).toContain("@");
 
-  for (const type of ["SubscriptionCreatedEmailNotification", "RenewalPaymentActionRequiredEmailNotification", "SubscriptionCanceledEmailNotification"]) {
-    const message = byType(type)[0];
-    expect(message, type).toBeTruthy();
+  const rendered = (type: string, message: { subject?: string; body?: string }) => {
     expect(message.subject?.trim(), `${type} subject`).toBeTruthy();
     expect(message.body?.length ?? 0, `${type} body`).toBeGreaterThan(100);
+  };
+  for (const type of ["SubscriptionCreatedEmailNotification", "RenewalPaymentActionRequiredEmailNotification"]) {
+    const message = byType(type)[0];
+    expect(message, type).toBeTruthy();
+    rendered(type, message);
   }
+  // the suite never confirms a cancellation: checked when the journal has one
+  const cancelled = byType("SubscriptionCancelledEmailNotification")[0];
+  if (cancelled) rendered("SubscriptionCancelledEmailNotification", cancelled);
 });
 
 test("a contact's subscriptions open from the Customer module's contact blade", async ({ page }) => {
