@@ -923,6 +923,8 @@ public class RenewalProcessor(
         {
             OrderId = order.Id,
             PaymentId = payment.Id,
+            // Stable per renewal: the Orders module matches captures by it, so a retried capture is never duplicated.
+            TransactionId = $"{renewal.IdempotencyKey ?? renewal.Id}-capture",
             Amount = payment.Sum,
             CloseTransaction = true,
         });

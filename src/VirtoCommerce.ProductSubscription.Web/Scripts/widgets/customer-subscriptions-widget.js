@@ -26,6 +26,7 @@ angular.module('VirtoCommerce.ProductSubscription')
                     title: 'product-subscription.widgets.customer-subscriptions.blade-title',
                     controller: 'VirtoCommerce.ProductSubscription.subscriptionListController',
                     template: 'Modules/$(VirtoCommerce.ProductSubscription)/Scripts/blades/subscription-list.html',
+                    isExpandable: true,
                 }, blade);
             };
 

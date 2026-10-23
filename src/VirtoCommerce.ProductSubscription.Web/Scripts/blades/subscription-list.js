@@ -57,6 +57,7 @@ angular.module('VirtoCommerce.ProductSubscription')
                     id: 'productSubscriptionRenewals',
                     controller: 'VirtoCommerce.ProductSubscription.renewalListController',
                     template: 'Modules/$(VirtoCommerce.ProductSubscription)/Scripts/blades/renewal-list.html',
+                    isExpandable: true,
                 }, blade);
             }
 
@@ -65,6 +66,7 @@ angular.module('VirtoCommerce.ProductSubscription')
                     id: 'productSubscriptionPlans',
                     controller: 'VirtoCommerce.ProductSubscription.planListController',
                     template: 'Modules/$(VirtoCommerce.ProductSubscription)/Scripts/blades/plan-list.html',
+                    isExpandable: true,
                 }, blade);
             }
 

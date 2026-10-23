@@ -61,6 +61,15 @@ angular.module('VirtoCommerce.ProductSubscription')
 
             $scope.intervalLabel = function (i) { return labels.interval(i.unit, i.count); };
 
+            $scope.formatAddress = function (a) {
+                if (!a) {
+                    return '';
+                }
+                var name = [a.firstName, a.lastName].filter(Boolean).join(' ');
+                var region = [a.regionName || a.regionId, a.postalCode].filter(Boolean).join(' ');
+                return [name, a.line1, a.line2, a.city, region, a.countryCode].filter(Boolean).join(', ');
+            };
+
             $scope.isDirty = function () {
                 var s = blade.currentEntity;
                 if (!s) { return false; }

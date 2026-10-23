@@ -77,7 +77,7 @@
             <table class="ps-table">
                 <tr><th>{{ 'product-subscription.labels.name' | translate }}</th><td>{{ blade.currentEntity.customerName }} <span class="ps-muted">{{ blade.currentEntity.customerEmail }}</span></td></tr>
                 <tr><th>{{ 'product-subscription.labels.ship-to' | translate }}</th><td>
-                    <span ng-if="blade.currentEntity.shippingAddress">{{ blade.currentEntity.shippingAddress.firstName }} {{ blade.currentEntity.shippingAddress.lastName }}, {{ blade.currentEntity.shippingAddress.line1 }}, {{ blade.currentEntity.shippingAddress.city }} {{ blade.currentEntity.shippingAddress.regionName || blade.currentEntity.shippingAddress.regionId }} {{ blade.currentEntity.shippingAddress.postalCode }}, {{ blade.currentEntity.shippingAddress.countryCode }}</span>
+                    <span ng-if="blade.currentEntity.shippingAddress">{{ formatAddress(blade.currentEntity.shippingAddress) }}</span>
                     <span class="ps-muted" ng-if="blade.currentEntity.shippingMethodCode"> · {{ blade.currentEntity.shippingMethodCode }} {{ blade.currentEntity.shippingMethodOption }}</span>
                 </td></tr>
                 <tr><th>{{ 'product-subscription.labels.started' | translate }}</th><td>{{ blade.currentEntity.startDate | date:'medium' }}</td></tr>

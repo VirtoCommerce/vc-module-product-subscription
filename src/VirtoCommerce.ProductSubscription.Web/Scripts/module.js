@@ -18,6 +18,7 @@ angular.module(moduleName, [])
                                 id: 'productSubscriptionList',
                                 controller: 'VirtoCommerce.ProductSubscription.subscriptionListController',
                                 template: 'Modules/$(VirtoCommerce.ProductSubscription)/Scripts/blades/subscription-list.html',
+                                isExpandable: true,
                                 isClosingDisabled: true,
                             });
                         }
