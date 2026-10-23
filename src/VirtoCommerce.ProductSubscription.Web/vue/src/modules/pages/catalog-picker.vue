@@ -98,7 +98,14 @@ const pagination = useDataTablePagination({ pageSize: PAGE_SIZE, totalCount });
 const search = useLatestRequest();
 
 const { loading, action: load } = useAction(async () => {
-  const result = await search.latest(searchCatalog(searchValue.value || undefined, types.value, pagination.skip, PAGE_SIZE));
+  // nothing until a keyword: listing every catalog's entries is slow and holds up the search that follows
+  const keyword = searchValue.value?.trim();
+  if (!keyword) {
+    items.value = [];
+    totalCount.value = 0;
+    return;
+  }
+  const result = await search.latest(searchCatalog(keyword, types.value, pagination.skip, PAGE_SIZE));
   if (!result) return;
   items.value = result.results;
   totalCount.value = result.totalCount;
