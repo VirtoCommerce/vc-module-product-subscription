@@ -2,6 +2,8 @@ using System.Linq;
 using GraphQL;
 using GraphQL.Types;
 using Microsoft.Extensions.DependencyInjection;
+using VirtoCommerce.CatalogModule.Core.Model;
+using VirtoCommerce.CatalogModule.Core.Services;
 using VirtoCommerce.CoreModule.Core.Common;
 using VirtoCommerce.PaymentModule.Core.Model.StoredCredentials;
 using VirtoCommerce.PaymentModule.Core.Services;
@@ -158,6 +160,19 @@ public class RenewalType : ExtendableGraphType<Renewal>
     }
 }
 
+public record SubscriptionQuantityRules(int PackSize, int MinQuantity, int? MaxQuantity);
+
+public class SubscriptionQuantityRulesType : ObjectGraphType<SubscriptionQuantityRules>
+{
+    public SubscriptionQuantityRulesType()
+    {
+        Name = "SubscriptionQuantityRules";
+        Field(x => x.PackSize).Description("The quantity must be a multiple of this.");
+        Field(x => x.MinQuantity);
+        Field(x => x.MaxQuantity, nullable: true);
+    }
+}
+
 public class ProductSubscriptionType : ExtendableGraphType<Subscription>
 {
     public ProductSubscriptionType()
@@ -201,6 +216,21 @@ public class ProductSubscriptionType : ExtendableGraphType<Subscription>
         Field(x => x.ReferencePrice, nullable: true);
         Field(x => x.CreatedDate);
         Field<SubscriptionAddressType>("shippingAddress").Resolve(x => x.Source.ShippingAddress);
+
+        Field<NonNullGraphType<SubscriptionQuantityRulesType>>("quantityRules")
+            .Description("The product's ordering rules the subscription quantity must follow.")
+            .ResolveAsync(async context =>
+            {
+                var itemService = context.RequestServices.GetRequiredService<IItemService>();
+                var product = string.IsNullOrEmpty(context.Source.ProductId)
+                    ? null
+                    : await itemService.GetNoCloneAsync(context.Source.ProductId, ItemResponseGroup.ItemInfo.ToString());
+
+                return new SubscriptionQuantityRules(
+                    product?.PackSize > 1 ? product.PackSize : 1,
+                    product?.MinQuantity > 0 ? product.MinQuantity.Value : 1,
+                    product?.MaxQuantity > 0 ? product.MaxQuantity : null);
+            });
 
         Field<SavedPaymentMethodType>("savedPaymentMethod").ResolveAsync(async context =>
         {

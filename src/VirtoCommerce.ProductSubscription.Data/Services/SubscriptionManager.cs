@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using VirtoCommerce.CatalogModule.Core.Model;
+using VirtoCommerce.CatalogModule.Core.Services;
 using VirtoCommerce.CoreModule.Core.Common;
 using VirtoCommerce.OrdersModule.Core.Model;
 using VirtoCommerce.PaymentModule.Core.Model;
@@ -29,6 +31,7 @@ public class SubscriptionManager(
     IStoredPaymentMethodSearchService storedPaymentMethodSearchService,
     IPaymentConsentSearchService paymentConsentSearchService,
     ISubscriptionNotificationService notificationService,
+    IItemService itemService,
     ILogger<SubscriptionManager> logger)
     : ISubscriptionManager
 {
@@ -292,6 +295,7 @@ public class SubscriptionManager(
 
             if (change.Quantity != subscription.Quantity)
             {
+                await EnsureQuantityAllowedAsync(subscription.ProductId, change.Quantity.Value);
                 subscription.Quantity = change.Quantity.Value;
                 detach = true;
             }
@@ -389,6 +393,36 @@ public class SubscriptionManager(
         if (!allowed.Contains(subscription.Status))
         {
             throw new InvalidOperationException($"This action isn't available for a subscription that is {subscription.Status}.");
+        }
+    }
+
+    /// <summary>Checks the product's own ordering rules (pack size, minimum and maximum quantity).</summary>
+    protected virtual async Task EnsureQuantityAllowedAsync(string productId, int quantity)
+    {
+        if (string.IsNullOrEmpty(productId))
+        {
+            return;
+        }
+
+        var product = await itemService.GetNoCloneAsync(productId, ItemResponseGroup.ItemInfo.ToString());
+        if (product == null)
+        {
+            return;
+        }
+
+        if (product.PackSize > 1 && quantity % product.PackSize != 0)
+        {
+            throw new InvalidOperationException($"This product is sold in packs of {product.PackSize}. Choose a multiple of {product.PackSize}.");
+        }
+
+        if (product.MinQuantity > 0 && quantity < product.MinQuantity)
+        {
+            throw new InvalidOperationException($"The minimum quantity for this product is {product.MinQuantity}.");
+        }
+
+        if (product.MaxQuantity > 0 && quantity > product.MaxQuantity)
+        {
+            throw new InvalidOperationException($"The maximum quantity for this product is {product.MaxQuantity}.");
         }
     }
 
