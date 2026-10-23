@@ -136,6 +136,7 @@ public class RenewalType : ExtendableGraphType<Renewal>
         Field(x => x.ScheduledDate);
         Field(x => x.CutoffDate);
         Field(x => x.IsManual);
+        Field(x => x.StoredPaymentMethodId, nullable: true).Description("The saved card this delivery is charged to");
         Field(x => x.Currency, nullable: true);
         Field(x => x.PreviewTotal);
         Field(x => x.NotifiedTotal, nullable: true);
