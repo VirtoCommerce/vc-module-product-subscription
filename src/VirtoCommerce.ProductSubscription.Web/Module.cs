@@ -25,6 +25,7 @@ using VirtoCommerce.ProductSubscription.Core.Notifications;
 using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.ProductSubscription.Data.BackgroundJobs;
 using VirtoCommerce.ProductSubscription.Data.Handlers;
+using VirtoCommerce.ProductSubscription.Data.Import;
 using VirtoCommerce.ProductSubscription.Data.MySql;
 using VirtoCommerce.ProductSubscription.Data.Payments;
 using VirtoCommerce.XCart.Core.Services;
@@ -90,6 +91,8 @@ public class Module : IModule, IHasConfiguration
         serviceCollection.AddTransient<ISubscriptionManager, SubscriptionManager>();
         serviceCollection.AddTransient<IRenewalCartBuilder, RenewalCartBuilder>();
         serviceCollection.AddTransient<IRenewalProcessor, RenewalProcessor>();
+        serviceCollection.AddTransient<ILegacySubscriptionImporter, LegacySubscriptionImporter>();
+        serviceCollection.AddTransient<LegacySubscriptionJsonMapper>();
 
         serviceCollection.AddTransient<OrderChangedEventHandler>();
         serviceCollection.AddTransient<CartChangedEventHandler>();

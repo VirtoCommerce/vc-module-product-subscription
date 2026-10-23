@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json.Linq;
 using VirtoCommerce.PaymentModule.Core.Model.StoredCredentials;
 using VirtoCommerce.PaymentModule.Core.Services;
 using VirtoCommerce.Platform.Core.Common;
@@ -11,6 +12,7 @@ using VirtoCommerce.Platform.Core.GenericCrud;
 using VirtoCommerce.ProductSubscription.Core;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
+using VirtoCommerce.ProductSubscription.Data.Import;
 using Permissions = VirtoCommerce.ProductSubscription.Core.ModuleConstants.Security.Permissions;
 
 namespace VirtoCommerce.ProductSubscription.Web.Controllers.Api;
@@ -32,7 +34,9 @@ public class ProductSubscriptionController(
     ISubscriptionOfferService offerService,
     ISubscriptionTermsService termsService,
     IStoredPaymentMethodSearchService storedPaymentMethodSearchService,
-    IPaymentConsentService consentService)
+    IPaymentConsentService consentService,
+    ILegacySubscriptionImporter legacySubscriptionImporter,
+    LegacySubscriptionJsonMapper legacySubscriptionJsonMapper)
     : Controller
 {
     #region Plans
@@ -217,6 +221,43 @@ public class ProductSubscriptionController(
     {
         var processed = await renewalProcessor.ProcessDueAsync();
         return Ok(new { processed });
+    }
+
+    #endregion
+
+    #region Import
+
+    /// <summary>
+    /// Import subscriptions from the old subscription module (VirtoCommerce.Subscription). The body is either a JSON array
+    /// of <see cref="LegacySubscriptionImportRecord"/>s or the old module's JSON as returned by its
+    /// <c>POST api/subscriptions/search</c> (with the WithOrderPrototype response group); the shape is detected.
+    /// Run with <paramref name="dryRun"/> = true first: it validates and reports without saving.
+    /// </summary>
+    [HttpPost("import/legacy")]
+    [Authorize(Permissions.Import)]
+    public async Task<ActionResult<SubscriptionImportResult>> ImportLegacySubscriptions([FromBody] JToken body, [FromQuery] bool dryRun = true)
+    {
+        if (body == null || body.Type is JTokenType.Null or JTokenType.Undefined)
+        {
+            return BadRequest(new { message = "The request body is empty." });
+        }
+
+        IList<LegacySubscriptionImportRecord> records;
+        try
+        {
+            records = legacySubscriptionJsonMapper.ReadRecords(body);
+        }
+        catch (Exception ex) when (ex is Newtonsoft.Json.JsonException or FormatException or ArgumentException)
+        {
+            return BadRequest(new { message = $"The request body can't be read: {ex.Message}" });
+        }
+
+        if (records.Count == 0)
+        {
+            return BadRequest(new { message = "The request body has no subscriptions to import." });
+        }
+
+        return Ok(await legacySubscriptionImporter.ImportAsync(records, dryRun));
     }
 
     #endregion

@@ -54,6 +54,17 @@ public interface ISubscriptionManager
     Task<Subscription> ChangeAsync(string subscriptionId, SubscriptionChange change);
 }
 
+/// <summary>
+/// Moves subscriptions from the old Virto subscription module into this module. Idempotent: a record whose OuterId
+/// already exists is skipped, so an import can be run again after fixing the failed records.
+/// </summary>
+public interface ILegacySubscriptionImporter
+{
+    /// <param name="records">Item-level records; see <see cref="LegacySubscriptionImportRecord"/>.</param>
+    /// <param name="dryRun">Validate and report what would be created without saving anything.</param>
+    Task<SubscriptionImportResult> ImportAsync(IList<LegacySubscriptionImportRecord> records, bool dryRun);
+}
+
 public class SubscriptionChange
 {
     public SubscriptionIntervalUnit? IntervalUnit { get; set; }

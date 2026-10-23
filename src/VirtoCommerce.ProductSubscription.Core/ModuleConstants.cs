@@ -23,8 +23,9 @@ public static class ModuleConstants
             public const string Delete = "product-subscription:delete";
             public const string ManagePlans = "product-subscription:plans:manage";
             public const string ProcessRenewals = "product-subscription:renewals:process";
+            public const string Import = "product-subscription:import";
 
-            public static string[] AllPermissions { get; } = [Access, Read, Update, Delete, ManagePlans, ProcessRenewals];
+            public static string[] AllPermissions { get; } = [Access, Read, Update, Delete, ManagePlans, ProcessRenewals, Import];
         }
     }
 

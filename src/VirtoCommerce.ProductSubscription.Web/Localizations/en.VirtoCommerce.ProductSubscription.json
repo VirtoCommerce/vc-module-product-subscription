@@ -121,7 +121,8 @@
     "product-subscription:update": "Change, skip, pause, resume and cancel subscriptions",
     "product-subscription:delete": "Delete subscriptions",
     "product-subscription:plans:manage": "Create and edit subscription plans",
-    "product-subscription:renewals:process": "Process renewals, order now and retry payments"
+    "product-subscription:renewals:process": "Process renewals, order now and retry payments",
+    "product-subscription:import": "Import subscriptions from the old subscription module"
   },
   "settings": {
     "ProductSubscription": {

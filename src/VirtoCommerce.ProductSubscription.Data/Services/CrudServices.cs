@@ -171,6 +171,16 @@ public class SubscriptionSearchService(
             query = query.Where(x => x.StoredPaymentMethodId == criteria.StoredPaymentMethodId);
         }
 
+        if (!string.IsNullOrEmpty(criteria.OuterId))
+        {
+            query = query.Where(x => x.OuterId == criteria.OuterId);
+        }
+
+        if (!criteria.OuterIds.IsNullOrEmpty())
+        {
+            query = query.Where(x => criteria.OuterIds.Contains(x.OuterId));
+        }
+
         if (criteria.NextOrderDateBefore != null)
         {
             query = query.Where(x => x.NextOrderDate <= criteria.NextOrderDateBefore);
