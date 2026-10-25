@@ -54,6 +54,12 @@ public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredenti
 
     public const string ProviderErrorAmountSuffix = ".13";
 
+    private const int MinAuthorizationCode = 100000;
+    private const int MaxAuthorizationCode = 999999;
+    // A two-digit expiry year ("27") is in this century.
+    private const int TwoDigitYearLimit = 100;
+    private const int CurrentCentury = 2000;
+
     // Replays of the same idempotency key return the same result, like real providers.
     private static readonly ConcurrentDictionary<string, ProcessStoredPaymentRequestResult> _idempotencyCache = new();
     private static readonly ConcurrentDictionary<string, bool> _providerErrorsGiven = new();
@@ -285,7 +291,7 @@ public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredenti
             NewPaymentStatus = captured ? PaymentStatus.Paid : PaymentStatus.Authorized,
             TransactionId = $"mock_txn_{Guid.NewGuid():N}",
             NetworkTransactionId = request.StoredPaymentMethod?.NetworkTransactionId,
-            AuthorizationCode = "MOCK" + Random.Shared.Next(100000, 999999),
+            AuthorizationCode = "MOCK" + Random.Shared.Next(MinAuthorizationCode, MaxAuthorizationCode),
             Amount = request.Amount,
         };
     }
@@ -368,6 +374,6 @@ public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredenti
             return null;
         }
 
-        return year < 100 ? 2000 + year : year;
+        return year < TwoDigitYearLimit ? CurrentCentury + year : year;
     }
 }

@@ -27,6 +27,8 @@ public class SavedPaymentMethodCommandHandler(
         IRequestHandler<RemoveSavedPaymentMethodCommand, StoredPaymentMethod>,
         IRequestHandler<SetDefaultSavedPaymentMethodCommand, StoredPaymentMethod>
 {
+    private const int MaxSavedCards = 100;
+
     public virtual Task<StoredPaymentMethod> Handle(AddSavedPaymentMethodCommand request, CancellationToken cancellationToken) => CommandErrors.Run(async () =>
     {
         var criteria = AbstractTypeFactory<PaymentMethodsSearchCriteria>.TryCreateInstance();
@@ -151,7 +153,7 @@ public class SavedPaymentMethodCommandHandler(
         criteria.CustomerId = customerId;
         criteria.StoreId = storeId;
         criteria.Statuses = [StoredPaymentMethodStatus.Active];
-        criteria.Take = 100;
+        criteria.Take = MaxSavedCards;
         return (await storedPaymentMethodSearchService.SearchAsync(criteria)).Results;
     }
 }

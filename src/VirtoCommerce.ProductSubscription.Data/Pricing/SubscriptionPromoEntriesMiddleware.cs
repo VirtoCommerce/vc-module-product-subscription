@@ -23,6 +23,8 @@ public class SubscriptionPromoEntriesMiddleware(
     ILogger<SubscriptionPromoEntriesMiddleware> logger)
     : IAsyncMiddleware<PromotionEvaluationContextCartMap>
 {
+    private const int MaxCartChoices = 1000;
+
     public async Task Run(PromotionEvaluationContextCartMap parameter, Func<PromotionEvaluationContextCartMap, Task> next)
     {
         await next(parameter);
@@ -102,7 +104,7 @@ public class SubscriptionPromoEntriesMiddleware(
 
         var criteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
         criteria.CartIds = [cart.Id];
-        criteria.Take = 1000;
+        criteria.Take = MaxCartChoices;
         var choices = (await cartItemSearchService.SearchAsync(criteria)).Results;
         if (choices.Count == 0)
         {

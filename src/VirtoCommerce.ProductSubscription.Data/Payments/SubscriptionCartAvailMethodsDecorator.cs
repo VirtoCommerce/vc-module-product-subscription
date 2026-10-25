@@ -22,6 +22,8 @@ public class SubscriptionCartAvailMethodsDecorator(
     ISubscriptionCartItemSearchService cartItemSearchService)
     : ICartAvailMethodsService
 {
+    private const int MaxCartChoices = 1000;
+
     public virtual async Task<IEnumerable<PaymentMethod>> GetAvailablePaymentMethodsAsync(CartAggregate cartAggregate)
     {
         var methods = await inner.GetAvailablePaymentMethodsAsync(cartAggregate);
@@ -60,7 +62,7 @@ public class SubscriptionCartAvailMethodsDecorator(
 
         var criteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
         criteria.CartIds = [cart.Id];
-        criteria.Take = 1000;
+        criteria.Take = MaxCartChoices;
         var choices = (await cartItemSearchService.SearchAsync(criteria)).Results;
 
         var lineIds = cart.Items.Select(x => x.Id).ToHashSet();

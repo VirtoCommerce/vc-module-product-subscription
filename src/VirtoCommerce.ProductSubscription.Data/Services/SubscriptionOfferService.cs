@@ -18,6 +18,8 @@ public class SubscriptionOfferService(
     IStoreService storeService)
     : ISubscriptionOfferService
 {
+    private const int MaxPlans = 500;
+
     public virtual async Task<IDictionary<string, SubscriptionOffer>> GetOffersAsync(string storeId, IList<string> productIds)
     {
         var result = new Dictionary<string, SubscriptionOffer>();
@@ -35,7 +37,7 @@ public class SubscriptionOfferService(
         var criteria = AbstractTypeFactory<SubscriptionPlanSearchCriteria>.TryCreateInstance();
         criteria.StoreId = storeId;
         criteria.IsActive = true;
-        criteria.Take = 500;
+        criteria.Take = MaxPlans;
         var plans = (await planSearchService.SearchAsync(criteria)).Results
             .Where(x => x.Intervals?.Count > 0)
             .OrderByDescending(x => x.Priority)

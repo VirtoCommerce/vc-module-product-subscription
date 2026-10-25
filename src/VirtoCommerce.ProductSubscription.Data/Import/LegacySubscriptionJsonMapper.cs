@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
@@ -140,12 +141,12 @@ public class LegacySubscriptionJsonMapper
 
         if (token.Type == JTokenType.Integer)
         {
-            return token.Value<int>() switch
+            return (LegacyPaymentInterval)token.Value<int>() switch
             {
-                0 => SubscriptionIntervalUnit.Day,
-                1 => SubscriptionIntervalUnit.Week,
-                2 => SubscriptionIntervalUnit.Month,
-                3 => SubscriptionIntervalUnit.Year,
+                LegacyPaymentInterval.Days => SubscriptionIntervalUnit.Day,
+                LegacyPaymentInterval.Weeks => SubscriptionIntervalUnit.Week,
+                LegacyPaymentInterval.Months => SubscriptionIntervalUnit.Month,
+                LegacyPaymentInterval.Years => SubscriptionIntervalUnit.Year,
                 _ => null,
             };
         }
@@ -301,6 +302,8 @@ public class LegacySubscriptionJsonMapper
         };
     }
 
+    [SuppressMessage("Major Code Smell", "S1168:Empty arrays and collections should be returned instead of null",
+        Justification = "A JToken is a value, not a collection: null means the property is missing or null.")]
     protected static JToken GetValue(JObject source, string name)
     {
         var value = source?.GetValue(name, StringComparison.OrdinalIgnoreCase);

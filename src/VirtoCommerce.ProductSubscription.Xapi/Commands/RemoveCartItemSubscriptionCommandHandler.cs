@@ -16,6 +16,8 @@ public class RemoveCartItemSubscriptionCommandHandler(
     ISubscriptionCartItemService cartItemService)
     : IRequestHandler<RemoveCartItemSubscriptionCommand, bool>
 {
+    private const int MaxChoicesPerLine = 10;
+
     public virtual async Task<bool> Handle(RemoveCartItemSubscriptionCommand request, CancellationToken cancellationToken)
     {
         var cart = await cartService.GetByIdAsync(request.CartId);
@@ -29,7 +31,7 @@ public class RemoveCartItemSubscriptionCommandHandler(
         var criteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
         criteria.CartIds = [cart.Id];
         criteria.LineItemId = request.LineItemId;
-        criteria.Take = 10;
+        criteria.Take = MaxChoicesPerLine;
         var items = (await cartItemSearchService.SearchAsync(criteria)).Results;
         if (items.Count == 0)
         {

@@ -243,18 +243,18 @@ public class LegacySubscriptionImporter(
                 .GroupBy(x => x.OuterId, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
 
-            foreach (var entry in batch)
+            foreach (var result in batch.Select(x => x.Result))
             {
-                if (existing.TryGetValue(entry.Result.OuterId, out var subscription))
+                if (existing.TryGetValue(result.OuterId, out var subscription))
                 {
-                    entry.Result.Outcome = SubscriptionImportOutcome.SkippedDuplicate;
-                    entry.Result.SubscriptionId = subscription.Id;
-                    entry.Result.SubscriptionNumber = subscription.Number;
-                    entry.Result.Status = subscription.Status;
-                    entry.Result.PlanId = subscription.PlanId;
-                    entry.Result.PlanName = subscription.PlanName;
-                    entry.Result.NextOrderDate = subscription.NextOrderDate;
-                    entry.Result.Messages.Add($"Already imported as subscription {subscription.Number}.");
+                    result.Outcome = SubscriptionImportOutcome.SkippedDuplicate;
+                    result.SubscriptionId = subscription.Id;
+                    result.SubscriptionNumber = subscription.Number;
+                    result.Status = subscription.Status;
+                    result.PlanId = subscription.PlanId;
+                    result.PlanName = subscription.PlanName;
+                    result.NextOrderDate = subscription.NextOrderDate;
+                    result.Messages.Add($"Already imported as subscription {subscription.Number}.");
                 }
             }
         }
@@ -423,7 +423,7 @@ public class LegacySubscriptionImporter(
             subscription.DiscountType = record.DiscountType.Value;
             subscription.DiscountValue = record.DiscountType == SubscriptionDiscountType.None ? 0 : record.DiscountValue ?? 0;
         }
-        else if (subscription.PlanId != null && applyPlanDiscount)
+        else if (offer != null && subscription.PlanId != null && applyPlanDiscount)
         {
             subscription.DiscountType = offer.DiscountType;
             subscription.DiscountValue = offer.DiscountValue;

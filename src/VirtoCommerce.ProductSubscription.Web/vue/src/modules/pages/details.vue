@@ -377,7 +377,7 @@ const paymentOptions = computed(() =>
     .filter((m) => m.status === "Active" || m.id === item.value.storedPaymentMethodId)
     .map((m) => ({
       id: m.id,
-      title: `${m.brand ?? ""} •••• ${m.last4 ?? ""} (${m.expirationMonth}/${m.expirationYear})${m.status !== "Active" ? ` — ${m.status}` : ""}`,
+      title: `${m.brand ?? ""} •••• ${m.last4 ?? ""} (${m.expirationMonth}/${m.expirationYear})${m.status === "Active" ? "" : " — " + m.status}`,
     })),
 );
 

@@ -10,6 +10,9 @@ namespace VirtoCommerce.ProductSubscription.Data.Models;
 public class RenewalEventEntity : Entity, IDataEntity<RenewalEventEntity, RenewalEvent>
 {
     [Required]
+    public const int MessageLength = 1024;
+    public const int DetailsLength = 2048;
+
     [StringLength(128)]
     public string RenewalId { get; set; }
     public virtual RenewalEntity Renewal { get; set; }
@@ -23,10 +26,10 @@ public class RenewalEventEntity : Entity, IDataEntity<RenewalEventEntity, Renewa
     [StringLength(64)]
     public string EventType { get; set; }
 
-    [StringLength(1024)]
+    [StringLength(MessageLength)]
     public string Message { get; set; }
 
-    [StringLength(2048)]
+    [StringLength(DetailsLength)]
     public string Details { get; set; }
 
     public virtual RenewalEvent ToModel(RenewalEvent model)
@@ -47,8 +50,8 @@ public class RenewalEventEntity : Entity, IDataEntity<RenewalEventEntity, Renewa
         EventDate = model.EventDate;
         State = model.State;
         EventType = model.EventType;
-        Message = Truncate(model.Message, 1024);
-        Details = Truncate(model.Details, 2048);
+        Message = Truncate(model.Message, MessageLength);
+        Details = Truncate(model.Details, DetailsLength);
         return this;
     }
 

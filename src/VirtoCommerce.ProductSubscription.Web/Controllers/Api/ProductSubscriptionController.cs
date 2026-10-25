@@ -40,6 +40,8 @@ public class ProductSubscriptionController(
     RenewalSchedulerJob renewalSchedulerJob)
     : Controller
 {
+    private const int MaxSavedCards = 100;
+
     #region Plans
 
     [HttpPost("plans/search")]
@@ -156,7 +158,7 @@ public class ProductSubscriptionController(
         var criteria = AbstractTypeFactory<StoredPaymentMethodSearchCriteria>.TryCreateInstance();
         criteria.CustomerId = customerId;
         criteria.StoreId = storeId;
-        criteria.Take = 100;
+        criteria.Take = MaxSavedCards;
         return Ok((await storedPaymentMethodSearchService.SearchAsync(criteria)).Results);
     }
 

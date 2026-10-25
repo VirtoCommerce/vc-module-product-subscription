@@ -178,8 +178,8 @@ export function useFormat() {
 
   const format = (value: Date | string | undefined | null, options: Intl.DateTimeFormatOptions) => {
     if (!value) return "—";
-    const date = value instanceof Date ? value : new Date(value);
-    return isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat(locale.value, options).format(date);
+    const parsed = value instanceof Date ? value : new Date(value);
+    return isNaN(parsed.getTime()) ? "—" : new Intl.DateTimeFormat(locale.value, options).format(parsed);
   };
   const date = (value?: Date | string | null) => format(value, { dateStyle: "medium" });
   const dateTime = (value?: Date | string | null) => format(value, { dateStyle: "medium", timeStyle: "short" });

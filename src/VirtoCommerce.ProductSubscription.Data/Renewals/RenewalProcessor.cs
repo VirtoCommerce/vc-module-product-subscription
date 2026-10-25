@@ -54,6 +54,10 @@ public class RenewalProcessor(
     private const int MaxProviderErrors = 5;
     private const int SchedulerPageSize = 500;
     private const int MaxSchedulerPages = 1000;
+    private const int DueRenewalsPageSize = 50;
+    // A price increase within rounding is not an increase.
+    private const decimal PriceIncreaseTolerance = 0.005m;
+    private static readonly TimeSpan _processingErrorRetryDelay = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan _providerErrorRetryDelay = TimeSpan.FromMinutes(15);
     // How long to wait for the result of a retry the payment provider runs on its own, before giving up on it.
     private static readonly TimeSpan _providerRetryWait = TimeSpan.FromDays(14);
@@ -79,7 +83,7 @@ public class RenewalProcessor(
         // Read the clock again: renewals created just above are due "now" too and get their reminder in this run.
         criteria.DueBefore = UtcNow;
         criteria.OnlyOpen = true;
-        criteria.Take = 50;
+        criteria.Take = DueRenewalsPageSize;
         criteria.Sort = "NextProcessingDate";
 
         var seen = new HashSet<string>();
@@ -787,7 +791,7 @@ public class RenewalProcessor(
             {
                 logger.LogError(ex, "Renewal {RenewalNumber} failed in state {State}", renewal.Number, renewal.State);
                 renewal.AddEvent(RenewalEventType.Error, "Processing error; will try again later.", ex.Message);
-                renewal.NextProcessingDate = now.AddMinutes(30);
+                renewal.NextProcessingDate = now.Add(_processingErrorRetryDelay);
                 await renewalService.SaveChangesAsync([renewal]);
                 break;
             }
@@ -846,7 +850,7 @@ public class RenewalProcessor(
         var subscriptions = await LoadSubscriptionsAsync(renewal, onlyActive: true);
         RemoveInactiveItems(renewal, subscriptions);
 
-        if (renewal.Items.Count(x => !x.IsExcluded) == 0)
+        if (!renewal.Items.Any(x => !x.IsExcluded))
         {
             await AdvanceSubscriptionsAsync(renewal, subscriptions, order: null);
             renewal.ChangeState(RenewalState.Skipped, "No items left to order in this delivery");
@@ -895,7 +899,7 @@ public class RenewalProcessor(
             return "No shipping method is available for the delivery address.";
         }
 
-        if (renewal.NotifiedTotal != null && cart.Total > renewal.NotifiedTotal.Value + 0.005m)
+        if (renewal.NotifiedTotal != null && cart.Total > renewal.NotifiedTotal.Value + PriceIncreaseTolerance)
         {
             return $"The total went up from {renewal.NotifiedTotal.Value:0.00} to {cart.Total:0.00} {renewal.Currency}. Please confirm the new price.";
         }
@@ -1356,7 +1360,7 @@ public class RenewalProcessor(
     protected virtual async Task<int> GetAuthorizationLifetimeMinutesAsync()
     {
         var minutes = await settingsManager.GetValueAsync<int>(ModuleConstants.Settings.General.AuthorizationLifetimeMinutes);
-        return minutes > 0 ? minutes : 7 * 24 * 60;
+        return minutes > 0 ? minutes : (int)ModuleConstants.Settings.General.AuthorizationLifetimeMinutes.DefaultValue;
     }
 
     protected static bool IsShipped(CustomerOrder order)
@@ -1373,7 +1377,9 @@ public class RenewalProcessor(
             .Where(x => x > 0)
             .ToList();
 
-        return result.Count > 0 ? result : [24, 72, 120];
+        return result.Count > 0 || value == (string)ModuleConstants.Settings.Store.RetryScheduleHours.DefaultValue
+            ? result
+            : ParseRetrySchedule((string)ModuleConstants.Settings.Store.RetryScheduleHours.DefaultValue);
     }
 
     /// <summary>A retry the payment provider runs on its own: the only retry state without a next attempt date.</summary>

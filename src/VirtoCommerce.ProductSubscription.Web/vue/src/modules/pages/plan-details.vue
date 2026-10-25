@@ -392,7 +392,9 @@ exposeToChildren({
     const plan = item.value;
     for (const entry of entries) {
       names.value[entry.id] = entry.code ? `${entry.name} (${entry.code})` : (entry.name ?? entry.id);
-      const list = entry.type === "category" ? (plan.categoryIds ??= []) : (plan.productIds ??= []);
+      const key = entry.type === "category" ? "categoryIds" : "productIds";
+      const list = plan[key] ?? [];
+      plan[key] = list;
       if (!list.includes(entry.id)) list.push(entry.id);
     }
   },

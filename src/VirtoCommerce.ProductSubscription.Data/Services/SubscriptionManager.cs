@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,8 @@ using Address = VirtoCommerce.CoreModule.Core.Common.Address;
 
 namespace VirtoCommerce.ProductSubscription.Data.Services;
 
+[SuppressMessage("Major Code Smell", "S107:Methods should not have too many parameters",
+    Justification = "A DI constructor: each parameter is a platform or module service the actions use.")]
 public class SubscriptionManager(
     ISubscriptionService subscriptionService,
     ISubscriptionSearchService subscriptionSearchService,
@@ -40,6 +43,11 @@ public class SubscriptionManager(
     ILogger<SubscriptionManager> logger)
     : ISubscriptionManager
 {
+    private const int MaxCartChoices = 1000;
+    private const int MaxSubscriptionsPerOrder = 1000;
+    private const int MaxSavedCards = 100;
+    private const int MaxQuantity = 9999;
+
     private static readonly PaymentStatus[] _paidStatuses = [PaymentStatus.Authorized, PaymentStatus.Paid];
 
     public virtual async Task<IList<Subscription>> CreateFromOrderAsync(CustomerOrder order)
@@ -51,7 +59,7 @@ public class SubscriptionManager(
 
         var choicesCriteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
         choicesCriteria.CartIds = [order.ShoppingCartId];
-        choicesCriteria.Take = 1000;
+        choicesCriteria.Take = MaxCartChoices;
         var choices = (await cartItemSearchService.SearchAsync(choicesCriteria)).Results;
         if (choices.Count == 0)
         {
@@ -165,7 +173,7 @@ public class SubscriptionManager(
             var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
             criteria.InitialOrderId = order.Id;
             criteria.Statuses = [SubscriptionStatus.PendingActivation];
-            criteria.Take = 1000;
+            criteria.Take = MaxSubscriptionsPerOrder;
             var pending = (await subscriptionSearchService.SearchAsync(criteria)).Results;
             if (pending.Count == 0)
             {
@@ -310,9 +318,9 @@ public class SubscriptionManager(
 
             if (change.Quantity != null)
             {
-                if (change.Quantity < 1 || change.Quantity > 9999)
+                if (change.Quantity < 1 || change.Quantity > MaxQuantity)
                 {
-                    throw new SubscriptionOperationException("The quantity must be between 1 and 9999.");
+                    throw new SubscriptionOperationException($"The quantity must be between 1 and {MaxQuantity}.");
                 }
 
                 if (change.Quantity != subscription.Quantity)
@@ -500,7 +508,7 @@ public class SubscriptionManager(
         customerCriteria.CustomerId = order.CustomerId;
         customerCriteria.PaymentMethodCode = paymentMethodCode;
         customerCriteria.Statuses = [StoredPaymentMethodStatus.Active];
-        customerCriteria.Take = 100;
+        customerCriteria.Take = MaxSavedCards;
         var cards = (await storedPaymentMethodSearchService.SearchAsync(customerCriteria)).Results;
 
         var placedDate = order.CreatedDate == default ? DateTime.MinValue : order.CreatedDate.AddMinutes(-1);

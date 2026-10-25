@@ -71,7 +71,7 @@ public class SubscriptionNotificationService(
             notification.LanguageCode = renewal?.LanguageCode ?? first?.LanguageCode ?? store.DefaultLanguage;
             notification.TenantIdentity = renewal != null
                 ? new TenantIdentity(renewal.Id, nameof(Renewal))
-                : new TenantIdentity(first?.Id, nameof(Subscription));
+                : new TenantIdentity(first.Id, nameof(Subscription));
 
             configure?.Invoke(notification);
 

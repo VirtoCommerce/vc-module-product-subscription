@@ -5,6 +5,13 @@ namespace VirtoCommerce.ProductSubscription.Core.Models;
 
 public static class SubscriptionSchedule
 {
+    private const int DaysPerWeek = 7;
+    private const int MaxDayOfMonth = 31;
+    // Stops a runaway loop on bad data; a real schedule never skips this many intervals.
+    private const int MaxSkippedIntervals = 1000;
+    private const decimal FullPercent = 100m;
+    private const int MoneyDecimals = 2;
+
     public static DateTime AddInterval(DateTime date, SubscriptionIntervalUnit unit, int count)
     {
         var safeCount = Math.Max(1, count);
@@ -12,7 +19,7 @@ public static class SubscriptionSchedule
         return unit switch
         {
             SubscriptionIntervalUnit.Day => date.AddDays(safeCount),
-            SubscriptionIntervalUnit.Week => date.AddDays(7 * safeCount),
+            SubscriptionIntervalUnit.Week => date.AddDays(DaysPerWeek * safeCount),
             SubscriptionIntervalUnit.Month => date.AddMonths(safeCount),
             SubscriptionIntervalUnit.Year => date.AddYears(safeCount),
             _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, null),
@@ -26,7 +33,7 @@ public static class SubscriptionSchedule
     public static DateTime AddInterval(DateTime date, SubscriptionIntervalUnit unit, int count, int? anchorDay)
     {
         var next = AddInterval(date, unit, count);
-        if (anchorDay is not (>= 1 and <= 31) || unit is not (SubscriptionIntervalUnit.Month or SubscriptionIntervalUnit.Year))
+        if (anchorDay is not (>= 1 and <= MaxDayOfMonth) || unit is not (SubscriptionIntervalUnit.Month or SubscriptionIntervalUnit.Year))
         {
             return next;
         }
@@ -49,7 +56,7 @@ public static class SubscriptionSchedule
     {
         var next = AddInterval(previous, unit, count, anchorDay);
         var guard = 0;
-        while (next <= utcNow && guard++ < 1000)
+        while (next <= utcNow && guard++ < MaxSkippedIntervals)
         {
             next = AddInterval(next, unit, count, anchorDay);
         }
@@ -76,7 +83,7 @@ public static class SubscriptionSchedule
     {
         return discountType switch
         {
-            SubscriptionDiscountType.Percent => Math.Round(price * Math.Clamp(discountValue, 0, 100) / 100m, 2, MidpointRounding.AwayFromZero),
+            SubscriptionDiscountType.Percent => Math.Round(price * Math.Clamp(discountValue, 0, FullPercent) / FullPercent, MoneyDecimals, MidpointRounding.AwayFromZero),
             SubscriptionDiscountType.FixedAmount => Math.Min(price, Math.Max(0, discountValue)),
             _ => 0m,
         };
@@ -90,6 +97,6 @@ public static class SubscriptionSchedule
 
     public static decimal Round(decimal amount, Currency currency)
     {
-        return currency?.RoundingPolicy?.RoundMoney(amount, currency) ?? Math.Round(amount, 2, MidpointRounding.AwayFromZero);
+        return currency?.RoundingPolicy?.RoundMoney(amount, currency) ?? Math.Round(amount, MoneyDecimals, MidpointRounding.AwayFromZero);
     }
 }

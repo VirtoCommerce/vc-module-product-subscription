@@ -13,6 +13,15 @@ public static class ModuleConstants
 
     public const string ConsentPurpose = "subscription";
 
+    private const int MinutesPerDay = 24 * 60;
+    // Most card networks keep an authorization for 7 days.
+    private const int DefaultAuthorizationLifetimeDays = 7;
+    private const int DefaultReminderLeadDays = 3;
+    private const int DefaultCutoffHours = 24;
+    // Visa allows 15 attempts per 30 days.
+    private const int DefaultMaxRetriesPer30Days = 15;
+    private const int DefaultPaymentActionWaitDays = 7;
+
     /// <summary>The object a subscription consent is recorded for: the checkout cart the customer accepted the terms in.</summary>
     public const string ConsentObjectType = "ShoppingCart";
 
@@ -77,7 +86,7 @@ public static class ModuleConstants
                 Name = "ProductSubscription.Payments.AuthorizationLifetimeMinutes",
                 GroupName = "Product Subscription|Payments",
                 ValueType = SettingValueType.Integer,
-                DefaultValue = 7 * 24 * 60,
+                DefaultValue = DefaultAuthorizationLifetimeDays * MinutesPerDay,
             };
 
             public static IEnumerable<SettingDescriptor> AllGeneralSettings
@@ -110,7 +119,7 @@ public static class ModuleConstants
                 Name = "ProductSubscription.ReminderLeadDays",
                 GroupName = "Product Subscription|Renewals",
                 ValueType = SettingValueType.Integer,
-                DefaultValue = 3,
+                DefaultValue = DefaultReminderLeadDays,
                 IsPublic = true,
             };
 
@@ -119,7 +128,7 @@ public static class ModuleConstants
                 Name = "ProductSubscription.CutoffHours",
                 GroupName = "Product Subscription|Renewals",
                 ValueType = SettingValueType.Integer,
-                DefaultValue = 24,
+                DefaultValue = DefaultCutoffHours,
                 IsPublic = true,
             };
 
@@ -136,7 +145,7 @@ public static class ModuleConstants
                 Name = "ProductSubscription.MaxRetriesPer30Days",
                 GroupName = "Product Subscription|Payments",
                 ValueType = SettingValueType.Integer,
-                DefaultValue = 15,
+                DefaultValue = DefaultMaxRetriesPer30Days,
             };
 
             public static SettingDescriptor PaymentActionWaitDays { get; } = new()
@@ -144,7 +153,7 @@ public static class ModuleConstants
                 Name = "ProductSubscription.PaymentActionWaitDays",
                 GroupName = "Product Subscription|Payments",
                 ValueType = SettingValueType.Integer,
-                DefaultValue = 7,
+                DefaultValue = DefaultPaymentActionWaitDays,
             };
 
             public static SettingDescriptor TermsVersion { get; } = new()

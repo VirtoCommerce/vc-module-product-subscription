@@ -22,6 +22,9 @@ public class SubscriptionPlanService(
     : CrudService<SubscriptionPlan, SubscriptionPlanEntity, SubscriptionPlanChangingEvent, SubscriptionPlanChangedEvent>(repositoryFactory, platformMemoryCache, eventPublisher),
         ISubscriptionPlanService
 {
+    private const int MaxIntervalCount = 365;
+    private const decimal FullPercent = 100;
+
     protected override Task<IList<SubscriptionPlanEntity>> LoadEntities(IRepository repository, IList<string> ids, string responseGroup)
     {
         return ((IProductSubscriptionRepository)repository).GetPlansByIdsAsync(ids, responseGroup);
@@ -58,9 +61,9 @@ public class SubscriptionPlanService(
             throw new SubscriptionOperationException("Add at least one delivery frequency.");
         }
 
-        if (plan.Intervals.Any(x => x.Count < 1 || x.Count > 365))
+        if (plan.Intervals.Any(x => x.Count < 1 || x.Count > MaxIntervalCount))
         {
-            throw new SubscriptionOperationException("Each frequency must be between 1 and 365.");
+            throw new SubscriptionOperationException($"Each frequency must be between 1 and {MaxIntervalCount}.");
         }
 
         if (plan.Intervals.GroupBy(x => (x.Unit, x.Count)).Any(x => x.Count() > 1))
@@ -68,7 +71,7 @@ public class SubscriptionPlanService(
             throw new SubscriptionOperationException("Each frequency can be listed only once.");
         }
 
-        if (plan.DiscountType == SubscriptionDiscountType.Percent && (plan.DiscountValue < 0 || plan.DiscountValue > 100))
+        if (plan.DiscountType == SubscriptionDiscountType.Percent && (plan.DiscountValue < 0 || plan.DiscountValue > FullPercent))
         {
             throw new SubscriptionOperationException("A percent discount must be between 0 and 100.");
         }
