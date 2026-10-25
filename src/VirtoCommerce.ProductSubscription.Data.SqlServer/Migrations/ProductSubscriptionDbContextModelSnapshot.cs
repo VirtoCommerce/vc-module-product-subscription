@@ -582,6 +582,11 @@ namespace VirtoCommerce.ProductSubscription.Data.SqlServer.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_ProductSubscription_Number");
 
+                    b.HasIndex("OuterId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ProductSubscription_OuterId")
+                        .HasFilter("[OuterId] IS NOT NULL");
+
                     b.HasIndex("CustomerId", "StoreId")
                         .HasDatabaseName("IX_ProductSubscription_CustomerId_StoreId");
 

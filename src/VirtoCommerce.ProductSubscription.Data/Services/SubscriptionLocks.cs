@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using VirtoCommerce.Platform.Core.DistributedLock;
+using VirtoCommerce.ProductSubscription.Core.Exceptions;
 
 namespace VirtoCommerce.ProductSubscription.Data.Services;
 
@@ -20,7 +21,7 @@ public static class SubscriptionLocks
     public static async Task<T> RunForCustomerAsync<T>(this IDistributedLock distributedLock, string customerId, Func<Task<T>> action, TimeSpan? wait = null)
     {
         var handle = await distributedLock.TryAcquireAsync(ForCustomer(customerId), wait ?? DefaultWait)
-            ?? throw new InvalidOperationException("Your subscriptions are being updated right now. Please try again in a moment.");
+            ?? throw new SubscriptionOperationException("Your subscriptions are being updated right now. Please try again in a moment.");
 
         await using (handle)
         {

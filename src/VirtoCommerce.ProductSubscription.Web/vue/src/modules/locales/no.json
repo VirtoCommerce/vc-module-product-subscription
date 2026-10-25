@@ -32,7 +32,8 @@
       "PROCESS_NOW": "Behandle denne fornyelsen nå? Påminnelses- og fristtidspunktene ignoreres: bestillingen kan bli lagt inn og belastet umiddelbart.",
       "CANCEL_RENEWAL": "Avbryte denne fornyelsen? Leveransen blir ikke bestilt.",
       "DELETE_PLAN": "Slette denne planen? Eksisterende abonnementer beholder frekvens og rabatt, men kunder kan ikke lenger abonnere med den.",
-      "CLOSE_CONFIRMATION": "Du har ulagrede endringer. Vil du lukke likevel?"
+      "CLOSE_CONFIRMATION": "Du har ulagrede endringer. Vil du lukke likevel?",
+      "NO_READ_PERMISSION": "Du har ikke tilgang til å se abonnementer. Be administratoren din om tilgang."
     },
     "STATUSES": {
       "PendingActivation": "Venter på aktivering",

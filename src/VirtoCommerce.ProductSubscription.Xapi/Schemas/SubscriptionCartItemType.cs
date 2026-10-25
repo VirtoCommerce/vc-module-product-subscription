@@ -16,7 +16,7 @@ public class SubscriptionCartItemType : ExtendableGraphType<SubscriptionCartItem
         Field(x => x.LineItemId);
         Field(x => x.ProductId);
         Field(x => x.PlanId);
-        Field<NonNullGraphType<StringGraphType>>("intervalUnit").Resolve(x => x.Source.IntervalUnit.ToString());
+        Field<NonNullGraphType<SubscriptionIntervalUnitEnum>>("intervalUnit").Resolve(x => x.Source.IntervalUnit);
         Field(x => x.IntervalCount);
         Field<NonNullGraphType<StringGraphType>>("intervalLabel").Resolve(x => SubscriptionSchedule.Describe(x.Source.IntervalUnit, x.Source.IntervalCount));
     }

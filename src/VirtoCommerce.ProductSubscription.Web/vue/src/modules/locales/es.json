@@ -32,7 +32,8 @@
       "PROCESS_NOW": "¿Procesar esta renovación ahora? Se ignoran el recordatorio y la fecha límite: el pedido puede realizarse y cobrarse de inmediato.",
       "CANCEL_RENEWAL": "¿Cancelar esta renovación? No se realizará el pedido de esta entrega.",
       "DELETE_PLAN": "¿Eliminar este plan? Las suscripciones existentes conservan su frecuencia y su descuento, pero los clientes ya no podrán suscribirse con él.",
-      "CLOSE_CONFIRMATION": "Hay cambios sin guardar. ¿Cerrar de todos modos?"
+      "CLOSE_CONFIRMATION": "Hay cambios sin guardar. ¿Cerrar de todos modos?",
+      "NO_READ_PERMISSION": "No tiene permiso para ver las suscripciones. Solicítelo a su administrador."
     },
     "STATUSES": {
       "PendingActivation": "Pendiente de activación",

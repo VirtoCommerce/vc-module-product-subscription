@@ -32,7 +32,8 @@
       "PROCESS_NOW": "Processar esta renovação agora? Os horários de lembrete e de corte serão ignorados: o pedido poderá ser feito e cobrado imediatamente.",
       "CANCEL_RENEWAL": "Cancelar esta renovação? A entrega não será feita.",
       "DELETE_PLAN": "Excluir este plano? As assinaturas existentes mantêm a frequência e o desconto, mas os clientes não poderão mais assinar com ele.",
-      "CLOSE_CONFIRMATION": "Há alterações não salvas. Fechar mesmo assim?"
+      "CLOSE_CONFIRMATION": "Há alterações não salvas. Fechar mesmo assim?",
+      "NO_READ_PERMISSION": "Você não tem permissão para ver as assinaturas. Peça-a ao seu administrador."
     },
     "STATUSES": {
       "PendingActivation": "Aguardando ativação",

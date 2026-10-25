@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using VirtoCommerce.Platform.Core.Common;
+using VirtoCommerce.ProductSubscription.Core.Exceptions;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.ProductSubscription.Xapi.Queries;
@@ -31,7 +32,7 @@ public class ProductSubscriptionCommandHandler(ISubscriptionService subscription
     public virtual Task<Subscription> Handle(ChangeProductSubscriptionCommand request, CancellationToken cancellationToken)
         => Owned(request, () => subscriptionManager.ChangeAsync(request.SubscriptionId, new SubscriptionChange
         {
-            IntervalUnit = string.IsNullOrEmpty(request.IntervalUnit) ? null : EnumUtility.SafeParse(request.IntervalUnit, SubscriptionIntervalUnit.Month),
+            IntervalUnit = request.IntervalUnit,
             IntervalCount = request.IntervalCount,
             Quantity = request.Quantity,
             NextOrderDate = request.NextOrderDate,
@@ -40,7 +41,7 @@ public class ProductSubscriptionCommandHandler(ISubscriptionService subscription
 
     protected virtual Task<Subscription> Owned(SubscriptionIdCommand request, Func<Task<Subscription>> action) => CommandErrors.Run(async () =>
     {
-        var subscription = await subscriptionService.GetNoCloneAsync(request.SubscriptionId) ?? throw new InvalidOperationException("Subscription not found.");
+        var subscription = await subscriptionService.GetNoCloneAsync(request.SubscriptionId) ?? throw new SubscriptionOperationException("Subscription not found.");
         AccessGuard.EnsureOwner(request.UserId, subscription.CustomerId);
         return await action();
     });

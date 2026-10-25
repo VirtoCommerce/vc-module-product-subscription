@@ -8,7 +8,7 @@ public class InputChangeSubscriptionType : InputObjectGraphType
     {
         Name = "InputChangeProductSubscription";
         Field<NonNullGraphType<StringGraphType>>("subscriptionId");
-        Field<StringGraphType>("intervalUnit");
+        Field<SubscriptionIntervalUnitEnum>("intervalUnit");
         Field<IntGraphType>("intervalCount");
         Field<IntGraphType>("quantity");
         Field<DateTimeGraphType>("nextOrderDate");

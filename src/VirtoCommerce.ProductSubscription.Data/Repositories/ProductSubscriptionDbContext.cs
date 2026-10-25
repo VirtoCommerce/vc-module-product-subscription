@@ -56,6 +56,8 @@ public class ProductSubscriptionDbContext : DbContextBase
             builder.HasIndex(x => new { x.CustomerId, x.StoreId }).HasDatabaseName("IX_ProductSubscription_CustomerId_StoreId");
             builder.HasIndex(x => new { x.Status, x.NextOrderDate }).HasDatabaseName("IX_ProductSubscription_Status_NextOrderDate");
             builder.HasIndex(x => x.InitialOrderId).HasDatabaseName("IX_ProductSubscription_InitialOrderId");
+            // The legacy import is idempotent by OuterId: one subscription per legacy subscription.
+            builder.HasIndex(x => x.OuterId).IsUnique().HasDatabaseName("IX_ProductSubscription_OuterId");
         });
 
         modelBuilder.Entity<RenewalEntity>(builder =>

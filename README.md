@@ -25,10 +25,10 @@ The Product Subscription module adds Subscribe & Save to Virto Commerce: item-le
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `ProductSubscription.Scheduler.Enabled` | Boolean | `true` | Run the renewal scheduler |
-| `ProductSubscription.Scheduler.CronExpression` | ShortText | `*/5 * * * *` | How often due renewals are processed (restart required) |
+| `ProductSubscription.Scheduler.CronExpression` | ShortText | `*/5 * * * *` | How often due renewals are processed; a change applies without a restart |
 | `ProductSubscription.NumberTemplate` | ShortText | `SUB{0:yyMMdd}-{1:D5}` | Subscription number template |
 | `ProductSubscription.Renewal.NumberTemplate` | ShortText | `REN{0:yyMMdd}-{1:D5}` | Renewal number template |
-| `ProductSubscription.MockPayment.AuthorizationLifetimeMinutes` | Integer | `10080` | Lifetime of a mock payment authorization; shorten it to test re-authorization before capture |
+| `ProductSubscription.Payments.AuthorizationLifetimeMinutes` | Integer | `10080` | How long a renewal's card authorization stays valid at the payment provider; an order that ships later is authorized again before the capture. Shorten it to test re-authorization |
 
 ### Store Settings
 

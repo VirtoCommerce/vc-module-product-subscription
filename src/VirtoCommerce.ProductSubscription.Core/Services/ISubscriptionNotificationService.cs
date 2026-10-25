@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Notifications;
 
-namespace VirtoCommerce.ProductSubscription.Data.Services;
+namespace VirtoCommerce.ProductSubscription.Core.Services;
 
 public interface ISubscriptionNotificationService
 {

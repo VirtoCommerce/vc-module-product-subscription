@@ -134,12 +134,12 @@ public class RenewalTestHarness
         var storeService = new Mock<IStoreService>();
         storeService
             .Setup(x => x.GetAsync(It.IsAny<IList<string>>(), It.IsAny<string>(), It.IsAny<bool>()))
-            .ReturnsAsync((IList<string> ids, string _, bool _) => ids.Contains(StoreId) ? [Store] : []);
+            .ReturnsAsync((IList<string> ids, string _, bool _) => !StoreDeleted && ids.Contains(StoreId) ? [Store] : []);
 
         var storeSearchService = new Mock<IStoreSearchService>();
         storeSearchService
             .Setup(x => x.SearchAsync(It.IsAny<StoreSearchCriteria>(), It.IsAny<bool>()))
-            .ReturnsAsync((StoreSearchCriteria criteria, bool _) => new StoreSearchResult { Results = criteria.Skip == 0 ? [Store] : [], TotalCount = 1 });
+            .ReturnsAsync((StoreSearchCriteria criteria, bool _) => new StoreSearchResult { Results = criteria.Skip == 0 && !StoreDeleted ? [Store] : [], TotalCount = StoreDeleted ? 0 : 1 });
 
         Processor = new TestRenewalProcessor(
             subscriptionService.Object,
@@ -161,15 +161,16 @@ public class RenewalTestHarness
         Manager = new SubscriptionManager(
             subscriptionService.Object,
             subscriptionSearchService.Object,
-            Mock.Of<ISubscriptionPlanService>(),
+            PlanService.Object,
             Mock.Of<ISubscriptionCartItemService>(),
-            Mock.Of<ISubscriptionCartItemSearchService>(),
+            CartItemSearchService.Object,
             renewalService.Object,
             storedPaymentMethodService.Object,
-            Mock.Of<IStoredPaymentMethodSearchService>(),
-            Mock.Of<IPaymentConsentSearchService>(),
+            Mock.Of<IStoredPaymentMethodSearchService>(x => x.SearchAsync(It.IsAny<StoredPaymentMethodSearchCriteria>(), It.IsAny<bool>()) == Task.FromResult(new StoredPaymentMethodSearchResult { Results = new List<StoredPaymentMethod>() })),
+            Mock.Of<IPaymentConsentSearchService>(x => x.SearchAsync(It.IsAny<PaymentConsentSearchCriteria>(), It.IsAny<bool>()) == Task.FromResult(new PaymentConsentSearchResult { Results = new List<PaymentConsent>() })),
             Notifications.Object,
             Mock.Of<IItemService>(),
+            storeService.Object,
             Lock,
             NullLogger<SubscriptionManager>.Instance);
     }
@@ -185,6 +186,13 @@ public class RenewalTestHarness
     public Mock<IRenewalCartBuilder> CartBuilder { get; } = new();
 
     public Mock<ISubscriptionNotificationService> Notifications { get; } = new();
+
+    public Mock<ISubscriptionPlanService> PlanService { get; } = new();
+
+    public Mock<ISubscriptionCartItemSearchService> CartItemSearchService { get; } = new();
+
+    /// <summary>The store is gone: it is no longer found by id or by search.</summary>
+    public bool StoreDeleted { get; set; }
 
     public TestRenewalProcessor Processor { get; }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using VirtoCommerce.CartModule.Core.Model;
 using VirtoCommerce.MarketingModule.Core.Model.Promotions;
@@ -26,7 +27,7 @@ public class SubscriptionPromoEntriesMiddlewareTests
     private readonly Mock<ISubscriptionCartItemSearchService> _cartItemSearchServiceMock = new();
     private readonly Mock<ISubscriptionPlanService> _planServiceMock = new();
 
-    private SubscriptionPromoEntriesMiddleware CreateSut() => new(_cartItemSearchServiceMock.Object, _planServiceMock.Object);
+    private SubscriptionPromoEntriesMiddleware CreateSut() => new(_cartItemSearchServiceMock.Object, _planServiceMock.Object, NullLogger<SubscriptionPromoEntriesMiddleware>.Instance);
 
     [Fact]
     public async Task Run_CheckoutLineWithSavedChoice_MarksEntryWithPlanDiscount()

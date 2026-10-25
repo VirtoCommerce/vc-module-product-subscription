@@ -12,10 +12,13 @@ using VirtoCommerce.PaymentModule.Core.Model.StoredCredentials;
 using VirtoCommerce.PaymentModule.Core.Services;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.DistributedLock;
+using VirtoCommerce.Platform.Core.Settings;
 using VirtoCommerce.ProductSubscription.Core;
+using VirtoCommerce.ProductSubscription.Core.Exceptions;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Notifications;
 using VirtoCommerce.ProductSubscription.Core.Services;
+using VirtoCommerce.StoreModule.Core.Services;
 using Address = VirtoCommerce.CoreModule.Core.Common.Address;
 
 namespace VirtoCommerce.ProductSubscription.Data.Services;
@@ -32,12 +35,11 @@ public class SubscriptionManager(
     IPaymentConsentSearchService paymentConsentSearchService,
     ISubscriptionNotificationService notificationService,
     IItemService itemService,
+    IStoreService storeService,
     IDistributedLock distributedLock,
     ILogger<SubscriptionManager> logger)
     : ISubscriptionManager
 {
-    public const string CartObjectType = "ShoppingCart";
-
     private static readonly PaymentStatus[] _paidStatuses = [PaymentStatus.Authorized, PaymentStatus.Paid];
 
     public virtual async Task<IList<Subscription>> CreateFromOrderAsync(CustomerOrder order)
@@ -79,14 +81,19 @@ public class SubscriptionManager(
         var now = DateTime.UtcNow;
         var subscriptions = new List<Subscription>();
         var usedChoices = new List<SubscriptionCartItem>();
+        // Order lines don't keep the cart line id, so match by product; each line backs one choice, so two lines of the
+        // same product keep their own quantity and price.
+        var unmatchedLines = order.Items.ToList();
 
         foreach (var choice in choices)
         {
-            var lineItem = order.Items.FirstOrDefault(x => x.ProductId == choice.ProductId);
+            var lineItem = unmatchedLines.FirstOrDefault(x => x.ProductId == choice.ProductId);
             if (lineItem == null || !plans.TryGetValue(choice.PlanId, out var plan))
             {
                 continue;
             }
+
+            unmatchedLines.Remove(lineItem);
 
             var subscription = AbstractTypeFactory<Subscription>.TryCreateInstance();
             subscription.StoreId = order.StoreId;
@@ -206,7 +213,7 @@ public class SubscriptionManager(
 
             if (resumeDate != null && resumeDate.Value.ToUniversalTime() <= DateTime.UtcNow)
             {
-                throw new InvalidOperationException("The resume date must be in the future.");
+                throw new SubscriptionOperationException("The resume date must be in the future.");
             }
 
             await DetachFromOpenRenewalAsync(subscription, "Subscription paused");
@@ -228,7 +235,7 @@ public class SubscriptionManager(
             subscription.Status = SubscriptionStatus.Active;
             subscription.PausedUntil = null;
 
-            var earliest = DateTime.UtcNow.AddDays(1);
+            var earliest = await GetEarliestNextOrderDateAsync(subscription);
             if (subscription.NextOrderDate < earliest)
             {
                 subscription.NextOrderDate = earliest;
@@ -279,13 +286,13 @@ public class SubscriptionManager(
                 var count = change.IntervalCount ?? subscription.IntervalCount;
                 if (count < 1)
                 {
-                    throw new InvalidOperationException("The frequency must be at least 1.");
+                    throw new SubscriptionOperationException("The frequency must be at least 1.");
                 }
 
                 var plan = string.IsNullOrEmpty(subscription.PlanId) ? null : await planService.GetNoCloneAsync(subscription.PlanId);
                 if (plan != null && plan.Intervals?.Count > 0 && !plan.SupportsInterval(unit, count))
                 {
-                    throw new InvalidOperationException("This frequency is not offered for this product.");
+                    throw new SubscriptionOperationException("This frequency is not offered for this product.");
                 }
 
                 if (unit != subscription.IntervalUnit || count != subscription.IntervalCount)
@@ -293,7 +300,7 @@ public class SubscriptionManager(
                     // Keep the anchor: the next order is one new interval after the last order (or after today).
                     var anchor = subscription.LastOrderDate ?? subscription.StartDate;
                     var next = SubscriptionSchedule.AddInterval(anchor, unit, count, subscription.EffectiveAnchorDay);
-                    var earliest = DateTime.UtcNow.AddDays(1);
+                    var earliest = await GetEarliestNextOrderDateAsync(subscription);
                     subscription.NextOrderDate = next < earliest ? earliest : next;
                     subscription.IntervalUnit = unit;
                     subscription.IntervalCount = count;
@@ -305,7 +312,7 @@ public class SubscriptionManager(
             {
                 if (change.Quantity < 1 || change.Quantity > 9999)
                 {
-                    throw new InvalidOperationException("The quantity must be between 1 and 9999.");
+                    throw new SubscriptionOperationException("The quantity must be between 1 and 9999.");
                 }
 
                 if (change.Quantity != subscription.Quantity)
@@ -321,7 +328,7 @@ public class SubscriptionManager(
                 var date = change.NextOrderDate.Value.ToUniversalTime();
                 if (date.Date < DateTime.UtcNow.Date.AddDays(1) || date > DateTime.UtcNow.AddYears(1))
                 {
-                    throw new InvalidOperationException("The next delivery date must be between tomorrow and one year from now.");
+                    throw new SubscriptionOperationException("The next delivery date must be between tomorrow and one year from now.");
                 }
 
                 subscription.NextOrderDate = date;
@@ -335,7 +342,7 @@ public class SubscriptionManager(
                 var storedMethod = await storedPaymentMethodService.GetNoCloneAsync(change.StoredPaymentMethodId);
                 if (storedMethod == null || storedMethod.CustomerId != subscription.CustomerId || storedMethod.Status != StoredPaymentMethodStatus.Active)
                 {
-                    throw new InvalidOperationException("This payment method can't be used.");
+                    throw new SubscriptionOperationException("This payment method can't be used.");
                 }
 
                 subscription.StoredPaymentMethodId = storedMethod.Id;
@@ -407,22 +414,33 @@ public class SubscriptionManager(
     protected virtual async Task<Subscription> WithLockAsync(string subscriptionId, Func<Subscription, Task<Subscription>> action)
     {
         var customerId = (await subscriptionService.GetNoCloneAsync(subscriptionId))?.CustomerId
-            ?? throw new InvalidOperationException($"Subscription {subscriptionId} was not found.");
+            ?? throw new SubscriptionOperationException($"Subscription {subscriptionId} was not found.");
 
         return await distributedLock.RunForCustomerAsync(customerId, async () => await action(await GetRequiredAsync(subscriptionId)));
+    }
+
+    /// <summary>
+    /// The earliest next delivery to set on a resume or a frequency change: late enough for the reminder to go out the
+    /// store's lead days before the order.
+    /// </summary>
+    protected virtual async Task<DateTime> GetEarliestNextOrderDateAsync(Subscription subscription)
+    {
+        var store = await storeService.GetNoCloneAsync(subscription.StoreId);
+        var leadDays = store?.Settings.GetValue<int>(ModuleConstants.Settings.Store.ReminderLeadDays) ?? 0;
+        return SubscriptionSchedule.EarliestNextOrderDate(DateTime.UtcNow, leadDays);
     }
 
     protected virtual async Task<Subscription> GetRequiredAsync(string subscriptionId)
     {
         var subscription = await subscriptionService.GetByIdAsync(subscriptionId);
-        return subscription ?? throw new InvalidOperationException($"Subscription {subscriptionId} was not found.");
+        return subscription ?? throw new SubscriptionOperationException($"Subscription {subscriptionId} was not found.");
     }
 
     protected static void EnsureStatus(Subscription subscription, params string[] allowed)
     {
         if (!allowed.Contains(subscription.Status))
         {
-            throw new InvalidOperationException($"This action isn't available for a subscription that is {subscription.Status}.");
+            throw new SubscriptionOperationException($"This action isn't available for a subscription that is {subscription.Status}.");
         }
     }
 
@@ -442,17 +460,17 @@ public class SubscriptionManager(
 
         if (product.PackSize > 1 && quantity % product.PackSize != 0)
         {
-            throw new InvalidOperationException($"This product is sold in packs of {product.PackSize}. Choose a multiple of {product.PackSize}.");
+            throw new SubscriptionOperationException($"This product is sold in packs of {product.PackSize}. Choose a multiple of {product.PackSize}.");
         }
 
         if (product.MinQuantity > 0 && quantity < product.MinQuantity)
         {
-            throw new InvalidOperationException($"The minimum quantity for this product is {product.MinQuantity}.");
+            throw new SubscriptionOperationException($"The minimum quantity for this product is {product.MinQuantity}.");
         }
 
         if (product.MaxQuantity > 0 && quantity > product.MaxQuantity)
         {
-            throw new InvalidOperationException($"The maximum quantity for this product is {product.MaxQuantity}.");
+            throw new SubscriptionOperationException($"The maximum quantity for this product is {product.MaxQuantity}.");
         }
     }
 
@@ -497,7 +515,7 @@ public class SubscriptionManager(
     protected virtual async Task<string> FindConsentIdAsync(CustomerOrder order)
     {
         var criteria = AbstractTypeFactory<PaymentConsentSearchCriteria>.TryCreateInstance();
-        criteria.RelatedObjectType = CartObjectType;
+        criteria.RelatedObjectType = ModuleConstants.ConsentObjectType;
         criteria.RelatedObjectId = order.ShoppingCartId;
         criteria.Purpose = ModuleConstants.ConsentPurpose;
         criteria.Take = 1;

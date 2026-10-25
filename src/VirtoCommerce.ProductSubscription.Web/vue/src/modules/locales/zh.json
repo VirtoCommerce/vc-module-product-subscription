@@ -32,7 +32,8 @@
       "PROCESS_NOW": "立即处理此续订？这将忽略提醒时间和截止时间：订单可能会立即下单并扣款。",
       "CANCEL_RENEWAL": "取消此续订？本次配送将不会下单。",
       "DELETE_PLAN": "删除此计划？现有订阅将保留其配送频率和折扣，但客户将无法再通过此计划订阅。",
-      "CLOSE_CONFIRMATION": "有未保存的更改。仍要关闭吗？"
+      "CLOSE_CONFIRMATION": "有未保存的更改。仍要关闭吗？",
+      "NO_READ_PERMISSION": "您没有查看订阅的权限。请联系管理员。"
     },
     "STATUSES": {
       "PendingActivation": "待激活",

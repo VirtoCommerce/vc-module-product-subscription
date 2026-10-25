@@ -15,7 +15,7 @@ public class SubscriptionOfferType : ExtendableGraphType<SubscriptionOffer>
         Field(x => x.PlanId);
         Field(x => x.PlanName);
         Field(x => x.Description, nullable: true);
-        Field<NonNullGraphType<StringGraphType>>("discountType").Description("None, Percent or FixedAmount").Resolve(x => x.Source.DiscountType.ToString());
+        Field<NonNullGraphType<SubscriptionDiscountTypeEnum>>("discountType").Resolve(x => x.Source.DiscountType);
         Field(x => x.DiscountValue);
         Field<NonNullGraphType<ListGraphType<NonNullGraphType<SubscriptionIntervalType>>>>("intervals").Resolve(x => x.Source.Intervals);
     }

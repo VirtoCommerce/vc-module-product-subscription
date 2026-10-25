@@ -1,6 +1,4 @@
 using System;
-using VirtoCommerce.Platform.Core.Settings;
-using VirtoCommerce.ProductSubscription.Core;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -8,7 +6,8 @@ using Microsoft.Extensions.Logging;
 using VirtoCommerce.CatalogModule.Core.Model;
 using VirtoCommerce.CatalogModule.Core.Services;
 using VirtoCommerce.Platform.Core.Common;
-using VirtoCommerce.Platform.Core.GenericCrud;
+using VirtoCommerce.Platform.Core.Settings;
+using VirtoCommerce.ProductSubscription.Core;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.StoreModule.Core.Model;
@@ -445,7 +444,7 @@ public class LegacySubscriptionImporter(
     protected virtual DateTime GetNextOrderDate(Subscription subscription, LegacySubscriptionImportRecord record, DateTime now, IList<string> messages, int reminderLeadDays)
     {
         // Leave room for the reminder email before the first charge in the new module.
-        var earliest = now.AddDays(1 + Math.Max(0, reminderLeadDays));
+        var earliest = SubscriptionSchedule.EarliestNextOrderDate(now, reminderLeadDays);
         var next = ToUtc(record.NextOrderDate)
                    ?? SubscriptionSchedule.NextAfter(subscription.LastOrderDate ?? subscription.StartDate, subscription.IntervalUnit, subscription.IntervalCount, now, subscription.EffectiveAnchorDay);
 

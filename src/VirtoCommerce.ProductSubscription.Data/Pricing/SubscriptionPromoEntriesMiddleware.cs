@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using PipelineNet.Middleware;
 using VirtoCommerce.CartModule.Core.Model;
 using VirtoCommerce.MarketingModule.Core.Model.Promotions;
@@ -18,7 +19,8 @@ namespace VirtoCommerce.ProductSubscription.Data.Pricing;
 /// </summary>
 public class SubscriptionPromoEntriesMiddleware(
     ISubscriptionCartItemSearchService cartItemSearchService,
-    ISubscriptionPlanService planService)
+    ISubscriptionPlanService planService,
+    ILogger<SubscriptionPromoEntriesMiddleware> logger)
     : IAsyncMiddleware<PromotionEvaluationContextCartMap>
 {
     public async Task Run(PromotionEvaluationContextCartMap parameter, Func<PromotionEvaluationContextCartMap, Task> next)
@@ -56,9 +58,10 @@ public class SubscriptionPromoEntriesMiddleware(
                 }
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Never break cart calculation because of the subscription discount.
+            // Never break cart calculation because of the subscription discount, but say why it is missing.
+            logger.LogError(ex, "Failed to apply the subscription discount to cart {CartId}", parameter.CartAggregate?.Cart?.Id);
         }
     }
 

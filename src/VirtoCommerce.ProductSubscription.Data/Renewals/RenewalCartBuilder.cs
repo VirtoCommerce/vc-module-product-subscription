@@ -104,6 +104,9 @@ public class RenewalCartBuilder(
 
         var validationErrors = (await aggregate.ValidateAsync("items")).Concat(aggregate.OperationValidationErrors).ToList();
 
+        // Subscriptions to the same product share one cart line: each gets its quantity's share of the line.
+        var lineShares = new Dictionary<string, LineShare>();
+
         foreach (var item in renewal.Items)
         {
             var subscription = subscriptionsById.GetValueOrDefault(item.SubscriptionId);
@@ -136,11 +139,18 @@ public class RenewalCartBuilder(
             }
             else
             {
+                if (!lineShares.TryGetValue(lineItem.ProductId, out var share))
+                {
+                    var subscriptionCount = activeItems.Count(x => x.ProductId == lineItem.ProductId);
+                    share = new LineShare(lineItem.Quantity, lineItem.ExtendedPrice, subscriptionCount);
+                    lineShares[lineItem.ProductId] = share;
+                }
+
                 copy.IsAvailable = errors.Count == 0;
                 copy.Message = errors.FirstOrDefault();
                 copy.ListPrice = lineItem.ListPrice;
-                copy.DiscountAmount = lineItem.DiscountAmount * lineItem.Quantity;
-                copy.Total = lineItem.ExtendedPrice;
+                copy.DiscountAmount = lineItem.DiscountAmount * copy.Quantity;
+                copy.Total = share.Take(copy.Quantity);
             }
 
             if (!copy.IsAvailable)
@@ -187,6 +197,40 @@ public class RenewalCartBuilder(
         cart.Comment = $"Subscription renewal {renewal.Number}";
 
         return await customerOrderBuilder.PlaceCustomerOrderFromCartAsync(cart);
+    }
+
+    /// <summary>
+    /// Splits a cart line's total between the subscriptions that share it, by quantity. The last one gets the rest, so the
+    /// shares always add up to the line's total.
+    /// </summary>
+    protected sealed class LineShare
+    {
+        private readonly int _lineQuantity;
+        private readonly decimal _lineTotal;
+        private decimal _remainingTotal;
+        private int _remainingShares;
+
+        public LineShare(int lineQuantity, decimal lineTotal, int subscriptionCount)
+        {
+            _lineQuantity = lineQuantity;
+            _lineTotal = lineTotal;
+            _remainingTotal = lineTotal;
+            _remainingShares = subscriptionCount;
+        }
+
+        public decimal Take(int quantity)
+        {
+            if (--_remainingShares <= 0 || _lineQuantity <= 0)
+            {
+                var rest = _remainingTotal;
+                _remainingTotal = 0;
+                return rest;
+            }
+
+            var share = Math.Round(_lineTotal * quantity / _lineQuantity, 2, MidpointRounding.AwayFromZero);
+            _remainingTotal -= share;
+            return share;
+        }
     }
 
     /// <summary>The validation messages about one renewal line: errors on its cart line, or on its product.</summary>

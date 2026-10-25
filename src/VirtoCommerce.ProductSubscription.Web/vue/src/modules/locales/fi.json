@@ -32,7 +32,8 @@
       "PROCESS_NOW": "Käsitelläänkö tämä toimitus nyt? Muistutus- ja takarajat ohitetaan: tilaus voidaan tehdä ja veloittaa heti.",
       "CANCEL_RENEWAL": "Perutaanko tämä toimitus? Sille ei tehdä tilausta.",
       "DELETE_PLAN": "Poistetaanko tämä malli? Nykyiset kestotilaukset säilyttävät toimitusvälinsä ja alennuksensa, mutta asiakkaat eivät voi enää tehdä kestotilausta tällä mallilla.",
-      "CLOSE_CONFIRMATION": "Muutoksia ei ole tallennettu. Suljetaanko silti?"
+      "CLOSE_CONFIRMATION": "Muutoksia ei ole tallennettu. Suljetaanko silti?",
+      "NO_READ_PERMISSION": "Sinulla ei ole oikeutta tarkastella tilauksia. Pyydä oikeutta järjestelmänvalvojalta."
     },
     "STATUSES": {
       "PendingActivation": "Odottaa aktivointia",

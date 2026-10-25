@@ -32,7 +32,8 @@
       "PROCESS_NOW": "Diese Verlängerung jetzt verarbeiten? Erinnerungszeitpunkt und Bestellschluss werden ignoriert: Die Bestellung kann sofort aufgegeben und belastet werden.",
       "CANCEL_RENEWAL": "Diese Verlängerung stornieren? Die Lieferung wird nicht bestellt.",
       "DELETE_PLAN": "Diesen Plan löschen? Bestehende Abonnements behalten ihr Intervall und ihren Rabatt, aber Kunden können damit kein neues Abonnement mehr abschließen.",
-      "CLOSE_CONFIRMATION": "Es gibt nicht gespeicherte Änderungen. Trotzdem schließen?"
+      "CLOSE_CONFIRMATION": "Es gibt nicht gespeicherte Änderungen. Trotzdem schließen?",
+      "NO_READ_PERMISSION": "Sie haben keine Berechtigung, Abonnements anzuzeigen. Wenden Sie sich an Ihren Administrator."
     },
     "STATUSES": {
       "PendingActivation": "Aktivierung ausstehend",

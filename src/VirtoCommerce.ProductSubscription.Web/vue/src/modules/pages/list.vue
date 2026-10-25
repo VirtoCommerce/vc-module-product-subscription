@@ -5,7 +5,16 @@
     :loading="loading || running"
     width="50%"
   >
+    <VcContainer v-if="!canRead">
+      <VcBanner
+        variant="warning"
+        icon="lucide-lock"
+      >
+        {{ $t("PRODUCT_SUBSCRIPTION.ALERTS.NO_READ_PERMISSION") }}
+      </VcBanner>
+    </VcContainer>
     <SubscriptionsTable
+      v-else
       :active-item-id="activeChildParam"
       :reload-key="reloadKey"
       @open="(s) => openBlade({ name: 'ProductSubscriptionDetails', param: s.id })"
@@ -15,8 +24,8 @@
 </template>
 
 <script setup lang="ts">
-import { notification, useBlade, type IBladeToolbar } from "@vc-shell/framework";
-import { VcBlade } from "@vc-shell/framework/ui";
+import { notification, useBlade, usePermissions, type IBladeToolbar } from "@vc-shell/framework";
+import { VcBanner, VcBlade, VcContainer } from "@vc-shell/framework/ui";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import SubscriptionsTable from "../components/SubscriptionsTable.vue";
@@ -36,6 +45,8 @@ defineBlade({
 
 const { t } = useI18n({ useScope: "global" });
 const { activeChildParam, openBlade, exposeToChildren } = useBlade();
+// The menu needs "access"; the list itself needs "read" (the REST search answers 403 without it).
+const canRead = usePermissions().hasAccess("product-subscription:read");
 
 const loading = ref(false);
 const reloadKey = ref(0);

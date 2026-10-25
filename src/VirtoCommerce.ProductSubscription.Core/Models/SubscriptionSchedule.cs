@@ -57,6 +57,15 @@ public static class SubscriptionSchedule
         return next;
     }
 
+    /// <summary>
+    /// The earliest next delivery the module sets on its own (on a resume, a frequency change or an import): far enough
+    /// ahead for the reminder to go out its lead days before the order.
+    /// </summary>
+    public static DateTime EarliestNextOrderDate(DateTime utcNow, int reminderLeadDays)
+    {
+        return utcNow.AddDays(1 + Math.Max(0, reminderLeadDays));
+    }
+
     public static decimal ApplyDiscount(decimal price, SubscriptionDiscountType discountType, decimal discountValue)
     {
         var discount = GetDiscountPerItem(price, discountType, discountValue);

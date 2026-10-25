@@ -83,14 +83,13 @@ public class Renewal : AuditableEntity, ICloneable
     public virtual void AddEvent(string eventType, string message, string details = null)
     {
         Events ??= new List<RenewalEvent>();
-        Events.Add(new RenewalEvent
-        {
-            EventDate = DateTime.UtcNow,
-            State = State,
-            EventType = eventType,
-            Message = message,
-            Details = details,
-        });
+        var renewalEvent = AbstractTypeFactory<RenewalEvent>.TryCreateInstance();
+        renewalEvent.EventDate = DateTime.UtcNow;
+        renewalEvent.State = State;
+        renewalEvent.EventType = eventType;
+        renewalEvent.Message = message;
+        renewalEvent.Details = details;
+        Events.Add(renewalEvent);
     }
 
     public virtual void ChangeState(string newState, string message, DateTime? nextProcessingDate = null)

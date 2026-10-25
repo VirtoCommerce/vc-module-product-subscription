@@ -32,7 +32,8 @@
       "PROCESS_NOW": "Bearbeta den här förnyelsen nu? Påminnelse- och stopptiderna ignoreras: ordern kan läggas och debiteras omedelbart.",
       "CANCEL_RENEWAL": "Avbryta den här förnyelsen? Leveransen kommer inte att beställas.",
       "DELETE_PLAN": "Ta bort den här planen? Befintliga prenumerationer behåller sin frekvens och rabatt, men kunder kan inte längre prenumerera med den.",
-      "CLOSE_CONFIRMATION": "Du har osparade ändringar. Stäng ändå?"
+      "CLOSE_CONFIRMATION": "Du har osparade ändringar. Stäng ändå?",
+      "NO_READ_PERMISSION": "Du har inte behörighet att visa prenumerationer. Be din administratör om den."
     },
     "STATUSES": {
       "PendingActivation": "Väntar på aktivering",

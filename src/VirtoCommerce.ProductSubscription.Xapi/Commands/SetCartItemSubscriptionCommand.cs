@@ -10,7 +10,7 @@ public class SetCartItemSubscriptionCommand : IRequest<SubscriptionCartItem>, IH
     public string CartId { get; set; }
     public string LineItemId { get; set; }
     public string PlanId { get; set; }
-    public string IntervalUnit { get; set; }
+    public SubscriptionIntervalUnit IntervalUnit { get; set; }
     public int IntervalCount { get; set; }
     public string UserId { get; set; }
 }

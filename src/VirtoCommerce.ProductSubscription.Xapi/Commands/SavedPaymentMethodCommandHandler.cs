@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
@@ -12,6 +11,7 @@ using VirtoCommerce.PaymentModule.Core.Model.StoredCredentials;
 using VirtoCommerce.PaymentModule.Core.Services;
 using VirtoCommerce.PaymentModule.Model.Requests;
 using VirtoCommerce.Platform.Core.Common;
+using VirtoCommerce.ProductSubscription.Core.Exceptions;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.ProductSubscription.Xapi.Queries;
@@ -37,7 +37,7 @@ public class SavedPaymentMethodCommandHandler(
         var paymentMethod = (await paymentMethodsSearchService.SearchAsync(criteria)).Results.FirstOrDefault();
         if (paymentMethod is not ISupportStoredCredentialFlow)
         {
-            throw new InvalidOperationException("This payment method can't save cards.");
+            throw new SubscriptionOperationException("This payment method can't save cards.");
         }
 
         var parameters = new NameValueCollection();
@@ -62,7 +62,7 @@ public class SavedPaymentMethodCommandHandler(
 
         if (!result.IsSuccess || result.StoredPaymentMethod == null)
         {
-            throw new InvalidOperationException(result.ErrorMessage ?? "The card could not be saved.");
+            throw new SubscriptionOperationException(result.ErrorMessage ?? "The card could not be saved.");
         }
 
         var existing = await GetCustomerMethodsAsync(request.UserId, request.StoreId);
@@ -96,7 +96,7 @@ public class SavedPaymentMethodCommandHandler(
         var usedBy = (await subscriptionSearchService.SearchAsync(usage)).TotalCount;
         if (usedBy > 0)
         {
-            throw new InvalidOperationException(usedBy == 1
+            throw new SubscriptionOperationException(usedBy == 1
                 ? "This card pays for a subscription. Choose another card for it first."
                 : $"This card pays for {usedBy} subscriptions. Choose another card for them first.");
         }
@@ -122,7 +122,7 @@ public class SavedPaymentMethodCommandHandler(
         var method = await GetOwnedAsync(request);
         if (method.Status != StoredPaymentMethodStatus.Active)
         {
-            throw new InvalidOperationException("Only an active card can be the default.");
+            throw new SubscriptionOperationException("Only an active card can be the default.");
         }
 
         var existing = await GetCustomerMethodsAsync(method.CustomerId, method.StoreId);
@@ -140,7 +140,7 @@ public class SavedPaymentMethodCommandHandler(
 
     protected virtual async Task<StoredPaymentMethod> GetOwnedAsync(SavedPaymentMethodIdCommand request)
     {
-        var method = await storedPaymentMethodService.GetByIdAsync(request.Id) ?? throw new InvalidOperationException("Saved card not found.");
+        var method = await storedPaymentMethodService.GetByIdAsync(request.Id) ?? throw new SubscriptionOperationException("Saved card not found.");
         AccessGuard.EnsureOwner(request.UserId, method.CustomerId);
         return method;
     }

@@ -25,7 +25,7 @@ public class RenewalConcurrencyTests
         _harness.GetRenewals().Should().ContainSingle();
         _harness.PaymentMethod.Requests.Should().ContainSingle();
         results.Count(x => x == null).Should().Be(1);
-        results.Single(x => x != null).Should().BeOfType<InvalidOperationException>();
+        results.Single(x => x != null).Should().BeAssignableTo<InvalidOperationException>();
     }
 
     [Fact]

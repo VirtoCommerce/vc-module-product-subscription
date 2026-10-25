@@ -13,6 +13,9 @@ public static class ModuleConstants
 
     public const string ConsentPurpose = "subscription";
 
+    /// <summary>The object a subscription consent is recorded for: the checkout cart the customer accepted the terms in.</summary>
+    public const string ConsentObjectType = "ShoppingCart";
+
     public static class Security
     {
         public static class Permissions
@@ -65,10 +68,14 @@ public static class ModuleConstants
                 DefaultValue = "REN{0:yyMMdd}-{1:D5}",
             };
 
-            public static SettingDescriptor MockAuthorizationLifetimeMinutes { get; } = new()
+            /// <summary>
+            /// How long a renewal's card authorization stays valid at the payment provider. A renewal whose order ships
+            /// later is authorized again before the capture. Most card networks keep an authorization for 7 days.
+            /// </summary>
+            public static SettingDescriptor AuthorizationLifetimeMinutes { get; } = new()
             {
-                Name = "ProductSubscription.MockPayment.AuthorizationLifetimeMinutes",
-                GroupName = "Product Subscription|Mock payment method",
+                Name = "ProductSubscription.Payments.AuthorizationLifetimeMinutes",
+                GroupName = "Product Subscription|Payments",
                 ValueType = SettingValueType.Integer,
                 DefaultValue = 7 * 24 * 60,
             };
@@ -81,7 +88,7 @@ public static class ModuleConstants
                     yield return SchedulerCronExpression;
                     yield return SubscriptionNumberTemplate;
                     yield return RenewalNumberTemplate;
-                    yield return MockAuthorizationLifetimeMinutes;
+                    yield return AuthorizationLifetimeMinutes;
                 }
             }
         }

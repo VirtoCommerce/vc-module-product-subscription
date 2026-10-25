@@ -32,7 +32,8 @@
       "PROCESS_NOW": "Process this renewal now? This ignores the reminder and cutoff times: the order may be placed and charged immediately.",
       "CANCEL_RENEWAL": "Cancel this renewal? The delivery won't be placed.",
       "DELETE_PLAN": "Delete this plan? Existing subscriptions keep their frequency and discount, but customers can no longer subscribe with it.",
-      "CLOSE_CONFIRMATION": "You have unsaved changes. Close anyway?"
+      "CLOSE_CONFIRMATION": "You have unsaved changes. Close anyway?",
+      "NO_READ_PERMISSION": "You don't have permission to view subscriptions. Ask your administrator for it."
     },
     "STATUSES": {
       "PendingActivation": "Pending activation",

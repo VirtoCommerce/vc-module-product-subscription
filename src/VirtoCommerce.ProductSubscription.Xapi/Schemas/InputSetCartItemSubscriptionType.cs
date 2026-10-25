@@ -11,7 +11,7 @@ public class InputSetCartItemSubscriptionType : InputObjectGraphType
         Field<NonNullGraphType<StringGraphType>>("cartId");
         Field<NonNullGraphType<StringGraphType>>("lineItemId");
         Field<NonNullGraphType<StringGraphType>>("planId");
-        Field<NonNullGraphType<StringGraphType>>("intervalUnit");
+        Field<NonNullGraphType<SubscriptionIntervalUnitEnum>>("intervalUnit");
         Field<NonNullGraphType<IntGraphType>>("intervalCount");
     }
 }

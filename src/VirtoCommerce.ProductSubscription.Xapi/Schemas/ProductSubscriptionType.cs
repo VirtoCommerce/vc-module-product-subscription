@@ -1,4 +1,9 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using GraphQL;
+using GraphQL.DataLoader;
 using GraphQL.Types;
 using Microsoft.Extensions.DependencyInjection;
 using VirtoCommerce.CatalogModule.Core.Model;
@@ -20,7 +25,7 @@ public class ProductSubscriptionType : ExtendableGraphType<Subscription>
 
         Field(x => x.Id);
         Field(x => x.Number);
-        Field(x => x.Status).Description("PendingActivation, Active, Paused, PastDue, Cancelled");
+        Field(x => x.Status).Description("PendingActivation, Active, Paused, PastDue or Cancelled. A string, not an enum: a solution can add its own statuses.");
         Field(x => x.StoreId);
         Field(x => x.ProductId);
         Field(x => x.Sku, nullable: true);
@@ -29,10 +34,10 @@ public class ProductSubscriptionType : ExtendableGraphType<Subscription>
         Field(x => x.Quantity);
         Field(x => x.PlanId, nullable: true);
         Field(x => x.PlanName, nullable: true);
-        Field<NonNullGraphType<StringGraphType>>("intervalUnit").Resolve(x => x.Source.IntervalUnit.ToString());
+        Field<NonNullGraphType<SubscriptionIntervalUnitEnum>>("intervalUnit").Resolve(x => x.Source.IntervalUnit);
         Field(x => x.IntervalCount);
         Field<NonNullGraphType<StringGraphType>>("intervalLabel").Resolve(x => SubscriptionSchedule.Describe(x.Source.IntervalUnit, x.Source.IntervalCount));
-        Field<NonNullGraphType<StringGraphType>>("discountType").Resolve(x => x.Source.DiscountType.ToString());
+        Field<NonNullGraphType<SubscriptionDiscountTypeEnum>>("discountType").Resolve(x => x.Source.DiscountType);
         Field(x => x.DiscountValue);
         Field(x => x.StartDate);
         Field(x => x.NextOrderDate);
@@ -55,61 +60,65 @@ public class ProductSubscriptionType : ExtendableGraphType<Subscription>
         Field(x => x.CreatedDate);
         Field<SubscriptionAddressType>("shippingAddress").Resolve(x => x.Source.ShippingAddress);
 
+        // The four fields below load related records through data loaders: one query per page of subscriptions, not one per subscription.
         Field<NonNullGraphType<SubscriptionQuantityRulesType>>("quantityRules")
             .Description("The product's ordering rules the subscription quantity must follow.")
-            .ResolveAsync(async context =>
+            .Resolve(context =>
             {
-                var itemService = context.RequestServices.GetRequiredService<IItemService>();
-                var product = string.IsNullOrEmpty(context.Source.ProductId)
-                    ? null
-                    : await itemService.GetNoCloneAsync(context.Source.ProductId, ItemResponseGroup.ItemInfo.ToString());
+                if (string.IsNullOrEmpty(context.Source.ProductId))
+                {
+                    return ToQuantityRules(null);
+                }
 
-                return new SubscriptionQuantityRules(
-                    product?.PackSize > 1 ? product.PackSize : 1,
-                    product?.MinQuantity > 0 ? product.MinQuantity.Value : 1,
-                    product?.MaxQuantity > 0 ? product.MaxQuantity : null);
+                return Load(context, "product_subscription_products", context.Source.ProductId,
+                        ids => context.RequestServices.GetRequiredService<IItemService>().GetAsync(ids, ItemResponseGroup.ItemInfo.ToString(), clone: false))
+                    .Then(ToQuantityRules);
             });
 
-        Field<SavedPaymentMethodType>("savedPaymentMethod").ResolveAsync(async context =>
+        Field<SavedPaymentMethodType>("savedPaymentMethod").Resolve(context =>
         {
             if (string.IsNullOrEmpty(context.Source.StoredPaymentMethodId))
             {
                 return null;
             }
 
-            var service = context.RequestServices.GetRequiredService<IStoredPaymentMethodService>();
-            return await service.GetNoCloneAsync(context.Source.StoredPaymentMethodId);
+            return Load(context, "product_subscription_saved_payment_methods", context.Source.StoredPaymentMethodId,
+                ids => context.RequestServices.GetRequiredService<IStoredPaymentMethodService>().GetAsync(ids, clone: false));
         });
 
-        Field<RenewalType>("currentRenewal").ResolveAsync(async context =>
+        Field<RenewalType>("currentRenewal").Resolve(context =>
         {
             if (string.IsNullOrEmpty(context.Source.CurrentRenewalId))
             {
                 return null;
             }
 
-            var service = context.RequestServices.GetRequiredService<IRenewalService>();
-            return await service.GetNoCloneAsync(context.Source.CurrentRenewalId);
+            return Load(context, "product_subscription_renewals", context.Source.CurrentRenewalId,
+                ids => context.RequestServices.GetRequiredService<IRenewalService>().GetAsync(ids, clone: false));
         });
 
         Field<NonNullGraphType<ListGraphType<NonNullGraphType<SubscriptionIntervalType>>>>("availableIntervals")
             .Description("Frequencies the customer can switch to")
-            .ResolveAsync(async context =>
+            .Resolve(context =>
             {
-                if (string.IsNullOrEmpty(context.Source.PlanId))
+                var subscription = context.Source;
+                if (string.IsNullOrEmpty(subscription.PlanId))
                 {
-                    return new[] { new SubscriptionPlanInterval { Unit = context.Source.IntervalUnit, Count = context.Source.IntervalCount, IsDefault = true } };
+                    return new[] { new SubscriptionPlanInterval { Unit = subscription.IntervalUnit, Count = subscription.IntervalCount, IsDefault = true } };
                 }
 
-                var service = context.RequestServices.GetRequiredService<ISubscriptionPlanService>();
-                var plan = await service.GetNoCloneAsync(context.Source.PlanId);
-                var intervals = plan?.Intervals?.ToList() ?? [];
-                if (!intervals.Any(i => i.Unit == context.Source.IntervalUnit && i.Count == context.Source.IntervalCount))
-                {
-                    intervals.Insert(0, new SubscriptionPlanInterval { Unit = context.Source.IntervalUnit, Count = context.Source.IntervalCount });
-                }
+                return Load(context, "product_subscription_plans", subscription.PlanId,
+                        ids => context.RequestServices.GetRequiredService<ISubscriptionPlanService>().GetAsync(ids, clone: false))
+                    .Then(plan =>
+                    {
+                        var intervals = plan?.Intervals?.ToList() ?? [];
+                        if (!intervals.Any(i => i.Unit == subscription.IntervalUnit && i.Count == subscription.IntervalCount))
+                        {
+                            intervals.Insert(0, new SubscriptionPlanInterval { Unit = subscription.IntervalUnit, Count = subscription.IntervalCount });
+                        }
 
-                return intervals;
+                        return intervals;
+                    });
             });
 
         Field<NonNullGraphType<BooleanGraphType>>("canSkip").Resolve(x => x.Source.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue);
@@ -118,5 +127,24 @@ public class ProductSubscriptionType : ExtendableGraphType<Subscription>
         Field<NonNullGraphType<BooleanGraphType>>("canCancel").Resolve(x => x.Source.Status != SubscriptionStatus.Cancelled);
         Field<NonNullGraphType<BooleanGraphType>>("canOrderNow").Resolve(x => x.Source.Status == SubscriptionStatus.Active);
         Field<NonNullGraphType<BooleanGraphType>>("canChange").Resolve(x => x.Source.Status != SubscriptionStatus.Cancelled);
+    }
+
+    /// <summary>Loads <paramref name="id"/> with the other ids this request asks for under <paramref name="loaderName"/>, in one call.</summary>
+    protected static IDataLoaderResult<T> Load<T>(IResolveFieldContext context, string loaderName, string id, Func<IList<string>, Task<IList<T>>> load)
+        where T : Entity
+    {
+        var accessor = context.RequestServices.GetRequiredService<IDataLoaderContextAccessor>();
+        var loader = accessor.Context.GetOrAddBatchLoader<string, T>(loaderName, async ids =>
+            (IDictionary<string, T>)(await load(ids.ToList())).GroupBy(x => x.Id).ToDictionary(x => x.Key, x => x.First()));
+
+        return loader.LoadAsync(id);
+    }
+
+    protected static SubscriptionQuantityRules ToQuantityRules(CatalogProduct product)
+    {
+        return new SubscriptionQuantityRules(
+            product?.PackSize > 1 ? product.PackSize : 1,
+            product?.MinQuantity > 0 ? product.MinQuantity.Value : 1,
+            product?.MaxQuantity > 0 ? product.MaxQuantity : null);
     }
 }

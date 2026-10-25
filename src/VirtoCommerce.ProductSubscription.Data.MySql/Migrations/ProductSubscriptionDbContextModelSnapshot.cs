@@ -581,6 +581,10 @@ namespace VirtoCommerce.ProductSubscription.Data.MySql.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_ProductSubscription_Number");
 
+                    b.HasIndex("OuterId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ProductSubscription_OuterId");
+
                     b.HasIndex("CustomerId", "StoreId")
                         .HasDatabaseName("IX_ProductSubscription_CustomerId_StoreId");
 

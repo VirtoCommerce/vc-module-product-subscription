@@ -32,7 +32,8 @@
       "PROCESS_NOW": "Przetworzyć to odnowienie teraz? Czas przypomnienia i termin graniczny zostaną zignorowane: zamówienie może zostać złożone i opłacone natychmiast.",
       "CANCEL_RENEWAL": "Anulować to odnowienie? Dostawa nie zostanie zamówiona.",
       "DELETE_PLAN": "Usunąć ten plan? Istniejące subskrypcje zachowają częstotliwość i rabat, ale klienci nie będą już mogli wykupić subskrypcji w tym planie.",
-      "CLOSE_CONFIRMATION": "Masz niezapisane zmiany. Zamknąć mimo to?"
+      "CLOSE_CONFIRMATION": "Masz niezapisane zmiany. Zamknąć mimo to?",
+      "NO_READ_PERMISSION": "Nie masz uprawnień do wyświetlania subskrypcji. Poproś o nie administratora."
     },
     "STATUSES": {
       "PendingActivation": "Oczekuje na aktywację",

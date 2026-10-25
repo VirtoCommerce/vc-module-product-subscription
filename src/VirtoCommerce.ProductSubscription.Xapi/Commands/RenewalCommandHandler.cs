@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using VirtoCommerce.Platform.Core.Common;
+using VirtoCommerce.ProductSubscription.Core.Exceptions;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.ProductSubscription.Xapi.Queries;
@@ -17,7 +18,7 @@ public class RenewalCommandHandler(ISubscriptionService subscriptionService, IRe
 {
     public virtual Task<Renewal> Handle(OrderProductSubscriptionNowCommand request, CancellationToken cancellationToken) => CommandErrors.Run(async () =>
     {
-        var subscription = await subscriptionService.GetNoCloneAsync(request.SubscriptionId) ?? throw new InvalidOperationException("Subscription not found.");
+        var subscription = await subscriptionService.GetNoCloneAsync(request.SubscriptionId) ?? throw new SubscriptionOperationException("Subscription not found.");
         AccessGuard.EnsureOwner(request.UserId, subscription.CustomerId);
         return await renewalProcessor.OrderNowAsync(subscription.Id);
     });
@@ -33,7 +34,7 @@ public class RenewalCommandHandler(ISubscriptionService subscriptionService, IRe
 
     protected virtual Task<Renewal> Owned(RenewalIdCommand request, Func<Task<Renewal>> action) => CommandErrors.Run(async () =>
     {
-        var renewal = await renewalService.GetNoCloneAsync(request.RenewalId) ?? throw new InvalidOperationException("Renewal not found.");
+        var renewal = await renewalService.GetNoCloneAsync(request.RenewalId) ?? throw new SubscriptionOperationException("Renewal not found.");
         AccessGuard.EnsureOwner(request.UserId, renewal.CustomerId);
         return await action();
     });

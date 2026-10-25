@@ -67,13 +67,13 @@
         },
         "CronExpression": {
           "title": "Renewal scheduler cron",
-          "description": "How often renewals are checked (restart required)"
+          "description": "How often renewals are checked"
         }
       },
-      "MockPayment": {
+      "Payments": {
         "AuthorizationLifetimeMinutes": {
-          "title": "Mock payment authorization lifetime, minutes",
-          "description": "Shorten to test re-authorization before capture"
+          "title": "Card authorization lifetime, minutes",
+          "description": "How long a renewal's card authorization stays valid at the payment provider; an order that ships later is authorized again before the capture. Shorten it to test re-authorization"
         }
       }
     }

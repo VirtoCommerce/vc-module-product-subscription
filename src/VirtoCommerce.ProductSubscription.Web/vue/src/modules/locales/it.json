@@ -32,7 +32,8 @@
       "PROCESS_NOW": "Elaborare ora questo rinnovo? Il promemoria e il termine ultimo vengono ignorati: l'ordine potrebbe essere effettuato e addebitato immediatamente.",
       "CANCEL_RENEWAL": "Annullare questo rinnovo? L'ordine per questa consegna non verrà effettuato.",
       "DELETE_PLAN": "Eliminare questo piano? Gli abbonamenti esistenti mantengono frequenza e sconto, ma i clienti non potranno più abbonarsi con questo piano.",
-      "CLOSE_CONFIRMATION": "Ci sono modifiche non salvate. Chiudere comunque?"
+      "CLOSE_CONFIRMATION": "Ci sono modifiche non salvate. Chiudere comunque?",
+      "NO_READ_PERMISSION": "Non hai l'autorizzazione per visualizzare gli abbonamenti. Chiedila al tuo amministratore."
     },
     "STATUSES": {
       "PendingActivation": "In attesa di attivazione",

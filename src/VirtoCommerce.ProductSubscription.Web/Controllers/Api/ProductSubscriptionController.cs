@@ -8,6 +8,7 @@ using Newtonsoft.Json.Linq;
 using VirtoCommerce.PaymentModule.Core.Model.StoredCredentials;
 using VirtoCommerce.PaymentModule.Core.Services;
 using VirtoCommerce.Platform.Core.Common;
+using VirtoCommerce.ProductSubscription.Core.Exceptions;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.ProductSubscription.Data.BackgroundJobs;
@@ -58,16 +59,14 @@ public class ProductSubscriptionController(
 
     [HttpPost("plans")]
     [Authorize(Permissions.ManagePlans)]
-    public async Task<ActionResult<SubscriptionPlan>> SavePlan([FromBody] SubscriptionPlan plan)
+    public Task<ActionResult<SubscriptionPlan>> SavePlan([FromBody] SubscriptionPlan plan)
     {
-        var error = ValidatePlan(plan);
-        if (error != null)
+        // The plan service validates the plan, for every caller.
+        return Execute(async () =>
         {
-            return BadRequest(new { message = error });
-        }
-
-        await planService.SaveChangesAsync([plan]);
-        return Ok(plan);
+            await planService.SaveChangesAsync([plan ?? throw new SubscriptionOperationException("The plan is empty.")]);
+            return plan;
+        });
     }
 
     [HttpDelete("plans")]
@@ -274,64 +273,9 @@ public class ProductSubscriptionController(
         {
             return Ok(await action());
         }
-        catch (InvalidOperationException ex)
+        catch (SubscriptionOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
-    }
-
-    private static string ValidatePlan(SubscriptionPlan plan)
-    {
-        if (plan == null)
-        {
-            return "The plan is empty.";
-        }
-
-        if (string.IsNullOrWhiteSpace(plan.Name))
-        {
-            return "Enter a plan name.";
-        }
-
-        if (string.IsNullOrWhiteSpace(plan.StoreId))
-        {
-            return "Choose a store.";
-        }
-
-        if (plan.Intervals == null || plan.Intervals.Count == 0)
-        {
-            return "Add at least one delivery frequency.";
-        }
-
-        if (plan.Intervals.Any(x => x.Count < 1 || x.Count > 365))
-        {
-            return "Each frequency must be between 1 and 365.";
-        }
-
-        if (plan.Intervals.GroupBy(x => (x.Unit, x.Count)).Any(x => x.Count() > 1))
-        {
-            return "Each frequency can be listed only once.";
-        }
-
-        if (plan.DiscountType == SubscriptionDiscountType.Percent && (plan.DiscountValue < 0 || plan.DiscountValue > 100))
-        {
-            return "A percent discount must be between 0 and 100.";
-        }
-
-        if (plan.DiscountValue < 0)
-        {
-            return "The discount can't be negative.";
-        }
-
-        if (plan.Intervals.Count(x => x.IsDefault) != 1)
-        {
-            foreach (var interval in plan.Intervals)
-            {
-                interval.IsDefault = false;
-            }
-
-            plan.Intervals[0].IsDefault = true;
-        }
-
-        return null;
     }
 }
