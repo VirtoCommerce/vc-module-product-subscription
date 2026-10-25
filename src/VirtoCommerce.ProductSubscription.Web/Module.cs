@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Linq;
 using GraphQL.MicrosoftDI;
-using Hangfire;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -14,6 +13,7 @@ using VirtoCommerce.NotificationsModule.TemplateLoader.FileSystem;
 using VirtoCommerce.OrdersModule.Core.Events;
 using VirtoCommerce.PaymentModule.Core.Services;
 using VirtoCommerce.Platform.Core.Events;
+using VirtoCommerce.Platform.Core.Jobs;
 using VirtoCommerce.Platform.Core.Modularity;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Settings;
@@ -28,7 +28,6 @@ using VirtoCommerce.ProductSubscription.Data.Handlers;
 using VirtoCommerce.ProductSubscription.Data.Import;
 using VirtoCommerce.ProductSubscription.Data.MySql;
 using VirtoCommerce.ProductSubscription.Data.Payments;
-using VirtoCommerce.XCart.Core.Services;
 using VirtoCommerce.ProductSubscription.Data.PostgreSql;
 using VirtoCommerce.ProductSubscription.Data.Pricing;
 using VirtoCommerce.ProductSubscription.Data.Renewals;
@@ -42,6 +41,7 @@ using VirtoCommerce.Xapi.Core.Extensions;
 using VirtoCommerce.Xapi.Core.Infrastructure;
 using VirtoCommerce.Xapi.Core.Pipelines;
 using VirtoCommerce.XCart.Core.Models;
+using VirtoCommerce.XCart.Core.Services;
 
 namespace VirtoCommerce.ProductSubscription.Web;
 
@@ -96,8 +96,12 @@ public class Module : IModule, IHasConfiguration
 
         serviceCollection.AddTransient<OrderChangedEventHandler>();
         serviceCollection.AddTransient<CartChangedEventHandler>();
-        serviceCollection.AddTransient<OrderChangedJob>();
-        serviceCollection.AddTransient<RenewalSchedulerJob>();
+        serviceCollection.AddBackgroundJob<OrderChangedJob, OrderChangedJobPayload>(triggerable: false);
+        serviceCollection.AddRecurringJob<RenewalSchedulerJob, RenewalSchedulerJobPayload>(schedule => schedule
+            .WithId(RenewalSchedulerJob.JobId)
+            .FromSettings(ModuleConstants.Settings.General.SchedulerEnabled, ModuleConstants.Settings.General.SchedulerCronExpression)
+            // A failed tick is superseded by the next one; retrying it only duplicates work.
+            .WithMaxRetryAttempts(0));
         serviceCollection.AddTransient<MockStoredCardPaymentMethod>();
 
         // Subscription discount: mark subscription lines in xCart's promotion pipeline, then add the reward
@@ -157,10 +161,6 @@ public class Module : IModule, IHasConfiguration
             var paymentMethodsRegistrar = serviceProvider.GetRequiredService<IPaymentMethodsRegistrar>();
             paymentMethodsRegistrar.RegisterPaymentMethod(() => serviceProvider.GetRequiredService<MockStoredCardPaymentMethod>());
         }
-
-        var settingsManager = serviceProvider.GetRequiredService<ISettingsManager>();
-        var cron = settingsManager.GetValue<string>(ModuleConstants.Settings.General.SchedulerCronExpression);
-        RenewalSchedulerJob.Schedule(serviceProvider.GetRequiredService<IRecurringJobManager>(), cron);
     }
 
     public void Uninstall()

@@ -14,7 +14,6 @@ using VirtoCommerce.PaymentModule.Core.Services;
 using VirtoCommerce.PaymentModule.Model.Requests;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.DistributedLock;
-using VirtoCommerce.Platform.Core.GenericCrud;
 using VirtoCommerce.Platform.Core.Settings;
 using VirtoCommerce.ProductSubscription.Core;
 using VirtoCommerce.ProductSubscription.Core.Models;
@@ -22,13 +21,15 @@ using VirtoCommerce.ProductSubscription.Core.Notifications;
 using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.ProductSubscription.Data.Services;
 using VirtoCommerce.StoreModule.Core.Model;
+using VirtoCommerce.StoreModule.Core.Model.Search;
 using VirtoCommerce.StoreModule.Core.Services;
 
 namespace VirtoCommerce.ProductSubscription.Data.Renewals;
 
 /// <summary>
 /// The renewal state machine. Every step is safe to run twice: order placement is guarded by the stored order id,
-/// charges by an idempotency key per attempt, and each renewal is processed under a distributed lock.
+/// charges by an idempotency key per attempt, and every change runs under the customer's lock
+/// (<see cref="SubscriptionLocks"/>), which customer and admin actions on subscriptions take too.
 /// </summary>
 public class RenewalProcessor(
     ISubscriptionService subscriptionService,
@@ -41,6 +42,7 @@ public class RenewalProcessor(
     IPaymentMethodsSearchService paymentMethodsSearchService,
     IStoredPaymentMethodService storedPaymentMethodService,
     IStoreService storeService,
+    IStoreSearchService storeSearchService,
     ISettingsManager settingsManager,
     ISubscriptionNotificationService notificationService,
     IDistributedLock distributedLock,
@@ -49,8 +51,16 @@ public class RenewalProcessor(
 {
     private const int MaxSteps = 12;
     private const int MaxProviderErrors = 5;
+    private const int SchedulerPageSize = 500;
+    private const int MaxSchedulerPages = 1000;
     private static readonly TimeSpan _providerErrorRetryDelay = TimeSpan.FromMinutes(15);
+    // How long to wait for the result of a retry the payment provider runs on its own, before giving up on it.
+    private static readonly TimeSpan _providerRetryWait = TimeSpan.FromDays(14);
+    private static readonly TimeSpan _orderNowRepeatWindow = TimeSpan.FromMinutes(2);
+    // The scheduler doesn't wait long for a busy customer: the next run picks them up.
+    private static readonly TimeSpan _schedulerLockWait = TimeSpan.FromSeconds(5);
     private static readonly PaymentStatus[] _paidStatuses = [PaymentStatus.Authorized, PaymentStatus.Paid];
+    private static readonly PaymentStatus[] _failedStatuses = [PaymentStatus.Declined, PaymentStatus.Voided, PaymentStatus.Cancelled];
 
     protected virtual DateTime UtcNow => DateTime.UtcNow;
 
@@ -103,63 +113,146 @@ public class RenewalProcessor(
     {
         var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
         criteria.Statuses = [SubscriptionStatus.Paused];
-        criteria.Take = 500;
-        var toResume = (await subscriptionSearchService.SearchAsync(criteria)).Results
-            .Where(x => x.PausedUntil != null && x.PausedUntil <= now)
-            .ToList();
+        criteria.PausedUntilBefore = now;
+        criteria.Sort = "PausedUntil;Id";
+        criteria.Take = SchedulerPageSize;
 
-        foreach (var subscription in toResume)
+        await ForEachSubscriptionPageAsync(criteria, async page =>
         {
-            subscription.Status = SubscriptionStatus.Active;
-            subscription.PausedUntil = null;
-            if (subscription.NextOrderDate < now)
+            var unchanged = 0;
+            foreach (var customerGroup in page.GroupBy(x => x.CustomerId))
             {
-                subscription.NextOrderDate = now.AddDays(1);
-            }
-        }
+                var ids = customerGroup.Select(x => x.Id).ToList();
+                var ran = await TryRunForCustomerAsync(customerGroup.Key, ids, async () =>
+                {
+                    // Read them again under the lock: the customer may have resumed or cancelled them since the search.
+                    var toResume = (await subscriptionService.GetAsync(ids))
+                        .Where(x => x.Status == SubscriptionStatus.Paused && x.PausedUntil != null && x.PausedUntil <= now)
+                        .ToList();
 
-        if (toResume.Count > 0)
-        {
-            await subscriptionService.SaveChangesAsync(toResume);
-        }
+                    foreach (var subscription in toResume)
+                    {
+                        subscription.Status = SubscriptionStatus.Active;
+                        subscription.PausedUntil = null;
+                        if (subscription.NextOrderDate < now)
+                        {
+                            subscription.NextOrderDate = now.AddDays(1);
+                        }
+                    }
+
+                    if (toResume.Count > 0)
+                    {
+                        await subscriptionService.SaveChangesAsync(toResume);
+                    }
+                });
+
+                if (!ran)
+                {
+                    unchanged += ids.Count;
+                }
+            }
+
+            return unchanged;
+        });
     }
 
     protected virtual async Task CreateDueRenewalsAsync(DateTime now)
     {
-        var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
-        criteria.Statuses = [SubscriptionStatus.Active];
-        criteria.WithoutOpenRenewal = true;
-        criteria.NextOrderDateBefore = now.AddDays(60);
-        criteria.Take = 500;
-
-        var candidates = (await subscriptionSearchService.SearchAsync(criteria)).Results;
-        if (candidates.Count == 0)
+        foreach (var store in await GetStoresAsync())
         {
-            return;
+            var leadDays = Math.Max(0, store.Settings.GetValue<int>(ModuleConstants.Settings.Store.ReminderLeadDays));
+
+            var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
+            criteria.StoreId = store.Id;
+            criteria.Statuses = [SubscriptionStatus.Active];
+            criteria.WithoutOpenRenewal = true;
+            criteria.NextOrderDateBefore = now.AddDays(leadDays);
+            criteria.Sort = "NextOrderDate;Id";
+            criteria.Take = SchedulerPageSize;
+
+            await ForEachSubscriptionPageAsync(criteria, async page =>
+            {
+                var unchanged = 0;
+                foreach (var group in page.GroupBy(GetGroupKey))
+                {
+                    unchanged += await TryCreateDueRenewalAsync(group.ToList(), store, criteria.NextOrderDateBefore.Value);
+                }
+
+                return unchanged;
+            });
         }
+    }
 
-        foreach (var storeGroup in candidates.GroupBy(x => x.StoreId))
+    /// <summary>
+    /// Creates one renewal for a group of due subscriptions of one customer, under that customer's lock.
+    /// Returns how many of them were left due and without a renewal (e.g. the lock was busy), so paging skips them.
+    /// </summary>
+    protected virtual async Task<int> TryCreateDueRenewalAsync(IList<Subscription> group, Store store, DateTime dueBefore)
+    {
+        var ids = group.Select(x => x.Id).ToList();
+        var ran = await TryRunForCustomerAsync(group[0].CustomerId, ids, async () =>
         {
-            var store = await storeService.GetNoCloneAsync(storeGroup.Key);
-            if (store == null)
+            // Check again under the lock: an "order now", a change or another scheduler run may have got there first.
+            var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
+            criteria.ObjectIds = ids;
+            criteria.Statuses = [SubscriptionStatus.Active];
+            criteria.WithoutOpenRenewal = true;
+            criteria.NextOrderDateBefore = dueBefore;
+            criteria.Take = ids.Count;
+
+            var due = (await subscriptionSearchService.SearchAsync(criteria)).Results;
+            if (due.Count > 0)
             {
-                continue;
+                await CreateRenewalAsync(due, store, isManual: false);
+            }
+        });
+
+        return ran ? 0 : ids.Count;
+    }
+
+    /// <summary>
+    /// Pages through the subscriptions matching <paramref name="criteria"/> while <paramref name="processPage"/> changes
+    /// them. A processed subscription stops matching, so the next page starts after the ones left as they were:
+    /// <paramref name="processPage"/> returns how many of its page those are.
+    /// </summary>
+    protected virtual async Task ForEachSubscriptionPageAsync(SubscriptionSearchCriteria criteria, Func<IList<Subscription>, Task<int>> processPage)
+    {
+        var unchanged = 0;
+        for (var pageNumber = 0; pageNumber < MaxSchedulerPages; pageNumber++)
+        {
+            criteria.Skip = unchanged;
+            var page = (await subscriptionSearchService.SearchAsync(criteria)).Results;
+            if (page.Count == 0)
+            {
+                return;
             }
 
-            var leadDays = store.Settings.GetValue<int>(ModuleConstants.Settings.Store.ReminderLeadDays);
-            var due = storeGroup.Where(x => x.NextOrderDate.AddDays(-leadDays) <= now).ToList();
+            unchanged += await processPage(page);
 
-            foreach (var group in due.GroupBy(GetGroupKey))
+            if (page.Count < criteria.Take)
             {
-                try
-                {
-                    await CreateRenewalAsync(group.ToList(), store, isManual: false);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to create a renewal for subscriptions {Numbers}", string.Join(", ", group.Select(x => x.Number)));
-                }
+                return;
             }
+        }
+    }
+
+    protected virtual async Task<IList<Store>> GetStoresAsync()
+    {
+        var criteria = AbstractTypeFactory<StoreSearchCriteria>.TryCreateInstance();
+        return await storeSearchService.SearchAllNoCloneAsync(criteria);
+    }
+
+    /// <summary>A scheduler step for one customer: skipped (false) when their lock stays busy or the step fails.</summary>
+    protected virtual async Task<bool> TryRunForCustomerAsync(string customerId, IList<string> subscriptionIds, Func<Task> action)
+    {
+        try
+        {
+            return await distributedLock.TryRunForCustomerAsync(customerId, action, _schedulerLockWait);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Scheduler step failed for subscriptions {Ids}", string.Join(", ", subscriptionIds));
+            return false;
         }
     }
 
@@ -238,29 +331,52 @@ public class RenewalProcessor(
 
     protected virtual async Task SendAnnualRemindersAsync(DateTime now)
     {
-        var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
-        criteria.Statuses = [SubscriptionStatus.Active, SubscriptionStatus.Paused];
-        criteria.Take = 200;
-        var subscriptions = (await subscriptionSearchService.SearchAsync(criteria)).Results
-            .Where(x => (x.LastAnnualReminderDate ?? x.StartDate) <= now.AddYears(-1))
-            .ToList();
-
-        foreach (var customerGroup in subscriptions.GroupBy(x => (x.StoreId, x.CustomerId)))
+        var stores = (await GetStoresAsync()).Where(x => x.Settings.GetValue<bool>(ModuleConstants.Settings.Store.AnnualReminderEnabled));
+        foreach (var store in stores)
         {
-            var store = await storeService.GetNoCloneAsync(customerGroup.Key.StoreId);
-            if (store?.Settings.GetValue<bool>(ModuleConstants.Settings.Store.AnnualReminderEnabled) != true)
-            {
-                continue;
-            }
+            var dueBefore = now.AddYears(-1);
+            var activeStatuses = new[] { SubscriptionStatus.Active, SubscriptionStatus.Paused };
 
-            var group = customerGroup.ToList();
-            await notificationService.SendAsync<SubscriptionAnnualReminderEmailNotification>(group);
-            foreach (var subscription in group)
-            {
-                subscription.LastAnnualReminderDate = now;
-            }
+            var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
+            criteria.StoreId = store.Id;
+            criteria.Statuses = activeStatuses;
+            criteria.AnnualReminderDueBefore = dueBefore;
+            criteria.Sort = "StartDate;Id";
+            criteria.Take = SchedulerPageSize;
 
-            await subscriptionService.SaveChangesAsync(group);
+            await ForEachSubscriptionPageAsync(criteria, async page =>
+            {
+                var unchanged = 0;
+                foreach (var customerGroup in page.GroupBy(x => x.CustomerId))
+                {
+                    var ids = customerGroup.Select(x => x.Id).ToList();
+                    var ran = await TryRunForCustomerAsync(customerGroup.Key, ids, async () =>
+                    {
+                        var group = (await subscriptionService.GetAsync(ids))
+                            .Where(x => activeStatuses.Contains(x.Status) && (x.LastAnnualReminderDate ?? x.StartDate) <= dueBefore)
+                            .ToList();
+                        if (group.Count == 0)
+                        {
+                            return;
+                        }
+
+                        await notificationService.SendAsync<SubscriptionAnnualReminderEmailNotification>(group);
+                        foreach (var subscription in group)
+                        {
+                            subscription.LastAnnualReminderDate = now;
+                        }
+
+                        await subscriptionService.SaveChangesAsync(group);
+                    });
+
+                    if (!ran)
+                    {
+                        unchanged += ids.Count;
+                    }
+                }
+
+                return unchanged;
+            });
         }
     }
 
@@ -270,15 +386,29 @@ public class RenewalProcessor(
 
     public virtual async Task<Renewal> ProcessAsync(string renewalId, bool ignoreSchedule = false)
     {
+        var customerId = (await renewalService.GetNoCloneAsync(renewalId))?.CustomerId;
+        if (customerId == null)
+        {
+            return null;
+        }
+
         Renewal result = null;
-        var ran = await distributedLock.TryExecuteAsync(GetLockResource(renewalId),
-            async _ => { result = await ProcessLockedAsync(renewalId, ignoreSchedule); },
-            TimeSpan.FromSeconds(30));
+        var ran = await distributedLock.TryRunForCustomerAsync(customerId,
+            async () => { result = await ProcessLockedAsync(renewalId, ignoreSchedule); });
 
         return ran ? result : await renewalService.GetByIdAsync(renewalId);
     }
 
     public virtual async Task<Renewal> OrderNowAsync(string subscriptionId)
+    {
+        var customerId = (await subscriptionService.GetNoCloneAsync(subscriptionId))?.CustomerId
+            ?? throw new InvalidOperationException("Subscription not found.");
+
+        // Under the customer's lock: a double click, a retried request or a scheduler run never makes a second renewal.
+        return await distributedLock.RunForCustomerAsync(customerId, () => OrderNowLockedAsync(subscriptionId));
+    }
+
+    protected virtual async Task<Renewal> OrderNowLockedAsync(string subscriptionId)
     {
         var subscription = await subscriptionService.GetByIdAsync(subscriptionId)
             ?? throw new InvalidOperationException("Subscription not found.");
@@ -288,10 +418,16 @@ public class RenewalProcessor(
             throw new InvalidOperationException("Only active subscriptions can be ordered now.");
         }
 
+        // The lock makes a double click or a retried request wait for the first one; this stops it ordering again.
+        if (subscription.LastOrderDate > UtcNow.Subtract(_orderNowRepeatWindow))
+        {
+            throw new InvalidOperationException("This subscription was just ordered. Check your orders before ordering again.");
+        }
+
         if (!string.IsNullOrEmpty(subscription.CurrentRenewalId))
         {
             var open = await renewalService.GetByIdAsync(subscription.CurrentRenewalId);
-            if (open != null && open.IsOpen)
+            if (open != null && open.IsOpen && open.Items.Any(x => x.SubscriptionId == subscription.Id))
             {
                 if (!RenewalState.BeforeOrder.Contains(open.State))
                 {
@@ -303,7 +439,7 @@ public class RenewalProcessor(
                 open.NextProcessingDate = UtcNow;
                 open.AddEvent(RenewalEventType.CustomerAction, "Order now requested");
                 await renewalService.SaveChangesAsync([open]);
-                return await ProcessAsync(open.Id, ignoreSchedule: true);
+                return await ProcessLockedAsync(open.Id, ignoreSchedule: true);
             }
         }
 
@@ -318,14 +454,15 @@ public class RenewalProcessor(
             throw new InvalidOperationException("Your last order for this subscription is still waiting for payment. Complete it first.");
         }
 
-        var store = await storeService.GetNoCloneAsync(subscription.StoreId);
+        var store = await storeService.GetNoCloneAsync(subscription.StoreId)
+            ?? throw new InvalidOperationException("The subscription's store was not found.");
         var renewal = await CreateRenewalAsync([subscription], store, isManual: true);
-        return await ProcessAsync(renewal.Id, ignoreSchedule: true);
+        return await ProcessLockedAsync(renewal.Id, ignoreSchedule: true);
     }
 
-    public virtual async Task<Renewal> AcceptReviewAsync(string renewalId)
+    public virtual Task<Renewal> AcceptReviewAsync(string renewalId)
     {
-        await WithLockAsync(renewalId, async renewal =>
+        return WithLockAsync(renewalId, async renewal =>
         {
             if (renewal.State != RenewalState.ReviewRequired)
             {
@@ -343,14 +480,14 @@ public class RenewalProcessor(
             renewal.AddEvent(RenewalEventType.CustomerAction, "Customer accepted the changes");
             renewal.ChangeState(RenewalState.Notified, "Review accepted", UtcNow);
             await renewalService.SaveChangesAsync([renewal]);
-        });
 
-        return await ProcessAsync(renewalId, ignoreSchedule: true);
+            return await ProcessLockedAsync(renewal.Id, ignoreSchedule: true);
+        });
     }
 
-    public virtual async Task<Renewal> SkipAsync(string renewalId)
+    public virtual Task<Renewal> SkipAsync(string renewalId)
     {
-        return await WithLockAsync(renewalId, async renewal =>
+        return WithLockAsync(renewalId, async renewal =>
         {
             if (!RenewalState.BeforeOrder.Contains(renewal.State))
             {
@@ -373,12 +510,13 @@ public class RenewalProcessor(
             renewal.AddEvent(RenewalEventType.CustomerAction, "Delivery skipped");
             renewal.ChangeState(RenewalState.Skipped, "Delivery skipped");
             await renewalService.SaveChangesAsync([renewal]);
+            return renewal;
         });
     }
 
-    public virtual async Task<Renewal> CancelAsync(string renewalId, string reason)
+    public virtual Task<Renewal> CancelAsync(string renewalId, string reason)
     {
-        return await WithLockAsync(renewalId, async renewal =>
+        return WithLockAsync(renewalId, async renewal =>
         {
             if (!RenewalState.BeforeOrder.Contains(renewal.State))
             {
@@ -399,16 +537,23 @@ public class RenewalProcessor(
 
             renewal.ChangeState(RenewalState.Cancelled, string.IsNullOrWhiteSpace(reason) ? "Cancelled by an administrator" : reason);
             await renewalService.SaveChangesAsync([renewal]);
+            return renewal;
         });
     }
 
-    public virtual async Task<Renewal> RetryPaymentAsync(string renewalId)
+    public virtual Task<Renewal> RetryPaymentAsync(string renewalId)
     {
-        await WithLockAsync(renewalId, async renewal =>
+        return WithLockAsync(renewalId, async renewal =>
         {
             if (renewal.State is not (RenewalState.Failed or RenewalState.RetryScheduled or RenewalState.PaymentActionRequired))
             {
                 throw new InvalidOperationException("There is no failed payment to retry for this renewal.");
+            }
+
+            if (IsProviderRetry(renewal))
+            {
+                // A second charge now could collect the payment twice.
+                throw new InvalidOperationException("The payment provider is retrying this payment. We'll let you know the result.");
             }
 
             if (string.IsNullOrEmpty(renewal.OrderId))
@@ -427,9 +572,9 @@ public class RenewalProcessor(
             renewal.AddEvent(RenewalEventType.CustomerAction, "Payment retry requested");
             renewal.ChangeState(RenewalState.Ordered, "Retrying the payment", UtcNow);
             await renewalService.SaveChangesAsync([renewal]);
-        });
 
-        return await ProcessAsync(renewalId, ignoreSchedule: true);
+            return await ProcessLockedAsync(renewal.Id, ignoreSchedule: true);
+        });
     }
 
     public virtual async Task HandleOrderChangedAsync(CustomerOrder order)
@@ -442,61 +587,77 @@ public class RenewalProcessor(
         var criteria = AbstractTypeFactory<RenewalSearchCriteria>.TryCreateInstance();
         criteria.OrderId = order.Id;
         criteria.Take = 1;
-        var renewalId = (await renewalSearchService.SearchAsync(criteria, clone: false)).Results.FirstOrDefault()?.Id;
-        if (renewalId == null)
+        var found = (await renewalSearchService.SearchAsync(criteria, clone: false)).Results.FirstOrDefault();
+        if (found == null)
         {
             return;
         }
 
-        // No wait: if the renewal is being processed right now (e.g. this change comes from our own capture), skip.
-        await distributedLock.TryExecuteAsync(GetLockResource(renewalId), async _ =>
+        // Wait for the customer's lock instead of skipping: this runs in a background job, and a change dropped here
+        // (e.g. the shipment that triggers the capture) never comes again. If the lock stays busy, the job fails and
+        // the background job engine retries it.
+        await distributedLock.RunForCustomerAsync(found.CustomerId, () => HandleOrderChangedLockedAsync(found.Id, order.Id));
+    }
+
+    protected virtual async Task HandleOrderChangedLockedAsync(string renewalId, string orderId)
+    {
+        var renewal = await renewalService.GetByIdAsync(renewalId);
+        if (renewal == null)
         {
-            var renewal = await renewalService.GetByIdAsync(renewalId);
-            if (renewal == null)
-            {
-                return;
-            }
+            return;
+        }
 
-            var freshOrder = await customerOrderService.GetByIdAsync(order.Id);
-            var payment = freshOrder?.InPayments?.FirstOrDefault(x => x.Id == renewal.PaymentId) ?? freshOrder?.InPayments?.FirstOrDefault();
-            if (payment == null)
-            {
-                return;
-            }
+        var freshOrder = await customerOrderService.GetByIdAsync(orderId);
+        var payment = freshOrder?.InPayments?.FirstOrDefault(x => x.Id == renewal.PaymentId) ?? freshOrder?.InPayments?.FirstOrDefault();
+        if (payment == null)
+        {
+            return;
+        }
 
-            var changed = false;
+        var changed = false;
 
-            if (renewal.State is RenewalState.PaymentActionRequired or RenewalState.RetryScheduled or RenewalState.Failed or RenewalState.Ordered
-                && _paidStatuses.Contains(payment.PaymentStatus))
+        if (renewal.State is RenewalState.PaymentActionRequired or RenewalState.RetryScheduled or RenewalState.Failed or RenewalState.Ordered
+            && _paidStatuses.Contains(payment.PaymentStatus))
+        {
+            var collectedByProvider = IsProviderRetry(renewal);
+            renewal.AuthorizedDate = UtcNow;
+            renewal.AuthorizationExpiresDate = UtcNow.AddMinutes(await GetAuthorizationLifetimeMinutesAsync());
+            renewal.LastErrorMessage = null;
+            renewal.NextAttemptDate = null;
+            renewal.ChangeState(payment.PaymentStatus == PaymentStatus.Paid ? RenewalState.Completed : RenewalState.Authorized,
+                collectedByProvider ? "The payment provider collected the payment" : "Payment completed by the customer");
+            await ReactivateSubscriptionsAsync(renewal);
+            changed = true;
+        }
+        else if (IsProviderRetry(renewal) && _failedStatuses.Contains(payment.PaymentStatus))
+        {
+            await FailAsync(renewal, "We couldn't charge your card. Please update your payment method.", markCardForUpdate: false);
+            changed = true;
+        }
+
+        if (renewal.State == RenewalState.Authorized)
+        {
+            if (payment.PaymentStatus == PaymentStatus.Paid)
             {
-                renewal.AuthorizedDate = UtcNow;
-                renewal.AuthorizationExpiresDate = UtcNow.AddMinutes(await GetAuthorizationLifetimeMinutesAsync());
-                renewal.LastErrorMessage = null;
-                renewal.ChangeState(payment.PaymentStatus == PaymentStatus.Paid ? RenewalState.Completed : RenewalState.Authorized, "Payment completed by the customer");
-                await ReactivateSubscriptionsAsync(renewal);
+                renewal.CapturedDate ??= UtcNow;
+                renewal.ChangeState(RenewalState.Completed, "Payment captured");
                 changed = true;
             }
-
-            if (renewal.State == RenewalState.Authorized)
+            else if (IsShipped(freshOrder))
             {
-                if (payment.PaymentStatus == PaymentStatus.Paid)
-                {
-                    renewal.CapturedDate ??= UtcNow;
-                    renewal.ChangeState(RenewalState.Completed, "Payment captured");
-                    changed = true;
-                }
-                else if (IsShipped(freshOrder))
-                {
-                    await CaptureAsync(renewal, freshOrder, payment);
-                    changed = true;
-                }
+                await CaptureAsync(renewal, freshOrder, payment);
+                changed = true;
             }
+        }
 
-            if (changed)
+        if (changed)
+        {
+            await renewalService.SaveChangesAsync([renewal]);
+            if (!renewal.IsOpen)
             {
-                await renewalService.SaveChangesAsync([renewal]);
+                await ReleaseSubscriptionsAsync(renewal);
             }
-        });
+        }
     }
 
     #endregion
@@ -538,6 +699,15 @@ public class RenewalProcessor(
                         await ChargeAsync(renewal, store);
                         break;
 
+                    case RenewalState.RetryScheduled when IsProviderRetry(renewal):
+                        // The provider retries on its own; its result arrives as an order change. Never charge here.
+                        if (renewal.NextProcessingDate <= now)
+                        {
+                            await EndProviderRetryAsync(renewal);
+                        }
+
+                        break;
+
                     case RenewalState.RetryScheduled when ignoreSchedule || renewal.NextAttemptDate <= now:
                         renewal.ChangeState(RenewalState.Ordered, "Retrying the payment", now);
                         await ChargeAsync(renewal, store);
@@ -577,6 +747,11 @@ public class RenewalProcessor(
             {
                 break;
             }
+        }
+
+        if (!renewal.IsOpen)
+        {
+            await ReleaseSubscriptionsAsync(renewal);
         }
 
         return renewal;
@@ -861,8 +1036,11 @@ public class RenewalProcessor(
         var retryIndex = renewal.AttemptCount - 1;
         if (result.IsProviderRetryScheduled)
         {
-            renewal.ChangeState(RenewalState.RetryScheduled, "The payment provider retries this payment", UtcNow.AddDays(2));
-            renewal.NextAttemptDate = renewal.NextProcessingDate;
+            // The provider retries on its own (e.g. Adyen Auto Rescue) and the platform must not: wait for the result
+            // to arrive as a payment change on the order. No next attempt date marks this wait (see IsProviderRetry).
+            renewal.NextAttemptDate = null;
+            renewal.LastErrorMessage = "Your card was declined. Your payment provider will try again automatically.";
+            renewal.ChangeState(RenewalState.RetryScheduled, "The payment provider retries this payment", UtcNow.Add(_providerRetryWait));
             return;
         }
 
@@ -902,6 +1080,24 @@ public class RenewalProcessor(
         renewal.NextAttemptDate = UtcNow.Add(_providerErrorRetryDelay);
         renewal.ChangeState(RenewalState.RetryScheduled, "Payment provider error; retrying the same charge", renewal.NextAttemptDate);
         return Task.CompletedTask;
+    }
+
+    /// <summary>The provider's retry window is over and no result reached us: settle on the payment's current status.</summary>
+    protected virtual async Task EndProviderRetryAsync(Renewal renewal)
+    {
+        var order = await customerOrderService.GetByIdAsync(renewal.OrderId);
+        var payment = order?.InPayments?.FirstOrDefault(x => x.Id == renewal.PaymentId) ?? order?.InPayments?.FirstOrDefault();
+        if (payment != null && _paidStatuses.Contains(payment.PaymentStatus))
+        {
+            renewal.AuthorizedDate ??= UtcNow;
+            renewal.AuthorizationExpiresDate ??= UtcNow.AddMinutes(await GetAuthorizationLifetimeMinutesAsync());
+            renewal.LastErrorMessage = null;
+            renewal.ChangeState(payment.PaymentStatus == PaymentStatus.Paid ? RenewalState.Completed : RenewalState.Authorized, "The payment provider collected the payment");
+            await ReactivateSubscriptionsAsync(renewal);
+            return;
+        }
+
+        await FailAsync(renewal, "We couldn't charge your card. Please update your payment method.", markCardForUpdate: false);
     }
 
     protected virtual async Task FailAsync(Renewal renewal, string customerMessage, bool markCardForUpdate)
@@ -1123,25 +1319,52 @@ public class RenewalProcessor(
         return result.Count > 0 ? result : [24, 72, 120];
     }
 
-    protected static string GetLockResource(string renewalId) => $"product-subscription:renewal:{renewalId}";
-
-    protected virtual async Task<Renewal> WithLockAsync(string renewalId, Func<Renewal, Task> action)
+    /// <summary>A retry the payment provider runs on its own: the only retry state without a next attempt date.</summary>
+    protected static bool IsProviderRetry(Renewal renewal)
     {
-        Renewal result = null;
-        var ran = await distributedLock.TryExecuteAsync(GetLockResource(renewalId), async _ =>
+        return renewal.State == RenewalState.RetryScheduled && renewal.NextAttemptDate == null;
+    }
+
+    /// <summary>Clears the link from subscriptions to a renewal that has ended, so the scheduler plans their next delivery.</summary>
+    protected virtual async Task ReleaseSubscriptionsAsync(Renewal renewal)
+    {
+        var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
+        criteria.CurrentRenewalId = renewal.Id;
+        criteria.Take = SchedulerPageSize;
+
+        var linked = (await subscriptionSearchService.SearchAsync(criteria)).Results;
+        if (linked.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var subscription in linked)
+        {
+            subscription.CurrentRenewalId = null;
+        }
+
+        await subscriptionService.SaveChangesAsync(linked);
+    }
+
+    /// <summary>Runs <paramref name="action"/> on a fresh copy of the renewal, under its customer's lock.</summary>
+    protected virtual async Task<Renewal> WithLockAsync(string renewalId, Func<Renewal, Task<Renewal>> action)
+    {
+        var customerId = (await renewalService.GetNoCloneAsync(renewalId))?.CustomerId
+            ?? throw new InvalidOperationException("Renewal not found.");
+
+        return await distributedLock.RunForCustomerAsync(customerId, async () =>
         {
             var renewal = await renewalService.GetByIdAsync(renewalId)
                 ?? throw new InvalidOperationException("Renewal not found.");
-            await action(renewal);
-            result = renewal;
-        }, TimeSpan.FromSeconds(30));
 
-        if (!ran)
-        {
-            throw new InvalidOperationException("The renewal is being processed right now. Please try again in a moment.");
-        }
+            var result = await action(renewal);
+            if (result is { IsOpen: false })
+            {
+                await ReleaseSubscriptionsAsync(result);
+            }
 
-        return result;
+            return result;
+        });
     }
 
     #endregion

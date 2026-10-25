@@ -87,7 +87,26 @@ public class SubscriptionSearchService(
 
         if (criteria.WithoutOpenRenewal == true)
         {
-            query = query.Where(x => x.CurrentRenewalId == null);
+            // A link to a renewal that has ended, or that dropped the subscription, doesn't block the next renewal.
+            var finalStates = RenewalState.Final;
+            var renewalItems = ((IProductSubscriptionRepository)repository).RenewalItems;
+            query = query.Where(x => x.CurrentRenewalId == null
+                || !renewalItems.Any(i => i.SubscriptionId == x.Id && i.RenewalId == x.CurrentRenewalId && !finalStates.Contains(i.Renewal.State)));
+        }
+
+        if (!string.IsNullOrEmpty(criteria.CurrentRenewalId))
+        {
+            query = query.Where(x => x.CurrentRenewalId == criteria.CurrentRenewalId);
+        }
+
+        if (criteria.PausedUntilBefore != null)
+        {
+            query = query.Where(x => x.PausedUntil != null && x.PausedUntil <= criteria.PausedUntilBefore);
+        }
+
+        if (criteria.AnnualReminderDueBefore != null)
+        {
+            query = query.Where(x => (x.LastAnnualReminderDate ?? x.StartDate) <= criteria.AnnualReminderDueBefore);
         }
 
         if (!string.IsNullOrEmpty(criteria.Keyword))

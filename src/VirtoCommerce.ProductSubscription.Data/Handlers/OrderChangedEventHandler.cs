@@ -1,12 +1,12 @@
 using System;
 using System.Threading.Tasks;
-using Hangfire;
 using Microsoft.Extensions.Logging;
 using VirtoCommerce.OrdersModule.Core.Events;
 using VirtoCommerce.OrdersModule.Core.Model;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.DistributedLock;
 using VirtoCommerce.Platform.Core.Events;
+using VirtoCommerce.Platform.Core.Jobs;
 using VirtoCommerce.ProductSubscription.Core.Services;
 
 namespace VirtoCommerce.ProductSubscription.Data.Handlers;
@@ -17,7 +17,6 @@ namespace VirtoCommerce.ProductSubscription.Data.Handlers;
 /// and hands renewal orders to the renewal processor (customer completed a payment, shipment shipped → capture).
 /// </summary>
 public class OrderChangedEventHandler(
-    IBackgroundJobClient backgroundJobClient,
     ISubscriptionManager subscriptionManager,
     IDistributedLock distributedLock,
     ILogger<OrderChangedEventHandler> logger)
@@ -39,8 +38,29 @@ public class OrderChangedEventHandler(
             }
 
             // Activation and renewal handling run outside the order save, so they can never fail the customer's checkout.
-            backgroundJobClient.Enqueue<OrderChangedJob>(x => x.ProcessAsync(order.Id, entry.EntryState == EntryState.Added));
+            var payload = AbstractTypeFactory<OrderChangedJobPayload>.TryCreateInstance();
+            payload.OrderId = order.Id;
+            payload.IsNew = entry.EntryState == EntryState.Added;
+
+            try
+            {
+                await EnqueueAsync(payload);
+            }
+            catch (Exception ex)
+            {
+                // Never fail the order save, e.g. when no background job engine is installed.
+                logger.LogError(ex, "Failed to enqueue subscription processing for order {OrderNumber}", order.Number);
+            }
         }
+    }
+
+    /// <summary>
+    /// Uses the static facade, not an injected <see cref="IBackgroundJob"/>: the event handler is resolved once, from
+    /// the root provider, and the facade is scoped.
+    /// </summary>
+    protected virtual Task EnqueueAsync(OrderChangedJobPayload payload)
+    {
+        return BackgroundJob.Enqueue<OrderChangedJob>(payload);
     }
 
     /// <summary>

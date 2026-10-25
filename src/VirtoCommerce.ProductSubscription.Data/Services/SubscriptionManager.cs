@@ -11,7 +11,7 @@ using VirtoCommerce.PaymentModule.Core.Model;
 using VirtoCommerce.PaymentModule.Core.Model.StoredCredentials;
 using VirtoCommerce.PaymentModule.Core.Services;
 using VirtoCommerce.Platform.Core.Common;
-using VirtoCommerce.Platform.Core.GenericCrud;
+using VirtoCommerce.Platform.Core.DistributedLock;
 using VirtoCommerce.ProductSubscription.Core;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Notifications;
@@ -32,6 +32,7 @@ public class SubscriptionManager(
     IPaymentConsentSearchService paymentConsentSearchService,
     ISubscriptionNotificationService notificationService,
     IItemService itemService,
+    IDistributedLock distributedLock,
     ILogger<SubscriptionManager> logger)
     : ISubscriptionManager
 {
@@ -152,196 +153,209 @@ public class SubscriptionManager(
             return [];
         }
 
-        var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
-        criteria.InitialOrderId = order.Id;
-        criteria.Statuses = [SubscriptionStatus.PendingActivation];
-        criteria.Take = 1000;
-        var pending = (await subscriptionSearchService.SearchAsync(criteria)).Results;
-        if (pending.Count == 0)
+        return await distributedLock.RunForCustomerAsync(order.CustomerId, async () =>
         {
-            return [];
-        }
-
-        var storedPaymentMethod = await FindStoredPaymentMethodAsync(order);
-        foreach (var subscription in pending)
-        {
-            subscription.Status = SubscriptionStatus.Active;
-            if (storedPaymentMethod != null)
+            var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
+            criteria.InitialOrderId = order.Id;
+            criteria.Statuses = [SubscriptionStatus.PendingActivation];
+            criteria.Take = 1000;
+            var pending = (await subscriptionSearchService.SearchAsync(criteria)).Results;
+            if (pending.Count == 0)
             {
-                subscription.StoredPaymentMethodId = storedPaymentMethod.Id;
-                subscription.PaymentMethodCode = storedPaymentMethod.PaymentMethodCode;
+                return pending;
             }
-        }
 
-        await subscriptionService.SaveChangesAsync(pending);
+            var storedPaymentMethod = await FindStoredPaymentMethodAsync(order);
+            foreach (var subscription in pending)
+            {
+                subscription.Status = SubscriptionStatus.Active;
+                if (storedPaymentMethod != null)
+                {
+                    subscription.StoredPaymentMethodId = storedPaymentMethod.Id;
+                    subscription.PaymentMethodCode = storedPaymentMethod.PaymentMethodCode;
+                }
+            }
 
-        return pending;
+            await subscriptionService.SaveChangesAsync(pending);
+
+            return pending;
+        });
     }
 
-    public virtual async Task<Subscription> SkipNextAsync(string subscriptionId)
+    public virtual Task<Subscription> SkipNextAsync(string subscriptionId)
     {
-        var subscription = await GetRequiredAsync(subscriptionId);
-        EnsureStatus(subscription, SubscriptionStatus.Active, SubscriptionStatus.PastDue);
-
-        await DetachFromOpenRenewalAsync(subscription, "Skipped by customer");
-
-        subscription.NextOrderDate = SubscriptionSchedule.AddInterval(subscription.NextOrderDate, subscription.IntervalUnit, subscription.IntervalCount, subscription.EffectiveAnchorDay);
-        subscription.SkipCount++;
-        await subscriptionService.SaveChangesAsync([subscription]);
-
-        return subscription;
-    }
-
-    public virtual async Task<Subscription> PauseAsync(string subscriptionId, DateTime? resumeDate)
-    {
-        var subscription = await GetRequiredAsync(subscriptionId);
-        EnsureStatus(subscription, SubscriptionStatus.Active, SubscriptionStatus.PastDue);
-
-        if (resumeDate != null && resumeDate.Value.ToUniversalTime() <= DateTime.UtcNow)
+        return WithLockAsync(subscriptionId, async subscription =>
         {
-            throw new InvalidOperationException("The resume date must be in the future.");
-        }
+            EnsureStatus(subscription, SubscriptionStatus.Active, SubscriptionStatus.PastDue);
 
-        await DetachFromOpenRenewalAsync(subscription, "Subscription paused");
+            await DetachFromOpenRenewalAsync(subscription, "Skipped by customer");
 
-        subscription.Status = SubscriptionStatus.Paused;
-        subscription.PausedUntil = resumeDate?.ToUniversalTime();
-        await subscriptionService.SaveChangesAsync([subscription]);
+            subscription.NextOrderDate = SubscriptionSchedule.AddInterval(subscription.NextOrderDate, subscription.IntervalUnit, subscription.IntervalCount, subscription.EffectiveAnchorDay);
+            subscription.SkipCount++;
+            await subscriptionService.SaveChangesAsync([subscription]);
 
-        return subscription;
-    }
-
-    public virtual async Task<Subscription> ResumeAsync(string subscriptionId)
-    {
-        var subscription = await GetRequiredAsync(subscriptionId);
-        EnsureStatus(subscription, SubscriptionStatus.Paused);
-
-        subscription.Status = SubscriptionStatus.Active;
-        subscription.PausedUntil = null;
-
-        var earliest = DateTime.UtcNow.AddDays(1);
-        if (subscription.NextOrderDate < earliest)
-        {
-            subscription.NextOrderDate = earliest;
-        }
-
-        await subscriptionService.SaveChangesAsync([subscription]);
-
-        return subscription;
-    }
-
-    public virtual async Task<Subscription> CancelAsync(string subscriptionId, string reason)
-    {
-        var subscription = await GetRequiredAsync(subscriptionId);
-        if (subscription.Status == SubscriptionStatus.Cancelled)
-        {
             return subscription;
-        }
-
-        await DetachFromOpenRenewalAsync(subscription, "Subscription cancelled");
-
-        subscription.Status = SubscriptionStatus.Cancelled;
-        subscription.CancelledDate = DateTime.UtcNow;
-        subscription.CancelReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
-        subscription.PausedUntil = null;
-        await subscriptionService.SaveChangesAsync([subscription]);
-
-        await notificationService.SendAsync<SubscriptionCancelledEmailNotification>([subscription]);
-
-        return subscription;
+        });
     }
 
-    public virtual async Task<Subscription> ChangeAsync(string subscriptionId, SubscriptionChange change)
+    public virtual Task<Subscription> PauseAsync(string subscriptionId, DateTime? resumeDate)
+    {
+        return WithLockAsync(subscriptionId, async subscription =>
+        {
+            EnsureStatus(subscription, SubscriptionStatus.Active, SubscriptionStatus.PastDue);
+
+            if (resumeDate != null && resumeDate.Value.ToUniversalTime() <= DateTime.UtcNow)
+            {
+                throw new InvalidOperationException("The resume date must be in the future.");
+            }
+
+            await DetachFromOpenRenewalAsync(subscription, "Subscription paused");
+
+            subscription.Status = SubscriptionStatus.Paused;
+            subscription.PausedUntil = resumeDate?.ToUniversalTime();
+            await subscriptionService.SaveChangesAsync([subscription]);
+
+            return subscription;
+        });
+    }
+
+    public virtual Task<Subscription> ResumeAsync(string subscriptionId)
+    {
+        return WithLockAsync(subscriptionId, async subscription =>
+        {
+            EnsureStatus(subscription, SubscriptionStatus.Paused);
+
+            subscription.Status = SubscriptionStatus.Active;
+            subscription.PausedUntil = null;
+
+            var earliest = DateTime.UtcNow.AddDays(1);
+            if (subscription.NextOrderDate < earliest)
+            {
+                subscription.NextOrderDate = earliest;
+            }
+
+            await subscriptionService.SaveChangesAsync([subscription]);
+
+            return subscription;
+        });
+    }
+
+    public virtual Task<Subscription> CancelAsync(string subscriptionId, string reason)
+    {
+        return WithLockAsync(subscriptionId, async subscription =>
+        {
+            if (subscription.Status == SubscriptionStatus.Cancelled)
+            {
+                return subscription;
+            }
+
+            await DetachFromOpenRenewalAsync(subscription, "Subscription cancelled");
+
+            subscription.Status = SubscriptionStatus.Cancelled;
+            subscription.CancelledDate = DateTime.UtcNow;
+            subscription.CancelReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+            subscription.PausedUntil = null;
+            await subscriptionService.SaveChangesAsync([subscription]);
+
+            await notificationService.SendAsync<SubscriptionCancelledEmailNotification>([subscription]);
+
+            return subscription;
+        });
+    }
+
+    public virtual Task<Subscription> ChangeAsync(string subscriptionId, SubscriptionChange change)
     {
         ArgumentNullException.ThrowIfNull(change);
 
-        var subscription = await GetRequiredAsync(subscriptionId);
-        EnsureStatus(subscription, SubscriptionStatus.Active, SubscriptionStatus.Paused, SubscriptionStatus.PastDue, SubscriptionStatus.PendingActivation);
-
-        var detach = false;
-
-        if (change.IntervalUnit != null || change.IntervalCount != null)
+        return WithLockAsync(subscriptionId, async subscription =>
         {
-            var unit = change.IntervalUnit ?? subscription.IntervalUnit;
-            var count = change.IntervalCount ?? subscription.IntervalCount;
-            if (count < 1)
+            EnsureStatus(subscription, SubscriptionStatus.Active, SubscriptionStatus.Paused, SubscriptionStatus.PastDue, SubscriptionStatus.PendingActivation);
+
+            var detach = false;
+
+            if (change.IntervalUnit != null || change.IntervalCount != null)
             {
-                throw new InvalidOperationException("The frequency must be at least 1.");
+                var unit = change.IntervalUnit ?? subscription.IntervalUnit;
+                var count = change.IntervalCount ?? subscription.IntervalCount;
+                if (count < 1)
+                {
+                    throw new InvalidOperationException("The frequency must be at least 1.");
+                }
+
+                var plan = string.IsNullOrEmpty(subscription.PlanId) ? null : await planService.GetNoCloneAsync(subscription.PlanId);
+                if (plan != null && plan.Intervals?.Count > 0 && !plan.SupportsInterval(unit, count))
+                {
+                    throw new InvalidOperationException("This frequency is not offered for this product.");
+                }
+
+                if (unit != subscription.IntervalUnit || count != subscription.IntervalCount)
+                {
+                    // Keep the anchor: the next order is one new interval after the last order (or after today).
+                    var anchor = subscription.LastOrderDate ?? subscription.StartDate;
+                    var next = SubscriptionSchedule.AddInterval(anchor, unit, count, subscription.EffectiveAnchorDay);
+                    var earliest = DateTime.UtcNow.AddDays(1);
+                    subscription.NextOrderDate = next < earliest ? earliest : next;
+                    subscription.IntervalUnit = unit;
+                    subscription.IntervalCount = count;
+                    detach = true;
+                }
             }
 
-            var plan = string.IsNullOrEmpty(subscription.PlanId) ? null : await planService.GetNoCloneAsync(subscription.PlanId);
-            if (plan != null && plan.Intervals?.Count > 0 && !plan.SupportsInterval(unit, count))
+            if (change.Quantity != null)
             {
-                throw new InvalidOperationException("This frequency is not offered for this product.");
+                if (change.Quantity < 1 || change.Quantity > 9999)
+                {
+                    throw new InvalidOperationException("The quantity must be between 1 and 9999.");
+                }
+
+                if (change.Quantity != subscription.Quantity)
+                {
+                    await EnsureQuantityAllowedAsync(subscription.ProductId, change.Quantity.Value);
+                    subscription.Quantity = change.Quantity.Value;
+                    detach = true;
+                }
             }
 
-            if (unit != subscription.IntervalUnit || count != subscription.IntervalCount)
+            if (change.NextOrderDate != null)
             {
-                // Keep the anchor: the next order is one new interval after the last order (or after today).
-                var anchor = subscription.LastOrderDate ?? subscription.StartDate;
-                var next = SubscriptionSchedule.AddInterval(anchor, unit, count, subscription.EffectiveAnchorDay);
-                var earliest = DateTime.UtcNow.AddDays(1);
-                subscription.NextOrderDate = next < earliest ? earliest : next;
-                subscription.IntervalUnit = unit;
-                subscription.IntervalCount = count;
+                var date = change.NextOrderDate.Value.ToUniversalTime();
+                if (date.Date < DateTime.UtcNow.Date.AddDays(1) || date > DateTime.UtcNow.AddYears(1))
+                {
+                    throw new InvalidOperationException("The next delivery date must be between tomorrow and one year from now.");
+                }
+
+                subscription.NextOrderDate = date;
+                // The customer picked a day: later monthly deliveries keep it.
+                subscription.AnchorDay = date.Day;
                 detach = true;
             }
-        }
 
-        if (change.Quantity != null)
-        {
-            if (change.Quantity < 1 || change.Quantity > 9999)
+            if (!string.IsNullOrEmpty(change.StoredPaymentMethodId) && change.StoredPaymentMethodId != subscription.StoredPaymentMethodId)
             {
-                throw new InvalidOperationException("The quantity must be between 1 and 9999.");
+                var storedMethod = await storedPaymentMethodService.GetNoCloneAsync(change.StoredPaymentMethodId);
+                if (storedMethod == null || storedMethod.CustomerId != subscription.CustomerId || storedMethod.Status != StoredPaymentMethodStatus.Active)
+                {
+                    throw new InvalidOperationException("This payment method can't be used.");
+                }
+
+                subscription.StoredPaymentMethodId = storedMethod.Id;
+                subscription.PaymentMethodCode = storedMethod.PaymentMethodCode;
+
+                if (subscription.Status == SubscriptionStatus.PastDue)
+                {
+                    subscription.Status = SubscriptionStatus.Active;
+                }
             }
 
-            if (change.Quantity != subscription.Quantity)
+            if (detach)
             {
-                await EnsureQuantityAllowedAsync(subscription.ProductId, change.Quantity.Value);
-                subscription.Quantity = change.Quantity.Value;
-                detach = true;
-            }
-        }
-
-        if (change.NextOrderDate != null)
-        {
-            var date = change.NextOrderDate.Value.ToUniversalTime();
-            if (date.Date < DateTime.UtcNow.Date.AddDays(1) || date > DateTime.UtcNow.AddYears(1))
-            {
-                throw new InvalidOperationException("The next delivery date must be between tomorrow and one year from now.");
+                await DetachFromOpenRenewalAsync(subscription, "Subscription changed");
             }
 
-            subscription.NextOrderDate = date;
-            // The customer picked a day: later monthly deliveries keep it.
-            subscription.AnchorDay = date.Day;
-            detach = true;
-        }
+            await subscriptionService.SaveChangesAsync([subscription]);
 
-        if (!string.IsNullOrEmpty(change.StoredPaymentMethodId) && change.StoredPaymentMethodId != subscription.StoredPaymentMethodId)
-        {
-            var storedMethod = await storedPaymentMethodService.GetNoCloneAsync(change.StoredPaymentMethodId);
-            if (storedMethod == null || storedMethod.CustomerId != subscription.CustomerId || storedMethod.Status != StoredPaymentMethodStatus.Active)
-            {
-                throw new InvalidOperationException("This payment method can't be used.");
-            }
-
-            subscription.StoredPaymentMethodId = storedMethod.Id;
-            subscription.PaymentMethodCode = storedMethod.PaymentMethodCode;
-
-            if (subscription.Status == SubscriptionStatus.PastDue)
-            {
-                subscription.Status = SubscriptionStatus.Active;
-            }
-        }
-
-        if (detach)
-        {
-            await DetachFromOpenRenewalAsync(subscription, "Subscription changed");
-        }
-
-        await subscriptionService.SaveChangesAsync([subscription]);
-
-        return subscription;
+            return subscription;
+        });
     }
 
     /// <summary>
@@ -384,6 +398,18 @@ public class SubscriptionManager(
         }
 
         await renewalService.SaveChangesAsync([renewal]);
+    }
+
+    /// <summary>
+    /// Runs <paramref name="action"/> on a fresh copy of the subscription, under its customer's lock, which the renewal
+    /// processor takes too: a change never races the scheduler or an order being placed (see <see cref="SubscriptionLocks"/>).
+    /// </summary>
+    protected virtual async Task<Subscription> WithLockAsync(string subscriptionId, Func<Subscription, Task<Subscription>> action)
+    {
+        var customerId = (await subscriptionService.GetNoCloneAsync(subscriptionId))?.CustomerId
+            ?? throw new InvalidOperationException($"Subscription {subscriptionId} was not found.");
+
+        return await distributedLock.RunForCustomerAsync(customerId, async () => await action(await GetRequiredAsync(subscriptionId)));
     }
 
     protected virtual async Task<Subscription> GetRequiredAsync(string subscriptionId)

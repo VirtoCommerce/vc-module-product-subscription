@@ -91,7 +91,7 @@ The module follows the layered architecture of Virto Commerce modules:
 
 ### Renewal Flow
 
-1. **Schedule** — `RenewalSchedulerJob` (Hangfire, `ProductSubscription.Scheduler.CronExpression`) runs `IRenewalProcessor`, which groups a customer's due subscriptions into one renewal (`Scheduled`)
+1. **Schedule** — `RenewalSchedulerJob` (a platform background job on the `ProductSubscription.Scheduler.CronExpression` schedule) runs `IRenewalProcessor`, which groups a customer's due subscriptions into one renewal (`Scheduled`)
 2. **Remind** — `ReminderLeadDays` before the delivery the customer gets a reminder with the maximum price (`Notified`)
 3. **Cutoff** — `CutoffHours` before the delivery the renewal is priced again through the cart; a higher price or an unavailable item moves it to `ReviewRequired`, otherwise the order is placed (`Ordered`)
 4. **Charge** — the saved card is authorized with `ProcessStoredPaymentAsync` (`Authorized`); a soft decline schedules a retry (`RetryScheduled`), 3-D Secure asks the customer to confirm (`PaymentActionRequired`), a hard decline fails the renewal and marks the card for update (`Failed`)

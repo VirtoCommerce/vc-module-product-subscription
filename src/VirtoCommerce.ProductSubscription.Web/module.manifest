@@ -15,6 +15,7 @@
     <dependency id="VirtoCommerce.Payment" version="3.1011.0-alpha.315-vcst-6507" />
     <dependency id="VirtoCommerce.Marketing" version="3.1009.0" />
     <dependency id="VirtoCommerce.Notifications" version="3.1018.0" />
+    <dependency id="VirtoCommerce.BackgroundJobs" version="3.1054.0" />
     <dependency id="VirtoCommerce.Xapi" version="3.1027.0" />
     <dependency id="VirtoCommerce.XCatalog" version="3.1023.0" />
     <dependency id="VirtoCommerce.XCart" version="3.1042.0" />

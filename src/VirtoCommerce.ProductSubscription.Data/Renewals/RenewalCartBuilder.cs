@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using FluentValidation.Results;
 using VirtoCommerce.CartModule.Core.Model;
 using VirtoCommerce.CoreModule.Core.Common;
 using VirtoCommerce.OrdersModule.Core.Services;
@@ -71,6 +72,13 @@ public class RenewalCartBuilder(
             await aggregate.AddItemsAsync(newItems);
         }
 
+        // In-memory cart lines have no ids, and validation errors point at their object by id: without ids, an error on
+        // any line (or on the shipment) would match every line.
+        foreach (var lineItem in aggregate.Cart.Items.Where(x => string.IsNullOrEmpty(x.Id)))
+        {
+            lineItem.Id = Guid.NewGuid().ToString("N");
+        }
+
         var deliveryAddress = ToCartAddress(renewal.ShippingAddress, AddressType.Shipping);
         if (deliveryAddress != null)
         {
@@ -116,10 +124,7 @@ public class RenewalCartBuilder(
                 continue;
             }
 
-            var errors = validationErrors
-                .Where(x => x is CartValidationError cartError && (cartError.ObjectId == lineItem?.Id || cartError.ObjectId == item.ProductId))
-                .Select(x => x.ErrorMessage)
-                .ToList();
+            var errors = GetLineErrors(validationErrors, lineItem, item.ProductId);
 
             if (lineItem == null)
             {
@@ -182,6 +187,17 @@ public class RenewalCartBuilder(
         cart.Comment = $"Subscription renewal {renewal.Number}";
 
         return await customerOrderBuilder.PlaceCustomerOrderFromCartAsync(cart);
+    }
+
+    /// <summary>The validation messages about one renewal line: errors on its cart line, or on its product.</summary>
+    public static IList<string> GetLineErrors(IEnumerable<ValidationFailure> validationErrors, LineItem lineItem, string productId)
+    {
+        return validationErrors
+            .OfType<CartValidationError>()
+            .Where(x => !string.IsNullOrEmpty(x.ObjectId)
+                && ((!string.IsNullOrEmpty(lineItem?.Id) && x.ObjectId == lineItem.Id) || x.ObjectId == productId))
+            .Select(x => x.ErrorMessage)
+            .ToList();
     }
 
     protected virtual async Task AddShipmentAsync(CartAggregate aggregate, Renewal renewal, CartAddress deliveryAddress)

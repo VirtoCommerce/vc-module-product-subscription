@@ -194,21 +194,27 @@ export function useFormat() {
   return { t, status, interval, intervalKey, money, discount, date, dateTime, address };
 }
 
-/** yyyy-mm-dd of a date in local time: the value of a date input */
+/**
+ * yyyy-mm-dd of a date in UTC: the value of a date input. Delivery dates are days on the server's UTC calendar
+ * (the anchor day of monthly deliveries is a UTC day), so the admin's time zone must not shift them.
+ */
 export function toDateInput(value?: Date | string | null) {
   if (!value) return "";
   const date = value instanceof Date ? value : new Date(value);
   if (isNaN(date.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 }
 
-/** A date input's value (yyyy-mm-dd, or a Date some inputs emit) at local midnight */
+/** A date input's value (yyyy-mm-dd, or a Date some inputs emit) at UTC midnight of that day */
 export function fromDateInput(value: unknown): Date | undefined {
   if (!value) return undefined;
-  if (value instanceof Date) return isNaN(value.getTime()) ? undefined : value;
+  if (value instanceof Date) {
+    // A picked Date is the local midnight of the day the admin chose: keep that day.
+    return isNaN(value.getTime()) ? undefined : new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));
+  }
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
-  return match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : undefined;
+  return match ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))) : undefined;
 }
 
 interface LegacyContext {

@@ -8,10 +8,9 @@ using Newtonsoft.Json.Linq;
 using VirtoCommerce.PaymentModule.Core.Model.StoredCredentials;
 using VirtoCommerce.PaymentModule.Core.Services;
 using VirtoCommerce.Platform.Core.Common;
-using VirtoCommerce.Platform.Core.GenericCrud;
-using VirtoCommerce.ProductSubscription.Core;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
+using VirtoCommerce.ProductSubscription.Data.BackgroundJobs;
 using VirtoCommerce.ProductSubscription.Data.Import;
 using Permissions = VirtoCommerce.ProductSubscription.Core.ModuleConstants.Security.Permissions;
 
@@ -36,7 +35,8 @@ public class ProductSubscriptionController(
     IStoredPaymentMethodSearchService storedPaymentMethodSearchService,
     IPaymentConsentService consentService,
     ILegacySubscriptionImporter legacySubscriptionImporter,
-    LegacySubscriptionJsonMapper legacySubscriptionJsonMapper)
+    LegacySubscriptionJsonMapper legacySubscriptionJsonMapper,
+    RenewalSchedulerJob renewalSchedulerJob)
     : Controller
 {
     #region Plans
@@ -219,7 +219,13 @@ public class ProductSubscriptionController(
     [Authorize(Permissions.ProcessRenewals)]
     public async Task<ActionResult<object>> RunScheduler()
     {
-        var processed = await renewalProcessor.ProcessDueAsync();
+        // Through the job, so a run from here never overlaps a scheduled one.
+        var processed = await renewalSchedulerJob.RunAsync(TimeSpan.FromSeconds(60), HttpContext.RequestAborted);
+        if (processed == null)
+        {
+            return Conflict(new { message = "The scheduler is already running. Try again when it finishes." });
+        }
+
         return Ok(new { processed });
     }
 
