@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using VirtoCommerce.Platform.Core.Common;
 
 namespace VirtoCommerce.ProductSubscription.Core.Models;
@@ -24,28 +23,4 @@ public class SubscriptionCartItem : AuditableEntity, ICloneable
     {
         return MemberwiseClone();
     }
-}
-
-/// <summary>
-/// The subscription offer shown for a product: the matching plan, its frequencies and discount.
-/// </summary>
-public class SubscriptionOffer
-{
-    public string ProductId { get; set; }
-    public string PlanId { get; set; }
-    public string PlanName { get; set; }
-    public string Description { get; set; }
-    public SubscriptionDiscountType DiscountType { get; set; }
-    public decimal DiscountValue { get; set; }
-    public IList<SubscriptionPlanInterval> Intervals { get; set; } = new List<SubscriptionPlanInterval>();
-}
-
-/// <summary>
-/// Subscription terms the customer agrees to at checkout (US auto-renewal disclosure).
-/// </summary>
-public class SubscriptionTerms
-{
-    public string Version { get; set; }
-    public string Text { get; set; }
-    public string Hash { get; set; }
 }

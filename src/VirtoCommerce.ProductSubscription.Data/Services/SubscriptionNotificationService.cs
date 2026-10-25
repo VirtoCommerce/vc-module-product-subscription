@@ -4,28 +4,17 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
-using VirtoCommerce.Platform.Core.Common;
-using VirtoCommerce.Platform.Core.GenericCrud;
-using VirtoCommerce.Platform.Core.Security;
-using VirtoCommerce.CustomerModule.Core.Model;
 using VirtoCommerce.CustomerModule.Core.Services;
 using VirtoCommerce.NotificationsModule.Core.Extensions;
-using VirtoCommerce.NotificationsModule.Core.Model;
 using VirtoCommerce.NotificationsModule.Core.Services;
+using VirtoCommerce.Platform.Core.Common;
+using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Notifications;
 using VirtoCommerce.StoreModule.Core.Model;
 using VirtoCommerce.StoreModule.Core.Services;
 
 namespace VirtoCommerce.ProductSubscription.Data.Services;
-
-public interface ISubscriptionNotificationService
-{
-    Task SendAsync<T>(IList<Subscription> subscriptions, Renewal renewal = null, Action<T> configure = null)
-        where T : SubscriptionEmailNotificationBase;
-
-    Task<string> GetStoreUrlAsync(string storeId);
-}
 
 public class SubscriptionNotificationService(
     INotificationSearchService notificationSearchService,

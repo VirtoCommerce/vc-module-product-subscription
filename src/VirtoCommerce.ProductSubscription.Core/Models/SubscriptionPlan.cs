@@ -46,30 +46,3 @@ public class SubscriptionPlan : AuditableEntity, ICloneable
         return result;
     }
 }
-
-public class SubscriptionPlanInterval : Entity, ICloneable
-{
-    public SubscriptionIntervalUnit Unit { get; set; }
-    public int Count { get; set; } = 1;
-    public bool IsDefault { get; set; }
-
-    public virtual object Clone()
-    {
-        return MemberwiseClone();
-    }
-}
-
-public enum SubscriptionIntervalUnit
-{
-    Day,
-    Week,
-    Month,
-    Year,
-}
-
-public enum SubscriptionDiscountType
-{
-    None,
-    Percent,
-    FixedAmount,
-}

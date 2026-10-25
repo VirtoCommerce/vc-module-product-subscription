@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using VirtoCommerce.CartModule.Core.Model;
 using VirtoCommerce.CoreModule.Core.Common;
-using CustomerOrder = VirtoCommerce.OrdersModule.Core.Model.CustomerOrder;
 using VirtoCommerce.OrdersModule.Core.Services;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.ProductSubscription.Core.Models;
@@ -14,30 +13,9 @@ using VirtoCommerce.XCart.Core.Models;
 using VirtoCommerce.XCart.Core.Services;
 using CartAddress = VirtoCommerce.CartModule.Core.Model.Address;
 using CoreAddress = VirtoCommerce.CoreModule.Core.Common.Address;
+using CustomerOrder = VirtoCommerce.OrdersModule.Core.Model.CustomerOrder;
 
 namespace VirtoCommerce.ProductSubscription.Data.Renewals;
-
-public class RenewalCartResult
-{
-    public CartAggregate Aggregate { get; set; }
-    public IList<RenewalItem> Items { get; set; } = new List<RenewalItem>();
-    public IList<string> Problems { get; set; } = new List<string>();
-    public bool HasUnavailableItems => Items.Any(x => !x.IsAvailable && !x.IsExcluded);
-    public decimal Total { get; set; }
-    public decimal DiscountTotal { get; set; }
-    public decimal ShippingTotal { get; set; }
-    public decimal TaxTotal { get; set; }
-}
-
-/// <summary>
-/// The calculation adapter: builds a server-side cart for a renewal through xCart's CartAggregate, so renewals are
-/// priced, discounted, taxed, shipped and stock-validated exactly like checkout, and converts it to an order the same way.
-/// </summary>
-public interface IRenewalCartBuilder
-{
-    Task<RenewalCartResult> BuildAsync(Renewal renewal, IList<Subscription> subscriptions);
-    Task<CustomerOrder> PlaceOrderAsync(Renewal renewal, RenewalCartResult cartResult);
-}
 
 public class RenewalCartBuilder(
     ICartAggregateRepository cartAggregateRepository,
