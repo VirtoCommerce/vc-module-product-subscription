@@ -35,6 +35,12 @@ test("the account lists subscriptions, deliveries and status tabs", async ({ pag
   await expect(page.locator('[data-test-id^="subscription-row-"]').first()).toBeVisible();
   await expect(page.locator('[data-test-id^="subscriptions-tab-"]').first()).toBeVisible();
   await expect(page.getByText("Upcoming deliveries")).toBeVisible();
+
+  // the status tabs switch the list
+  const paused = page.getByTestId("subscriptions-tab-paused").getByRole("button");
+  await paused.click();
+  await expect(paused).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("subscriptions-tab-active").getByRole("button")).toHaveAttribute("aria-pressed", "false");
 });
 
 test("a subscription shows its schedule and is paused and resumed", async ({ page }) => {
