@@ -1,7 +1,8 @@
 {
   "PRODUCT_SUBSCRIPTION": {
     "MENU": {
-      "TITLE": "الاشتراكات"
+      "TITLE": "الاشتراكات",
+      "PLANS": "خطط الاشتراك"
     },
     "TOOLBAR": {
       "REFRESH": "تحديث",

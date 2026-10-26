@@ -90,7 +90,13 @@ import { searchStores, useFormat, useProductSubscriptionClient, useAction } from
 defineBlade({
   url: "/product-subscription-plans",
   name: "ProductSubscriptionPlans",
+  isWorkspace: true,
   permissions: ["product-subscription:plans:manage"],
+  menuItem: {
+    title: "PRODUCT_SUBSCRIPTION.MENU.PLANS",
+    icon: "lucide-tags",
+    priority: 949,
+  },
 });
 
 const f = useFormat();

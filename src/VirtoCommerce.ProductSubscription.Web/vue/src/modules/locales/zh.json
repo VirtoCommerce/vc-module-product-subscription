@@ -1,7 +1,8 @@
 {
   "PRODUCT_SUBSCRIPTION": {
     "MENU": {
-      "TITLE": "订阅"
+      "TITLE": "订阅",
+      "PLANS": "订阅计划"
     },
     "TOOLBAR": {
       "REFRESH": "刷新",

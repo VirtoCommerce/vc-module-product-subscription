@@ -1,7 +1,8 @@
 {
   "PRODUCT_SUBSCRIPTION": {
     "MENU": {
-      "TITLE": "サブスクリプション"
+      "TITLE": "サブスクリプション",
+      "PLANS": "定期購入プラン"
     },
     "TOOLBAR": {
       "REFRESH": "更新",

@@ -1,7 +1,8 @@
 {
   "PRODUCT_SUBSCRIPTION": {
     "MENU": {
-      "TITLE": "מנויים"
+      "TITLE": "מנויים",
+      "PLANS": "תוכניות מינוי"
     },
     "TOOLBAR": {
       "REFRESH": "רענון",

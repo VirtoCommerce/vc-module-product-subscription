@@ -1,7 +1,8 @@
 {
   "PRODUCT_SUBSCRIPTION": {
     "MENU": {
-      "TITLE": "Подписки"
+      "TITLE": "Подписки",
+      "PLANS": "Планы подписки"
     },
     "TOOLBAR": {
       "REFRESH": "Обновить",

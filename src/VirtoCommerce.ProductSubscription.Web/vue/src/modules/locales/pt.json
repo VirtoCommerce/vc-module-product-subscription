@@ -1,7 +1,8 @@
 {
   "PRODUCT_SUBSCRIPTION": {
     "MENU": {
-      "TITLE": "Assinaturas"
+      "TITLE": "Assinaturas",
+      "PLANS": "Planos de assinatura"
     },
     "TOOLBAR": {
       "REFRESH": "Atualizar",

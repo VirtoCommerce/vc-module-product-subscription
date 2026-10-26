@@ -1,7 +1,8 @@
 {
   "PRODUCT_SUBSCRIPTION": {
     "MENU": {
-      "TITLE": "Kestotilaukset"
+      "TITLE": "Kestotilaukset",
+      "PLANS": "Tilaussuunnitelmat"
     },
     "TOOLBAR": {
       "REFRESH": "Päivitä",

@@ -1,7 +1,8 @@
 {
   "PRODUCT_SUBSCRIPTION": {
     "MENU": {
-      "TITLE": "Subscriptions"
+      "TITLE": "Subscriptions",
+      "PLANS": "Subscription plans"
     },
     "TOOLBAR": {
       "REFRESH": "Refresh",

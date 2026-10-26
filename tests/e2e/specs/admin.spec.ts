@@ -27,6 +27,16 @@ test("the menu opens the subscriptions list", async ({ page }, testInfo) => {
   await expect(topBlade(page).getByText(SUBSCRIPTION_NUMBER).first()).toBeVisible();
 });
 
+test("plans have their own menu entry", async ({ page }, testInfo) => {
+  await page.goto("/apps/admin-shell/#/");
+  if (isPhone(testInfo)) await page.locator(".as-mbar__menu").click();
+  await page.locator(".as-rail__item", { hasText: "More" }).click();
+  await page.locator(".as-item__main", { hasText: "Subscription plans" }).first().click();
+  // on a phone the blade's title moves into the app bar
+  await expect(page.getByText("Subscription plans").first()).toBeVisible();
+  await expect(page).toHaveURL(/product-subscription-plans/);
+});
+
 test("subscriptions are listed and searchable", async ({ page }) => {
   await openRoute(page, "/product-subscriptions");
   const blade = topBlade(page);
@@ -122,8 +132,7 @@ test("a subscription opens its renewal from its renewals card", async ({ page })
 });
 
 test("a plan's products are picked from the catalog, then the change is reset", async ({ page }) => {
-  await openRoute(page, "/product-subscriptions");
-  await command(page, "Plans");
+  await openRoute(page, "/product-subscription-plans");
   await topBlade(page).locator(".ps-product-cell__name").first().click();
   const plan = topBlade(page);
   await expect(plan.getByText("Delivery frequencies")).toBeVisible();
@@ -148,8 +157,7 @@ test("a plan's products are picked from the catalog, then the change is reset", 
 });
 
 test("a plan is created and deleted", async ({ page }) => {
-  await openRoute(page, "/product-subscriptions");
-  await command(page, "Plans");
+  await openRoute(page, "/product-subscription-plans");
   await command(page, "Add");
   const plan = topBlade(page);
   await expect(plan.getByText("New subscription plan")).toBeVisible();
@@ -168,7 +176,8 @@ test("a plan is created and deleted", async ({ page }) => {
   await command(page, "Delete");
   await expect(page.getByText(/Delete this plan\?/)).toBeVisible();
   await confirm(page);
-  await expect(topBlade(page).getByText("Subscription plans")).toBeVisible();
+  // back on the plans list (its own menu workspace; on a phone the title is in the app bar)
+  await expect(page.getByText("Subscription plans").first()).toBeVisible();
   await expect(page.getByText(name)).toHaveCount(0);
 });
 

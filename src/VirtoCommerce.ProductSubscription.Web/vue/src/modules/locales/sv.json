@@ -1,7 +1,8 @@
 {
   "PRODUCT_SUBSCRIPTION": {
     "MENU": {
-      "TITLE": "Prenumerationer"
+      "TITLE": "Prenumerationer",
+      "PLANS": "Prenumerationsplaner"
     },
     "TOOLBAR": {
       "REFRESH": "Uppdatera",
