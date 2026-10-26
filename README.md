@@ -1,4 +1,4 @@
-# Virto Commerce Product Subscription Module
+# Product Subscription Module
 
 ## Overview
 
