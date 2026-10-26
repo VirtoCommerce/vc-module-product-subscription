@@ -25,14 +25,14 @@
   <description>Item-level product subscriptions for physical goods: plans with frequencies and discounts, renewals priced through xCart, automatic charging of saved cards, reminders and US auto-renewal compliance, customer self-service through xAPI.</description>
 
   <authors>
-    <author>Virto Commerce</author>
+    <author>Oleg Zhuk</author>
   </authors>
   <owners>
     <owner>Virto Commerce</owner>
   </owners>
 
   <projectUrl>https://github.com/VirtoCommerce/vc-module-product-subscription</projectUrl>
-  <iconUrl>Modules/$(VirtoCommerce.ProductSubscription)/Content/logo.png</iconUrl>
+  <iconUrl>Modules/$(VirtoCommerce.ProductSubscription)/Content/logo.svg</iconUrl>
   <requireLicenseAcceptance>false</requireLicenseAcceptance>
 
   <assemblyFile>VirtoCommerce.ProductSubscription.Web.dll</assemblyFile>
