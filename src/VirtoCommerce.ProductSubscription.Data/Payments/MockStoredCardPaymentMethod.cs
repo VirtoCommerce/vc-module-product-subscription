@@ -6,10 +6,8 @@ using System.Threading.Tasks;
 using VirtoCommerce.OrdersModule.Core.Model;
 using VirtoCommerce.PaymentModule.Core.Model;
 using VirtoCommerce.PaymentModule.Core.Model.StoredCredentials;
-using VirtoCommerce.PaymentModule.Core.Services;
 using VirtoCommerce.PaymentModule.Model.Requests;
 using VirtoCommerce.Platform.Core.Common;
-using VirtoCommerce.Platform.Core.GenericCrud;
 using VirtoCommerce.ProductSubscription.Core;
 
 namespace VirtoCommerce.ProductSubscription.Data.Payments;
@@ -18,20 +16,14 @@ namespace VirtoCommerce.ProductSubscription.Data.Payments;
 /// A stored-card payment method with no real gateway behind it. Test card numbers trigger every outcome, so the
 /// subscription engine, xAPI, frontend and payment-failure flows can be built and tested before any sandbox exists.
 /// Only registered when <c>ProductSubscription:EnableMockPaymentMethod</c> is true; never enable it in production.
+/// Like a real connector it only plays the provider: it returns the cards it saves and charges the card it is given,
+/// and never reads or writes saved cards (the Payment module's IStoredPaymentMethodManager does).
 /// </summary>
 public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredentialFlow, ISupportCaptureFlow, ISupportRefundFlow
 {
-    private readonly IStoredPaymentMethodService _storedPaymentMethodService;
-    private readonly IStoredPaymentMethodSearchService _storedPaymentMethodSearchService;
-
-    public MockStoredCardPaymentMethod(
-        IStoredPaymentMethodService storedPaymentMethodService,
-        IStoredPaymentMethodSearchService storedPaymentMethodSearchService)
+    public MockStoredCardPaymentMethod()
         : base(ModuleConstants.MockPaymentMethodCode)
     {
-        _storedPaymentMethodService = storedPaymentMethodService;
-        _storedPaymentMethodSearchService = storedPaymentMethodSearchService;
-
         // Shown to customers when the store sets no localized name.
         Name = "Credit card (test)";
     }
@@ -97,44 +89,35 @@ public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredenti
     /// The customer-present payment (checkout or order payment page). Parameters come from the storefront's mock card form:
     /// last4, brand, expMonth, expYear, cardholderName, storeForFutureUse, consentId, threeDsCompleted, storedPaymentMethodId.
     /// </summary>
-    public override async Task<PostProcessPaymentRequestResult> PostProcessPaymentAsync(PostProcessPaymentRequest request, CancellationToken cancellationToken = default)
+    public override Task<PostProcessPaymentRequestResult> PostProcessPaymentAsync(PostProcessPaymentRequest request, CancellationToken cancellationToken = default)
     {
         var parameters = request.Parameters ?? new System.Collections.Specialized.NameValueCollection();
         var payment = request.Payment as PaymentIn;
         var order = request.Order as CustomerOrder;
 
-        var storedPaymentMethodId = parameters["storedPaymentMethodId"];
-        StoredPaymentMethod storedMethod = null;
-        if (!string.IsNullOrEmpty(storedPaymentMethodId))
-        {
-            storedMethod = await _storedPaymentMethodService.GetByIdAsync(storedPaymentMethodId);
-            if (storedMethod == null || order == null || storedMethod.CustomerId != order.CustomerId || storedMethod.Status != StoredPaymentMethodStatus.Active)
-            {
-                return Fail("This saved card can't be used.");
-            }
-        }
-
+        // The saved card to pay with was resolved and checked by the caller (IStoredPaymentMethodManager.PrepareAsync).
+        var storedMethod = request.StoredPaymentMethod;
         var last4 = storedMethod?.Last4 ?? new string((parameters["last4"] ?? string.Empty).Where(char.IsDigit).ToArray());
         if (last4.Length != 4)
         {
-            return Fail("Enter a valid test card number.");
+            return Task.FromResult(Fail("Enter a valid test card number."));
         }
 
         var threeDsCompleted = string.Equals(parameters["threeDsCompleted"], "true", StringComparison.OrdinalIgnoreCase);
         var needs3Ds = last4 == TestCards.ThreeDsOnSave || (storedMethod != null && last4 == TestCards.ThreeDsOnRenewal);
         if (needs3Ds && !threeDsCompleted)
         {
-            return Fail("Your bank needs you to confirm this payment (3-D Secure).", "authentication_required");
+            return Task.FromResult(Fail("Your bank needs you to confirm this payment (3-D Secure).", "authentication_required"));
         }
 
         if (last4 == TestCards.Expired)
         {
-            return Fail("Your card has expired. Try another card.");
+            return Task.FromResult(Fail("Your card has expired. Try another card."));
         }
 
         if (last4 == TestCards.RecurringCancelled && storedMethod != null)
         {
-            return Fail("Your card was declined. Try another card.");
+            return Task.FromResult(Fail("Your card was declined. Try another card."));
         }
 
         var transactionId = $"mock_txn_{Guid.NewGuid():N}";
@@ -148,46 +131,37 @@ public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredenti
             payment.PaymentStatus = PaymentStatus.Authorized;
         }
 
-        var storeForFutureUse = string.Equals(parameters["storeForFutureUse"], "true", StringComparison.OrdinalIgnoreCase);
-        if (storeForFutureUse && storedMethod == null && order != null && !string.IsNullOrEmpty(order.CustomerId))
+        StoredPaymentMethod savedMethod = null;
+        if (request.StoreForFutureUse && storedMethod == null && order != null && !string.IsNullOrEmpty(order.CustomerId))
         {
-            var newMethod = AbstractTypeFactory<StoredPaymentMethod>.TryCreateInstance();
-            newMethod.StoreId = order.StoreId;
-            newMethod.CustomerId = order.CustomerId;
-            newMethod.OrganizationId = order.OrganizationId;
-            newMethod.PaymentMethodCode = Code;
-            newMethod.ProviderCustomerRef = $"mock_cus_{order.CustomerId}";
-            newMethod.Token = $"mock_tok_{Guid.NewGuid():N}";
-            newMethod.Brand = string.IsNullOrEmpty(parameters["brand"]) ? GuessBrand(parameters["firstDigit"]) : parameters["brand"];
-            newMethod.Last4 = last4;
-            newMethod.ExpirationMonth = int.TryParse(parameters["expMonth"], out var month) ? month : null;
-            newMethod.ExpirationYear = NormalizeYear(parameters["expYear"]);
-            newMethod.CardholderName = parameters["cardholderName"];
-            newMethod.Fingerprint = $"mock_fp_{last4}";
-            newMethod.NetworkTransactionId = networkTransactionId;
-            newMethod.InitialTransactionRef = transactionId;
-            newMethod.InitialOrderId = order.Id;
-            newMethod.InitialPaymentId = payment?.Id;
-            newMethod.Usage = StoredCredentialUsage.Recurring;
-            newMethod.IsAuthenticated = threeDsCompleted;
-            newMethod.ConsentId = parameters["consentId"];
-            newMethod.IsDefault = !await HasStoredMethodsAsync(order.CustomerId, order.StoreId);
-
-            await _storedPaymentMethodService.SaveChangesAsync([newMethod]);
-        }
-        else if (storedMethod != null)
-        {
-            storedMethod.LastUsedDate = DateTime.UtcNow;
-            await _storedPaymentMethodService.SaveChangesAsync([storedMethod]);
+            // The card the "provider" saved, returned for the caller to record.
+            savedMethod = AbstractTypeFactory<StoredPaymentMethod>.TryCreateInstance();
+            savedMethod.PaymentMethodCode = Code;
+            savedMethod.OrganizationId = order.OrganizationId;
+            savedMethod.ProviderCustomerRef = $"mock_cus_{order.CustomerId}";
+            savedMethod.Token = $"mock_tok_{Guid.NewGuid():N}";
+            savedMethod.Brand = string.IsNullOrEmpty(parameters["brand"]) ? GuessBrand(parameters["firstDigit"]) : parameters["brand"];
+            savedMethod.Last4 = last4;
+            savedMethod.ExpirationMonth = int.TryParse(parameters["expMonth"], out var month) ? month : null;
+            savedMethod.ExpirationYear = NormalizeYear(parameters["expYear"]);
+            savedMethod.CardholderName = parameters["cardholderName"];
+            savedMethod.Fingerprint = $"mock_fp_{last4}";
+            savedMethod.NetworkTransactionId = networkTransactionId;
+            savedMethod.InitialTransactionRef = transactionId;
+            savedMethod.InitialOrderId = order.Id;
+            savedMethod.InitialPaymentId = payment?.Id;
+            savedMethod.Usage = request.StoredCredentialUsage;
+            savedMethod.IsAuthenticated = threeDsCompleted;
         }
 
-        return new PostProcessPaymentRequestResult
+        return Task.FromResult(new PostProcessPaymentRequestResult
         {
             IsSuccess = true,
             NewPaymentStatus = PaymentStatus.Authorized,
             OuterId = transactionId,
             PublicParameters = new() { ["transactionId"] = transactionId },
-        };
+            StoredPaymentMethod = savedMethod,
+        });
     }
 
     public override Task<StorePaymentMethodRequestResult> StorePaymentMethodAsync(StorePaymentMethodRequest request, CancellationToken cancellationToken = default)
@@ -332,16 +306,6 @@ public class MockStoredCardPaymentMethod : PaymentMethod, ISupportStoredCredenti
         }
 
         return Task.FromResult(new DeleteStoredPaymentMethodRequestResult { IsSuccess = true });
-    }
-
-    private async Task<bool> HasStoredMethodsAsync(string customerId, string storeId)
-    {
-        var criteria = AbstractTypeFactory<StoredPaymentMethodSearchCriteria>.TryCreateInstance();
-        criteria.CustomerId = customerId;
-        criteria.StoreId = storeId;
-        criteria.Statuses = [StoredPaymentMethodStatus.Active];
-        criteria.Take = 0;
-        return (await _storedPaymentMethodSearchService.SearchAsync(criteria)).TotalCount > 0;
     }
 
     private static PostProcessPaymentRequestResult Fail(string message, string code = null)

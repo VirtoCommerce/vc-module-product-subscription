@@ -13,5 +13,5 @@ namespace VirtoCommerce.ProductSubscription.Tests.Data.Payments;
 [Trait("Category", "Unit")]
 public class MockConnectorContractTests()
     : StoredCredentialConnectorContractTests(
-        () => new MockStoredCardPaymentMethod(Mock.Of<IStoredPaymentMethodService>(), Mock.Of<IStoredPaymentMethodSearchService>()),
+        () => new MockStoredCardPaymentMethod(),
         new MockConnectorScenarios());

@@ -2,10 +2,8 @@ using System;
 using System.Collections.Specialized;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Moq;
 using VirtoCommerce.PaymentModule.Core.Model;
 using VirtoCommerce.PaymentModule.Core.Model.StoredCredentials;
-using VirtoCommerce.PaymentModule.Core.Services;
 using VirtoCommerce.PaymentModule.Model.Requests;
 using VirtoCommerce.ProductSubscription.Core;
 using VirtoCommerce.ProductSubscription.Data.Payments;
@@ -17,10 +15,7 @@ namespace VirtoCommerce.ProductSubscription.Tests.Data.Payments;
 [Trait("Category", "Unit")]
 public class MockStoredCardPaymentMethodTests
 {
-    private readonly Mock<IStoredPaymentMethodService> _storedPaymentMethodServiceMock = new();
-    private readonly Mock<IStoredPaymentMethodSearchService> _storedPaymentMethodSearchServiceMock = new();
-
-    private MockStoredCardPaymentMethod CreateSut() => new(_storedPaymentMethodServiceMock.Object, _storedPaymentMethodSearchServiceMock.Object);
+    private static MockStoredCardPaymentMethod CreateSut() => new();
 
     // StorePaymentMethodAsync (customer saves a card)
 
@@ -62,8 +57,6 @@ public class MockStoredCardPaymentMethodTests
         method.Usage.Should().Be(StoredCredentialUsage.Unscheduled);
         method.ConsentId.Should().Be("consent-1");
         method.IsAuthenticated.Should().BeFalse();
-
-        _storedPaymentMethodServiceMock.VerifyNoOtherCalls();
     }
 
     [Theory]
@@ -431,17 +424,6 @@ public class MockStoredCardPaymentMethodTests
         // Assert
         second.Should().NotBeSameAs(first);
         second.TransactionId.Should().NotBe(first.TransactionId);
-    }
-
-    [Fact]
-    public async Task ProcessStoredPaymentAsync_DoesNotTouchStoredPaymentMethodServices()
-    {
-        // Act
-        await CreateSut().ProcessStoredPaymentAsync(CreateChargeRequest(TestCards.Success, 10m), TestContext.Current.CancellationToken);
-
-        // Assert
-        _storedPaymentMethodServiceMock.VerifyNoOtherCalls();
-        _storedPaymentMethodSearchServiceMock.VerifyNoOtherCalls();
     }
 
     // Method shape
