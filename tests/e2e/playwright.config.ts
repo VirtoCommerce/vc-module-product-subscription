@@ -37,13 +37,13 @@ export default defineConfig({
     },
     {
       name: "storefront-desktop",
-      testMatch: /storefront\.spec\.ts/,
+      testMatch: /(storefront|authorize-net)\.spec\.ts/,
       dependencies: ["storefront-setup"],
       use: { ...desktop, baseURL: STOREFRONT_URL, storageState: ".auth/buyer.json" },
     },
     {
       name: "storefront-mobile",
-      testMatch: /storefront\.spec\.ts/,
+      testMatch: /(storefront|authorize-net)\.spec\.ts/,
       dependencies: ["storefront-setup"],
       use: { ...phone, baseURL: STOREFRONT_URL, storageState: ".auth/buyer.json" },
     },
