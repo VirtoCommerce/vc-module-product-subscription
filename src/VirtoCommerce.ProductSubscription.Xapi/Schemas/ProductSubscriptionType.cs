@@ -75,7 +75,7 @@ public class ProductSubscriptionType : ExtendableGraphType<Subscription>
                     .Then(ToQuantityRules);
             });
 
-        Field<SavedPaymentMethodType>("savedPaymentMethod").Resolve(context =>
+        Field<VirtoCommerce.XCart.Core.Schemas.SavedPaymentMethodType>("savedPaymentMethod").Resolve(context =>
         {
             if (string.IsNullOrEmpty(context.Source.StoredPaymentMethodId))
             {
