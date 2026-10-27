@@ -1,0 +1,1 @@
+{{ if will_retry }}We couldn't charge your card{{ else }}Action needed: update your payment method{{ end }}

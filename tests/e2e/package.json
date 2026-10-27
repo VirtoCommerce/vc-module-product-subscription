@@ -1,0 +1,13 @@
+{
+  "name": "product-subscription-e2e",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:admin": "playwright test --project=admin-desktop --project=admin-mobile",
+    "test:storefront": "playwright test --project=storefront-desktop --project=storefront-mobile",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

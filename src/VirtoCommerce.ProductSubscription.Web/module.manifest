@@ -6,11 +6,23 @@
 
   <platformVersion>3.1089.0</platformVersion>
   <dependencies>
+    <dependency id="VirtoCommerce.Core" version="3.1012.0" />
+    <dependency id="VirtoCommerce.Store" version="3.1010.0" />
+    <dependency id="VirtoCommerce.Customer" version="3.1030.0" />
+    <dependency id="VirtoCommerce.Catalog" version="3.1050.0" />
+    <dependency id="VirtoCommerce.Cart" version="3.1012.0" />
+    <dependency id="VirtoCommerce.Orders" version="3.1018.0" />
+    <dependency id="VirtoCommerce.Payment" version="3.1011.0-alpha.325-vcst-6507" />
+    <dependency id="VirtoCommerce.Marketing" version="3.1009.0" />
+    <dependency id="VirtoCommerce.Notifications" version="3.1018.0" />
+    <dependency id="VirtoCommerce.BackgroundJobs" version="3.1054.0" />
     <dependency id="VirtoCommerce.Xapi" version="3.1027.0" />
+    <dependency id="VirtoCommerce.XCatalog" version="3.1023.0" />
+    <dependency id="VirtoCommerce.XCart" version="3.1043.0-alpha.300-vcst-6507" />
   </dependencies>
 
-  <title>Virto Commerce Product Subscription</title>
-  <description>Virto Commerce Product Subscription</description>
+  <title>Product Subscriptions (Subscribe &amp; Save)</title>
+  <description>Item-level product subscriptions for physical goods: plans with frequencies and discounts, renewals priced through xCart, automatic charging of saved cards, reminders and US auto-renewal compliance, customer self-service through xAPI.</description>
 
   <authors>
     <author>Oleg Zhuk</author>
@@ -19,8 +31,8 @@
     <owner>Virto Commerce</owner>
   </owners>
 
-  <projectUrl>https://github.com/Virto Commerce/vc-module-product-subscription</projectUrl>
-  <iconUrl>Modules/$(VirtoCommerce.ProductSubscription)/Content/logo.png</iconUrl>
+  <projectUrl>https://github.com/VirtoCommerce/vc-module-product-subscription</projectUrl>
+  <iconUrl>Modules/$(VirtoCommerce.ProductSubscription)/Content/logo.svg</iconUrl>
   <requireLicenseAcceptance>false</requireLicenseAcceptance>
 
   <assemblyFile>VirtoCommerce.ProductSubscription.Web.dll</assemblyFile>
@@ -28,6 +40,6 @@
 
   <releaseNotes>First version.</releaseNotes>
   <copyright>Copyright © 2026 Virto Commerce. All rights reserved</copyright>
-  <tags>extension module</tags>
+  <tags>subscription subscribe-and-save recurring orders</tags>
   <useFullTypeNameInSwagger>false</useFullTypeNameInSwagger>
 </module>

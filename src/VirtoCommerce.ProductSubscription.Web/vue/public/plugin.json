@@ -1,0 +1,25 @@
+{
+  "remote": { "name": "product_subscription_admin", "exposed": "./Module" },
+  "contributions": {
+    "menu": [
+      {
+        "id": "product-subscriptions",
+        "title": "Subscriptions",
+        "titleKey": "PRODUCT_SUBSCRIPTION.MENU.TITLE",
+        "icon": "lucide-repeat",
+        "route": "/product-subscriptions",
+        "permission": "product-subscription:access",
+        "priority": 950
+      },
+      {
+        "id": "product-subscription-plans",
+        "title": "Subscription plans",
+        "titleKey": "PRODUCT_SUBSCRIPTION.MENU.PLANS",
+        "icon": "lucide-tags",
+        "route": "/product-subscription-plans",
+        "permission": "product-subscription:plans:manage",
+        "priority": 949
+      }
+    ]
+  }
+}

@@ -1,23 +1,80 @@
 {
-  "product-subscription": {
-    "blades": {
-      "hello-world": {
-        "title": "Hello world blade"
-      }
-    }
-  },
   "permissions": {
-    "product-subscription:access": "Open Product Subscription menu",
-    "product-subscription:create": "Create Product Subscription related data",
-    "product-subscription:read": "View Product Subscription related data",
-    "product-subscription:update": "Update Product Subscription related data",
-    "product-subscription:delete": "Delete Product Subscription related data"
+    "product-subscription:access": "Open the Subscriptions menu",
+    "product-subscription:read": "View subscriptions, renewals and plans",
+    "product-subscription:update": "Change, skip, pause, resume and cancel subscriptions",
+    "product-subscription:delete": "Delete subscriptions",
+    "product-subscription:plans:manage": "Create and edit subscription plans",
+    "product-subscription:renewals:process": "Process renewals, order now and retry payments",
+    "product-subscription:import": "Import subscriptions from the old subscription module"
   },
   "settings": {
     "ProductSubscription": {
       "Enabled": {
-        "title": "Product Subscription Enabled",
-        "description": "Product Subscription Enabled setting"
+        "title": "Subscriptions enabled",
+        "description": "Show Subscribe & Save offers in this store"
+      },
+      "ReminderLeadDays": {
+        "title": "Reminder lead time, days",
+        "description": "How many days before each delivery the reminder email is sent"
+      },
+      "CutoffHours": {
+        "title": "Cutoff, hours before delivery",
+        "description": "After this point prices are re-checked and the order is placed"
+      },
+      "RetryScheduleHours": {
+        "title": "Payment retry schedule, hours",
+        "description": "Comma-separated delays between payment retries after a temporary decline"
+      },
+      "MaxRetriesPer30Days": {
+        "title": "Maximum payment attempts per 30 days",
+        "description": "Card network limit (Visa allows 15)"
+      },
+      "PaymentActionWaitDays": {
+        "title": "Days to wait for customer action",
+        "description": "How long to wait for 3-D Secure confirmation or a review before failing or skipping the renewal"
+      },
+      "NumberTemplate": {
+        "title": "Subscription number template",
+        "description": ""
+      },
+      "Terms": {
+        "Version": {
+          "title": "Subscription terms version",
+          "description": "Change it when the terms text changes; customers accept the new version at checkout"
+        },
+        "Text": {
+          "title": "Subscription terms text",
+          "description": "Shown before the payment fields at checkout (US auto-renewal disclosure)"
+        }
+      },
+      "AnnualReminder": {
+        "Enabled": {
+          "title": "Send yearly reminder",
+          "description": "Required in California, Minnesota and Connecticut"
+        }
+      },
+      "Renewal": {
+        "NumberTemplate": {
+          "title": "Renewal number template",
+          "description": ""
+        }
+      },
+      "Scheduler": {
+        "Enabled": {
+          "title": "Renewal scheduler enabled",
+          "description": ""
+        },
+        "CronExpression": {
+          "title": "Renewal scheduler cron",
+          "description": "How often renewals are checked"
+        }
+      },
+      "Payments": {
+        "AuthorizationLifetimeMinutes": {
+          "title": "Card authorization lifetime, minutes",
+          "description": "How long a renewal's card authorization stays valid at the payment provider; an order that ships later is authorized again before the capture. Shorten it to test re-authorization"
+        }
       }
     }
   }
