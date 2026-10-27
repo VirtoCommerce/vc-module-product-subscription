@@ -40,6 +40,8 @@ test("plans have their own menu entry", async ({ page }, testInfo) => {
 test("subscriptions are listed and searchable", async ({ page }) => {
   await openRoute(page, "/product-subscriptions");
   const blade = topBlade(page);
+  // the list shows skeleton rows until the first page arrives (slow on a cold platform)
+  await expect(blade.getByText(SUBSCRIPTION_NUMBER).first()).toBeVisible({ timeout: 30_000 });
   const numbers = await blade.getByText(SUBSCRIPTION_NUMBER).allInnerTexts();
   expect(numbers.length).toBeGreaterThan(0);
 
@@ -81,13 +83,16 @@ test("a subscription's schedule is edited, validated by the server and reset", a
 });
 
 test("a subscription is paused and resumed", async ({ page }) => {
-  await openRoute(page, "/product-subscriptions");
-  // the list is ordered by next order date: the first subscription is the next one due, normally active
-  await topBlade(page).getByText(SUBSCRIPTION_NUMBER).first().click();
+  // any active subscription: the first one in the list may be past due or paused
+  const search = await (
+    await page.request.post("/api/product-subscription/subscriptions/search", { data: { statuses: ["Active"], take: 1 } })
+  ).json();
+  const subscriptionId = search.results?.[0]?.id as string;
+  expect(subscriptionId, "an active subscription").toBeTruthy();
+  await openRoute(page, `/product-subscriptions/product-subscription/${subscriptionId}`);
   const blade = topBlade(page);
   await expect(blade.getByText("Schedule")).toBeVisible();
-  const status = (await blade.locator(".ps-hero .vc-status").innerText()).trim();
-  test.skip(status !== "Active", `the first subscription is ${status}, not Active`);
+  await expect(blade.locator(".ps-hero .vc-status")).toHaveText("Active");
 
   await command(page, "Pause");
   await expect(blade.getByText("Pause subscription")).toBeVisible();
