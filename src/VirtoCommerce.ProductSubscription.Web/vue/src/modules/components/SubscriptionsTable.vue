@@ -20,7 +20,7 @@
     <VcColumn
       id="number"
       :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.NUMBER')"
-      width="160px"
+      width="170px"
       sortable
       always-visible
       mobile-role="title"
@@ -28,7 +28,7 @@
     <VcColumn
       id="status"
       :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.STATUS')"
-      width="150px"
+      width="130px"
       sortable
       mobile-role="status"
     >
@@ -41,6 +41,7 @@
     <VcColumn
       id="productName"
       :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.PRODUCT')"
+      min-width="240px"
       sortable
       always-visible
       mobile-role="field"
@@ -57,7 +58,7 @@
       :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.QUANTITY')"
       type="number"
       align="end"
-      width="110px"
+      width="90px"
       sortable
     >
       <template #body="{ data: s }">
@@ -67,7 +68,7 @@
     <VcColumn
       id="intervalCount"
       :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.FREQUENCY')"
-      width="150px"
+      width="130px"
       mobile-role="field"
     >
       <template #body="{ data: s }">{{ f.interval(s.intervalUnit, s.intervalCount) }}</template>
@@ -76,13 +77,14 @@
       v-if="!customerId"
       id="customerName"
       :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.CUSTOMER')"
+      min-width="140px"
       sortable
       mobile-role="field"
     />
     <VcColumn
       id="nextOrderDate"
       :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.NEXT_ORDER')"
-      width="130px"
+      width="120px"
       sortable
       always-visible
       mobile-role="field"
