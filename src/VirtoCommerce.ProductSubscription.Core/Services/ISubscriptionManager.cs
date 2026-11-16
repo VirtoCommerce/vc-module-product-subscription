@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using VirtoCommerce.OrdersModule.Core.Model;
+using VirtoCommerce.PaymentModule.Core.Model.StoredCredentials;
 using VirtoCommerce.ProductSubscription.Core.Models;
 
 namespace VirtoCommerce.ProductSubscription.Core.Services;
@@ -13,6 +14,12 @@ public interface ISubscriptionManager
 {
     Task<IList<Subscription>> CreateFromOrderAsync(CustomerOrder order);
     Task<IList<Subscription>> ActivateForOrderAsync(CustomerOrder order);
+
+    /// <summary>
+    /// Makes a card saved with a checkout order pay that order's subscriptions; the card can be saved after the
+    /// subscriptions were activated with another card of the customer.
+    /// </summary>
+    Task<IList<Subscription>> LinkStoredPaymentMethodAsync(StoredPaymentMethod storedPaymentMethod);
 
     Task<Subscription> SkipNextAsync(string subscriptionId);
     Task<Subscription> PauseAsync(string subscriptionId, System.DateTime? resumeDate);

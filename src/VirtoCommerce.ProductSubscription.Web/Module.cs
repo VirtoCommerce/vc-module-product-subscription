@@ -12,6 +12,7 @@ using VirtoCommerce.NotificationsModule.Core.Services;
 using VirtoCommerce.NotificationsModule.TemplateLoader.FileSystem;
 using VirtoCommerce.OrdersModule.Core.Events;
 using VirtoCommerce.PaymentModule.Core.Services;
+using VirtoCommerce.PaymentModule.Core.Events;
 using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.Platform.Core.Jobs;
 using VirtoCommerce.Platform.Core.Modularity;
@@ -98,6 +99,7 @@ public class Module : IModule, IHasConfiguration
         serviceCollection.AddTransient<OrderChangedEventHandler>();
         serviceCollection.AddTransient<CartChangedEventHandler>();
         serviceCollection.AddBackgroundJob<OrderChangedJob, OrderChangedJobPayload>(triggerable: false);
+        serviceCollection.AddTransient<StoredPaymentMethodChangedEventHandler>();
         serviceCollection.AddRecurringJob<RenewalSchedulerJob, RenewalSchedulerJobPayload>(schedule => schedule
             .WithId(RenewalSchedulerJob.JobId)
             .FromSettings(ModuleConstants.Settings.General.SchedulerEnabled, ModuleConstants.Settings.General.SchedulerCronExpression)
@@ -146,6 +148,7 @@ public class Module : IModule, IHasConfiguration
         appBuilder.RegisterEventHandler<OrderChangedEvent, OrderChangedEventHandler>();
         appBuilder.RegisterEventHandler<CartChangedEvent, CartChangedEventHandler>();
 
+        appBuilder.RegisterEventHandler<StoredPaymentMethodChangedEvent, StoredPaymentMethodChangedEventHandler>();
         var notificationRegistrar = serviceProvider.GetRequiredService<INotificationRegistrar>();
         var templatesPath = Path.Combine(ModuleInfo.FullPhysicalPath, "NotificationTemplates");
         notificationRegistrar.RegisterNotification<SubscriptionCreatedEmailNotification>().WithTemplatesFromPath(templatesPath);

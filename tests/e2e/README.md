@@ -27,6 +27,7 @@ The servers must be running. Accounts come from the environment, never from the 
 | `E2E_PLATFORM_URL` | `http://localhost:5005` |
 | `E2E_STOREFRONT_URL` | `https://localhost:3000` |
 | `E2E_AUTHORIZE_NET` | unset: set to `1` to run the Authorize.Net scenario. The store needs the Authorize.Net payment method active with sandbox credentials; the storefront must be served over HTTPS (Accept.js refuses plain HTTP) |
+| `E2E_SUBSCRIPTION_PRODUCT_SEARCH`, `E2E_SUBSCRIPTION_PRODUCT_NAME` | `pepsi`, `PEPSI COLA REGULAR CRATE`: a product an active plan covers, found by this search and clicked by this name (another environment's data has another product) |
 | `E2E_BROWSER_CHANNEL` | `msedge` (the installed Edge; `chrome` works too, no browser download needed) |
 
 ```bash

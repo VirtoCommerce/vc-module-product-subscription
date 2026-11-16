@@ -197,6 +197,43 @@ public class SubscriptionManager(
         });
     }
 
+    public virtual async Task<IList<Subscription>> LinkStoredPaymentMethodAsync(StoredPaymentMethod storedPaymentMethod)
+    {
+        if (storedPaymentMethod == null
+            || string.IsNullOrEmpty(storedPaymentMethod.InitialOrderId)
+            || string.IsNullOrEmpty(storedPaymentMethod.CustomerId)
+            || storedPaymentMethod.Status != StoredPaymentMethodStatus.Active)
+        {
+            return [];
+        }
+
+        return await distributedLock.RunForCustomerAsync(storedPaymentMethod.CustomerId, async () =>
+        {
+            var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
+            criteria.InitialOrderId = storedPaymentMethod.InitialOrderId;
+            criteria.CustomerId = storedPaymentMethod.CustomerId;
+            criteria.Statuses = [SubscriptionStatus.PendingActivation, SubscriptionStatus.Active, SubscriptionStatus.Paused, SubscriptionStatus.PastDue];
+            criteria.Take = MaxSubscriptionsPerOrder;
+            var toLink = (await subscriptionSearchService.SearchAsync(criteria)).Results
+                .Where(x => x.StoredPaymentMethodId != storedPaymentMethod.Id)
+                .ToList();
+            if (toLink.Count == 0)
+            {
+                return toLink;
+            }
+
+            foreach (var subscription in toLink)
+            {
+                subscription.StoredPaymentMethodId = storedPaymentMethod.Id;
+                subscription.PaymentMethodCode = storedPaymentMethod.PaymentMethodCode;
+            }
+
+            await subscriptionService.SaveChangesAsync(toLink);
+
+            return toLink;
+        });
+    }
+
     public virtual Task<Subscription> SkipNextAsync(string subscriptionId)
     {
         return WithLockAsync(subscriptionId, async subscription =>

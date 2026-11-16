@@ -7,10 +7,14 @@ test.describe.configure({ mode: "serial" });
 
 const isPhone = (testInfo: TestInfo) => testInfo.project.name.endsWith("-mobile");
 
+// A product an active subscription plan covers: the demo data's Pepsi crate unless the environment names another.
+const SUBSCRIPTION_PRODUCT_SEARCH = process.env.E2E_SUBSCRIPTION_PRODUCT_SEARCH ?? "pepsi";
+const SUBSCRIPTION_PRODUCT_NAME = process.env.E2E_SUBSCRIPTION_PRODUCT_NAME ?? "PEPSI COLA REGULAR CRATE";
+
 async function openProduct(page: Page) {
-  await open(page, "/search?q=pepsi");
+  await open(page, `/search?q=${encodeURIComponent(SUBSCRIPTION_PRODUCT_SEARCH)}`);
   // the product's name, not its image (whose overlay takes the click)
-  await page.getByRole("link").filter({ hasText: /PEPSI COLA REGULAR CRATE/i }).first().click();
+  await page.getByRole("link").filter({ hasText: SUBSCRIPTION_PRODUCT_NAME }).first().click();
   await expect(page.getByTestId("purchase-option-subscribe")).toBeVisible();
 }
 
