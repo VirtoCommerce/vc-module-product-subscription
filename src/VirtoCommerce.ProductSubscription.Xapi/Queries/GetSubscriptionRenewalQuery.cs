@@ -12,13 +12,18 @@ public class GetSubscriptionRenewalQuery : Query<Renewal>, IHasUserId
     public string Id { get; set; }
     public string UserId { get; set; }
 
+    /// <summary>Culture the money fields are formatted in ("en-US").</summary>
+    public string CultureName { get; set; }
+
     public override IEnumerable<QueryArgument> GetArguments()
     {
         yield return Argument<NonNullGraphType<StringGraphType>>(nameof(Id));
+        yield return Argument<StringGraphType>(nameof(CultureName), description: "Culture the money fields are formatted in (\"en-US\")");
     }
 
     public override void Map(IResolveFieldContext context)
     {
         Id = context.GetArgument<string>(nameof(Id));
+        CultureName = context.GetArgument<string>(nameof(CultureName));
     }
 }

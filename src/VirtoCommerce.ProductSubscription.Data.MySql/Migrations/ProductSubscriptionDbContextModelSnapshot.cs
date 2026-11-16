@@ -83,6 +83,10 @@ namespace VirtoCommerce.ProductSubscription.Data.MySql.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("varchar(16)");
 
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
                     b.Property<string>("LastErrorMessage")
                         .HasMaxLength(1024)
                         .HasColumnType("varchar(1024)");
@@ -147,6 +151,10 @@ namespace VirtoCommerce.ProductSubscription.Data.MySql.Migrations
                     b.Property<string>("ReviewReason")
                         .HasMaxLength(1024)
                         .HasColumnType("varchar(1024)");
+
+                    b.Property<string>("ReviewReasonCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
 
                     b.Property<DateTime>("ScheduledDate")
                         .HasColumnType("datetime(6)");

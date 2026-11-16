@@ -83,6 +83,10 @@ namespace VirtoCommerce.ProductSubscription.Data.SqlServer.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
 
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<string>("LastErrorMessage")
                         .HasMaxLength(1024)
                         .HasColumnType("nvarchar(1024)");
@@ -147,6 +151,10 @@ namespace VirtoCommerce.ProductSubscription.Data.SqlServer.Migrations
                     b.Property<string>("ReviewReason")
                         .HasMaxLength(1024)
                         .HasColumnType("nvarchar(1024)");
+
+                    b.Property<string>("ReviewReasonCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<DateTime>("ScheduledDate")
                         .HasColumnType("datetime2");

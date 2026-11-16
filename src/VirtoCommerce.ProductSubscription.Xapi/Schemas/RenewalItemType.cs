@@ -1,3 +1,4 @@
+using GraphQL;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.Xapi.Core.Schemas;
 
@@ -18,8 +19,29 @@ public class RenewalItemType : ExtendableGraphType<RenewalItem>
         Field(x => x.ListPrice);
         Field(x => x.DiscountAmount);
         Field(x => x.Total);
+        Field<MoneyType>("totalMoney")
+            .Description("Total as money, formatted in the renewal's currency")
+            .ResolveAsync(async context =>
+            {
+                var renewal = GetRenewal(context);
+                return await SubscriptionMoney.ToMoneyAsync(context, context.Source.Total, renewal?.Currency, renewal?.LanguageCode);
+            });
         Field(x => x.IsAvailable);
         Field(x => x.IsExcluded);
         Field(x => x.Message, nullable: true);
+    }
+
+    /// <summary>The renewal the item belongs to: the nearest parent field whose source is a renewal.</summary>
+    protected static Renewal GetRenewal(IResolveFieldContext context)
+    {
+        for (var parent = context.Parent; parent != null; parent = parent.Parent)
+        {
+            if (parent.Source is Renewal renewal)
+            {
+                return renewal;
+            }
+        }
+
+        return null;
     }
 }

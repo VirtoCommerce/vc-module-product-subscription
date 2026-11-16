@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using GraphQL;
 using GraphQL.Types;
 using Microsoft.AspNetCore.Authorization;
 using VirtoCommerce.ProductSubscription.Core.Models;
@@ -11,4 +13,10 @@ public class GetSubscriptionOffersQueryBuilder(IAuthorizationService authorizati
     : QueryBuilder<GetSubscriptionOffersQuery, IList<SubscriptionOffer>, NonNullGraphType<ListGraphType<NonNullGraphType<SubscriptionOfferType>>>>(authorizationService)
 {
     protected override string Name => "subscriptionOffers";
+
+    protected override async Task BeforeMediatorSend(IResolveFieldContext<object> context, GetSubscriptionOffersQuery request)
+    {
+        SubscriptionMoney.RememberCultureName(context);
+        await base.BeforeMediatorSend(context, request);
+    }
 }

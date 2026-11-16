@@ -88,8 +88,14 @@ public class RenewalEntity : AuditableEntity, IDataEntity<RenewalEntity, Renewal
     [StringLength(1024)]
     public string LastErrorMessage { get; set; }
 
+    [StringLength(64)]
+    public string LastErrorCode { get; set; }
+
     [StringLength(1024)]
     public string ReviewReason { get; set; }
+
+    [StringLength(64)]
+    public string ReviewReasonCode { get; set; }
 
     [StringLength(128)]
     public string IdempotencyKey { get; set; }
@@ -143,7 +149,9 @@ public class RenewalEntity : AuditableEntity, IDataEntity<RenewalEntity, Renewal
         model.NextAttemptDate = NextAttemptDate;
         model.LastOutcome = LastOutcome;
         model.LastErrorMessage = LastErrorMessage;
+        model.LastErrorCode = LastErrorCode;
         model.ReviewReason = ReviewReason;
+        model.ReviewReasonCode = ReviewReasonCode;
         model.IdempotencyKey = IdempotencyKey;
         model.ReminderSentDate = ReminderSentDate;
         model.AuthorizedDate = AuthorizedDate;
@@ -199,7 +207,9 @@ public class RenewalEntity : AuditableEntity, IDataEntity<RenewalEntity, Renewal
         NextAttemptDate = model.NextAttemptDate;
         LastOutcome = model.LastOutcome;
         LastErrorMessage = model.LastErrorMessage;
+        LastErrorCode = model.LastErrorCode;
         ReviewReason = model.ReviewReason;
+        ReviewReasonCode = model.ReviewReasonCode;
         IdempotencyKey = model.IdempotencyKey;
         ReminderSentDate = model.ReminderSentDate;
         AuthorizedDate = model.AuthorizedDate;
@@ -264,7 +274,9 @@ public class RenewalEntity : AuditableEntity, IDataEntity<RenewalEntity, Renewal
         target.NextAttemptDate = NextAttemptDate;
         target.LastOutcome = LastOutcome;
         target.LastErrorMessage = LastErrorMessage;
+        target.LastErrorCode = LastErrorCode;
         target.ReviewReason = ReviewReason;
+        target.ReviewReasonCode = ReviewReasonCode;
         target.IdempotencyKey = IdempotencyKey;
         target.ReminderSentDate = ReminderSentDate;
         target.AuthorizedDate = AuthorizedDate;

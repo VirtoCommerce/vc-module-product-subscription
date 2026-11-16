@@ -52,26 +52,33 @@ public class SubscriptionPromoEvaluatorDecorator(IMarketingPromoEvaluator inner)
 
         foreach (var (entry, discount) in entries)
         {
-            var promotion = AbstractTypeFactory<Promotion>.TryCreateInstance();
-            promotion.Id = PromotionIdPrefix + discount.PlanId;
-            promotion.Name = string.IsNullOrEmpty(discount.PlanName) ? "Subscribe & Save" : discount.PlanName;
-            promotion.Description = "Subscription discount";
-            promotion.IsActive = true;
-
-            var reward = new CatalogItemAmountReward
-            {
-                IsValid = true,
-                ProductId = entry.ProductId,
-                Promotion = promotion,
-                PromotionId = promotion.Id,
-                AmountType = discount.DiscountType == SubscriptionDiscountType.Percent ? RewardAmountType.Relative : RewardAmountType.Absolute,
-                Amount = discount.DiscountValue,
-                Quantity = 0,
-            };
-
-            combined.Rewards.Add(reward);
+            combined.Rewards.Add(CreateReward(entry.ProductId, discount));
         }
 
         return combined;
+    }
+
+    /// <summary>
+    /// The line-item reward for a subscription discount. <see cref="SubscriptionDiscountCalculator"/> computes
+    /// prices before checkout with the same reward, so they match what the cart charges.
+    /// </summary>
+    public static CatalogItemAmountReward CreateReward(string productId, SubscriptionLineDiscount discount)
+    {
+        var promotion = AbstractTypeFactory<Promotion>.TryCreateInstance();
+        promotion.Id = PromotionIdPrefix + discount.PlanId;
+        promotion.Name = string.IsNullOrEmpty(discount.PlanName) ? "Subscribe & Save" : discount.PlanName;
+        promotion.Description = "Subscription discount";
+        promotion.IsActive = true;
+
+        return new CatalogItemAmountReward
+        {
+            IsValid = true,
+            ProductId = productId,
+            Promotion = promotion,
+            PromotionId = promotion.Id,
+            AmountType = discount.DiscountType == SubscriptionDiscountType.Percent ? RewardAmountType.Relative : RewardAmountType.Absolute,
+            Amount = discount.DiscountValue,
+            Quantity = 0,
+        };
     }
 }

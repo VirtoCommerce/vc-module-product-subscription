@@ -39,6 +39,11 @@ public class ProductSubscriptionType : ExtendableGraphType<Subscription>
         Field<NonNullGraphType<StringGraphType>>("intervalLabel").Resolve(x => SubscriptionSchedule.Describe(x.Source.IntervalUnit, x.Source.IntervalCount));
         Field<NonNullGraphType<SubscriptionDiscountTypeEnum>>("discountType").Resolve(x => x.Source.DiscountType);
         Field(x => x.DiscountValue);
+        Field<MoneyType>("discountValueMoney")
+            .Description("A fixed-amount discount per item as money, in the subscription's currency; null for a percent discount")
+            .ResolveAsync(async context => context.Source.DiscountType == SubscriptionDiscountType.FixedAmount
+                ? await SubscriptionMoney.ToMoneyAsync(context, context.Source.DiscountValue, context.Source.Currency, context.Source.LanguageCode)
+                : null);
         Field(x => x.StartDate);
         Field(x => x.NextOrderDate);
         Field(x => x.PausedUntil, nullable: true);
@@ -57,6 +62,9 @@ public class ProductSubscriptionType : ExtendableGraphType<Subscription>
         Field(x => x.LastOrderDate, nullable: true);
         Field(x => x.OrdersCount);
         Field(x => x.ReferencePrice, nullable: true);
+        Field<MoneyType>("referencePriceMoney")
+            .Description("ReferencePrice as money, formatted in the subscription's currency")
+            .ResolveAsync(async context => await SubscriptionMoney.ToMoneyAsync(context, context.Source.ReferencePrice, context.Source.Currency, context.Source.LanguageCode));
         Field(x => x.CreatedDate);
         Field<SubscriptionAddressType>("shippingAddress").Resolve(x => x.Source.ShippingAddress);
 

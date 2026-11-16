@@ -87,6 +87,7 @@ public class Module : IModule, IHasConfiguration
         serviceCollection.AddTransient<ISubscriptionCartItemSearchService, SubscriptionCartItemSearchService>();
 
         serviceCollection.AddTransient<ISubscriptionOfferService, SubscriptionOfferService>();
+        serviceCollection.AddTransient<ISubscriptionDiscountCalculator, SubscriptionDiscountCalculator>();
         serviceCollection.AddTransient<ISubscriptionTermsService, SubscriptionTermsService>();
         serviceCollection.AddTransient<ISubscriptionNotificationService, SubscriptionNotificationService>();
         serviceCollection.AddTransient<ISubscriptionManager, SubscriptionManager>();
@@ -98,8 +99,8 @@ public class Module : IModule, IHasConfiguration
 
         serviceCollection.AddTransient<OrderChangedEventHandler>();
         serviceCollection.AddTransient<CartChangedEventHandler>();
-        serviceCollection.AddBackgroundJob<OrderChangedJob, OrderChangedJobPayload>(triggerable: false);
         serviceCollection.AddTransient<StoredPaymentMethodChangedEventHandler>();
+        serviceCollection.AddBackgroundJob<OrderChangedJob, OrderChangedJobPayload>(triggerable: false);
         serviceCollection.AddRecurringJob<RenewalSchedulerJob, RenewalSchedulerJobPayload>(schedule => schedule
             .WithId(RenewalSchedulerJob.JobId)
             .FromSettings(ModuleConstants.Settings.General.SchedulerEnabled, ModuleConstants.Settings.General.SchedulerCronExpression)
@@ -147,8 +148,8 @@ public class Module : IModule, IHasConfiguration
 
         appBuilder.RegisterEventHandler<OrderChangedEvent, OrderChangedEventHandler>();
         appBuilder.RegisterEventHandler<CartChangedEvent, CartChangedEventHandler>();
-
         appBuilder.RegisterEventHandler<StoredPaymentMethodChangedEvent, StoredPaymentMethodChangedEventHandler>();
+
         var notificationRegistrar = serviceProvider.GetRequiredService<INotificationRegistrar>();
         var templatesPath = Path.Combine(ModuleInfo.FullPhysicalPath, "NotificationTemplates");
         notificationRegistrar.RegisterNotification<SubscriptionCreatedEmailNotification>().WithTemplatesFromPath(templatesPath);

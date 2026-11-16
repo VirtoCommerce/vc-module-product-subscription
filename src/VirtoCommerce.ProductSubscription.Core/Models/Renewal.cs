@@ -64,10 +64,17 @@ public class Renewal : AuditableEntity, ICloneable
     public DateTime? NextAttemptDate { get; set; }
     public string LastOutcome { get; set; }
 
-    /// <summary>Customer-safe explanation of the last problem (never raw provider codes).</summary>
+    /// <summary>Explanation of the last problem in English, for the admin and logs (never raw provider codes).</summary>
     public string LastErrorMessage { get; set; }
 
+    /// <summary>Stable code of the last problem (<see cref="RenewalErrorCode"/>): the storefront translates it.</summary>
+    public string LastErrorCode { get; set; }
+
+    /// <summary>Why the renewal needs a review, in English, for the admin and logs.</summary>
     public string ReviewReason { get; set; }
+
+    /// <summary>Stable code of the review reason (<see cref="RenewalReviewReasonCode"/>): the storefront translates it.</summary>
+    public string ReviewReasonCode { get; set; }
 
     public string IdempotencyKey { get; set; }
 

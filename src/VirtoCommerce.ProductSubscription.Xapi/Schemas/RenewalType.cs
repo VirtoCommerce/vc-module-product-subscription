@@ -3,6 +3,8 @@ using GraphQL.Types;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.Xapi.Core.Schemas;
+using RenewalErrorCode = VirtoCommerce.ProductSubscription.Core.Models.RenewalErrorCode;
+using RenewalReviewReasonCode = VirtoCommerce.ProductSubscription.Core.Models.RenewalReviewReasonCode;
 
 namespace VirtoCommerce.ProductSubscription.Xapi.Schemas;
 
@@ -31,8 +33,19 @@ public class RenewalType : ExtendableGraphType<Renewal>
         Field(x => x.OrderNumber, nullable: true);
         Field(x => x.AttemptCount);
         Field(x => x.NextAttemptDate, nullable: true);
-        Field(x => x.LastErrorMessage, nullable: true);
-        Field(x => x.ReviewReason, nullable: true);
+        Field<MoneyType>("previewTotalMoney")
+            .Description("PreviewTotal as money, formatted in the renewal's currency")
+            .ResolveAsync(async context => await SubscriptionMoney.ToMoneyAsync(context, context.Source.PreviewTotal, context.Source.Currency, context.Source.LanguageCode));
+        Field<MoneyType>("notifiedTotalMoney")
+            .Description("NotifiedTotal as money, formatted in the renewal's currency")
+            .ResolveAsync(async context => await SubscriptionMoney.ToMoneyAsync(context, context.Source.NotifiedTotal, context.Source.Currency, context.Source.LanguageCode));
+        Field<MoneyType>("orderTotalMoney")
+            .Description("OrderTotal as money, formatted in the renewal's currency")
+            .ResolveAsync(async context => await SubscriptionMoney.ToMoneyAsync(context, context.Source.OrderTotal, context.Source.Currency, context.Source.LanguageCode));
+        Field(x => x.LastErrorMessage, nullable: true).Description("The last problem in English, for the admin and logs. Shoppers see lastErrorCode, translated.");
+        Field(x => x.LastErrorCode, nullable: true).Description("Stable code of the last payment problem, for the storefront to translate: " + string.Join(", ", RenewalErrorCode.All));
+        Field(x => x.ReviewReason, nullable: true).Description("Why the renewal needs a review, in English, for the admin and logs. Shoppers see reviewReasonCode, translated.");
+        Field(x => x.ReviewReasonCode, nullable: true).Description("Stable code of the review reason, for the storefront to translate: " + string.Join(", ", RenewalReviewReasonCode.All));
         Field<NonNullGraphType<ListGraphType<NonNullGraphType<RenewalItemType>>>>("items").Resolve(x => x.Source.Items);
         Field<NonNullGraphType<ListGraphType<NonNullGraphType<RenewalEventType>>>>("events")
             .Description("Customer-visible history")

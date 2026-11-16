@@ -15,6 +15,7 @@ public class GetProductSubscriptionQueryBuilder(IAuthorizationService authorizat
     protected override async Task BeforeMediatorSend(IResolveFieldContext<object> context, GetProductSubscriptionQuery request)
     {
         request.UserId = AccessGuard.RequireUser(context);
+        SubscriptionMoney.RememberCultureName(context);
         await base.BeforeMediatorSend(context, request);
     }
 }

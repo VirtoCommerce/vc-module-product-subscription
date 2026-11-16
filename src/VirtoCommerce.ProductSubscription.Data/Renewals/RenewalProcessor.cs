@@ -522,6 +522,7 @@ public class RenewalProcessor(
 
             renewal.NotifiedTotal = null;
             renewal.ReviewReason = null;
+            renewal.ReviewReasonCode = null;
             renewal.CutoffDate = UtcNow;
             renewal.AddEvent(RenewalEventType.CustomerAction, "Customer accepted the changes");
             renewal.ChangeState(RenewalState.Notified, "Review accepted", UtcNow);
@@ -669,6 +670,7 @@ public class RenewalProcessor(
             renewal.AuthorizedDate = UtcNow;
             renewal.AuthorizationExpiresDate = UtcNow.AddMinutes(await GetAuthorizationLifetimeMinutesAsync());
             renewal.LastErrorMessage = null;
+            renewal.LastErrorCode = null;
             renewal.NextAttemptDate = null;
             renewal.ChangeState(payment.PaymentStatus == PaymentStatus.Paid ? RenewalState.Completed : RenewalState.Authorized,
                 collectedByProvider ? "The payment provider collected the payment" : "Payment completed by the customer");
@@ -677,7 +679,7 @@ public class RenewalProcessor(
         }
         else if (IsProviderRetry(renewal) && _failedStatuses.Contains(payment.PaymentStatus))
         {
-            await FailAsync(renewal, "We couldn't charge your card. Please update your payment method.", markCardForUpdate: false);
+            await FailAsync(renewal, RenewalErrorCode.PaymentFailed, "We couldn't charge your card. Please update your payment method.", markCardForUpdate: false);
             changed = true;
         }
 
@@ -769,7 +771,7 @@ public class RenewalProcessor(
                         break;
 
                     case RenewalState.PaymentActionRequired when !ignoreSchedule && renewal.NextProcessingDate <= now:
-                        await FailAsync(renewal, "The payment wasn't confirmed in time.", markCardForUpdate: false);
+                        await FailAsync(renewal, RenewalErrorCode.PaymentNotConfirmed, "The payment wasn't confirmed in time.", markCardForUpdate: false);
                         break;
 
                     case RenewalState.Authorized:
@@ -863,9 +865,10 @@ public class RenewalProcessor(
         var reviewReason = GetReviewReason(renewal, cart);
         if (reviewReason != null)
         {
-            renewal.ReviewReason = reviewReason;
+            renewal.ReviewReasonCode = reviewReason.Code;
+            renewal.ReviewReason = reviewReason.Message;
             var waitDays = store.Settings.GetValue<int>(ModuleConstants.Settings.Store.PaymentActionWaitDays);
-            renewal.ChangeState(RenewalState.ReviewRequired, reviewReason, UtcNow.AddDays(Math.Max(1, waitDays)));
+            renewal.ChangeState(RenewalState.ReviewRequired, reviewReason.Message, UtcNow.AddDays(Math.Max(1, waitDays)));
             await notificationService.SendAsync<RenewalReviewRequiredEmailNotification>(subscriptions, renewal);
             return;
         }
@@ -886,22 +889,24 @@ public class RenewalProcessor(
         renewal.ChangeState(RenewalState.Ordered, $"Order {order.Number} placed", UtcNow);
     }
 
-    protected virtual string GetReviewReason(Renewal renewal, RenewalCartResult cart)
+    /// <summary>Why the renewal needs the customer's review before it is ordered, or null when it doesn't.</summary>
+    protected virtual RenewalReviewReason GetReviewReason(Renewal renewal, RenewalCartResult cart)
     {
         if (cart.HasUnavailableItems)
         {
             var names = renewal.Items.Where(x => !x.IsAvailable && !x.IsExcluded).Select(x => x.ProductName);
-            return $"Some items are not available: {string.Join(", ", names)}.";
+            return new RenewalReviewReason(RenewalReviewReasonCode.ItemsUnavailable, $"Some items are not available: {string.Join(", ", names)}.");
         }
 
         if (cart.Problems.Count > 0 && cart.Aggregate.Cart.Shipments.Count == 0)
         {
-            return "No shipping method is available for the delivery address.";
+            return new RenewalReviewReason(RenewalReviewReasonCode.NoShippingMethod, "No shipping method is available for the delivery address.");
         }
 
         if (renewal.NotifiedTotal != null && cart.Total > renewal.NotifiedTotal.Value + PriceIncreaseTolerance)
         {
-            return $"The total went up from {renewal.NotifiedTotal.Value:0.00} to {cart.Total:0.00} {renewal.Currency}. Please confirm the new price.";
+            return new RenewalReviewReason(RenewalReviewReasonCode.PriceIncreased,
+                $"The total went up from {renewal.NotifiedTotal.Value:0.00} to {cart.Total:0.00} {renewal.Currency}. Please confirm the new price.");
         }
 
         return null;
@@ -947,6 +952,7 @@ public class RenewalProcessor(
             // A card payment with no card on file (e.g. an imported subscription): the customer pays on the order page,
             // where the card can be saved for the next deliveries.
             await OnRequiresActionAsync(renewal, store, order,
+                RenewalErrorCode.CardRequired,
                 "Please add a card to pay for this delivery.",
                 "No saved card on the subscription; the customer has to pay");
             return;
@@ -954,7 +960,7 @@ public class RenewalProcessor(
 
         if (storedMethod.Status != StoredPaymentMethodStatus.Active)
         {
-            await FailAsync(renewal, "Your saved card needs to be updated before we can charge this delivery.", markCardForUpdate: false);
+            await FailAsync(renewal, RenewalErrorCode.CardNeedsUpdate, "Your saved card needs to be updated before we can charge this delivery.", markCardForUpdate: false);
             return;
         }
 
@@ -1018,7 +1024,7 @@ public class RenewalProcessor(
                 payment.PaymentStatus = PaymentStatus.Declined;
                 payment.Status = PaymentStatus.Declined.ToString();
                 await customerOrderService.SaveChangesAsync([order]);
-                await FailAsync(renewal, "Your card was declined. Please update your payment method.", markCardForUpdate: true);
+                await FailAsync(renewal, RenewalErrorCode.CardDeclined, "Your card was declined. Please update your payment method.", markCardForUpdate: true);
                 break;
         }
     }
@@ -1051,6 +1057,7 @@ public class RenewalProcessor(
         renewal.AuthorizedDate = now;
         renewal.AuthorizationExpiresDate = now.AddMinutes(await GetAuthorizationLifetimeMinutesAsync());
         renewal.LastErrorMessage = null;
+        renewal.LastErrorCode = null;
         renewal.NextAttemptDate = null;
         await ReactivateSubscriptionsAsync(renewal);
 
@@ -1069,11 +1076,13 @@ public class RenewalProcessor(
         Renewal renewal,
         Store store,
         CustomerOrder order,
+        string errorCode = RenewalErrorCode.AuthenticationRequired,
         string customerMessage = "Your bank asked you to confirm this payment.",
         string reason = "The bank requires authentication (3-D Secure)",
         string recoveryUrl = null)
     {
         var waitDays = store.Settings.GetValue<int>(ModuleConstants.Settings.Store.PaymentActionWaitDays);
+        renewal.LastErrorCode = errorCode;
         renewal.LastErrorMessage = customerMessage;
         renewal.ChangeState(RenewalState.PaymentActionRequired, reason, UtcNow.AddDays(Math.Max(1, waitDays)));
 
@@ -1100,6 +1109,7 @@ public class RenewalProcessor(
             // The provider retries on its own (e.g. Adyen Auto Rescue) and the platform must not: wait for the result
             // to arrive as a payment change on the order. No next attempt date marks this wait (see IsProviderRetry).
             renewal.NextAttemptDate = null;
+            renewal.LastErrorCode = RenewalErrorCode.CardDeclinedProviderRetry;
             renewal.LastErrorMessage = "Your card was declined. Your payment provider will try again automatically.";
             renewal.ChangeState(RenewalState.RetryScheduled, "The payment provider retries this payment", UtcNow.Add(_providerRetryWait));
             return;
@@ -1107,7 +1117,7 @@ public class RenewalProcessor(
 
         if (retryIndex >= schedule.Count || declinesIn30Days >= maxRetries)
         {
-            await FailAsync(renewal, "We couldn't charge your card after several attempts. Please update your payment method.", markCardForUpdate: false);
+            await FailAsync(renewal, RenewalErrorCode.RetriesExhausted, "We couldn't charge your card after several attempts. Please update your payment method.", markCardForUpdate: false);
             return;
         }
 
@@ -1118,6 +1128,7 @@ public class RenewalProcessor(
         }
 
         renewal.NextAttemptDate = UtcNow.Add(delay);
+        renewal.LastErrorCode = RenewalErrorCode.CardDeclinedWillRetry;
         renewal.LastErrorMessage = "Your card was declined. We'll try again automatically.";
         renewal.ChangeState(RenewalState.RetryScheduled, $"Temporary decline; next attempt {renewal.NextAttemptDate:yyyy-MM-dd HH:mm} UTC", renewal.NextAttemptDate);
 
@@ -1133,7 +1144,7 @@ public class RenewalProcessor(
         var providerErrors = renewal.Events.Count(x => x.EventType == RenewalEventType.PaymentAttempt && x.Message.EndsWith(nameof(ChargeOutcome.ProviderError)));
         if (providerErrors >= MaxProviderErrors)
         {
-            return FailAsync(renewal, "We couldn't reach the payment provider. Please try again later.", markCardForUpdate: false);
+            return FailAsync(renewal, RenewalErrorCode.ProviderUnavailable, "We couldn't reach the payment provider. Please try again later.", markCardForUpdate: false);
         }
 
         // Retry the same charge with the same idempotency key, so a request that did go through is never charged twice.
@@ -1153,16 +1164,22 @@ public class RenewalProcessor(
             renewal.AuthorizedDate ??= UtcNow;
             renewal.AuthorizationExpiresDate ??= UtcNow.AddMinutes(await GetAuthorizationLifetimeMinutesAsync());
             renewal.LastErrorMessage = null;
+            renewal.LastErrorCode = null;
             renewal.ChangeState(payment.PaymentStatus == PaymentStatus.Paid ? RenewalState.Completed : RenewalState.Authorized, "The payment provider collected the payment");
             await ReactivateSubscriptionsAsync(renewal);
             return;
         }
 
-        await FailAsync(renewal, "We couldn't charge your card. Please update your payment method.", markCardForUpdate: false);
+        await FailAsync(renewal, RenewalErrorCode.PaymentFailed, "We couldn't charge your card. Please update your payment method.", markCardForUpdate: false);
     }
 
-    protected virtual async Task FailAsync(Renewal renewal, string customerMessage, bool markCardForUpdate)
+    /// <param name="renewal">The renewal that failed.</param>
+    /// <param name="errorCode">Stable code the storefront translates (<see cref="RenewalErrorCode"/>).</param>
+    /// <param name="customerMessage">The same in English, for the admin and logs.</param>
+    /// <param name="markCardForUpdate">Whether the saved card is marked as needing an update.</param>
+    protected virtual async Task FailAsync(Renewal renewal, string errorCode, string customerMessage, bool markCardForUpdate)
     {
+        renewal.LastErrorCode = errorCode;
         renewal.LastErrorMessage = customerMessage;
         renewal.NextAttemptDate = null;
         renewal.ChangeState(RenewalState.Failed, customerMessage);
@@ -1248,7 +1265,7 @@ public class RenewalProcessor(
 
         if (result.Outcome != ChargeOutcome.Succeeded)
         {
-            await FailAsync(renewal, "Your card was declined when the order shipped. Please update your payment method.", markCardForUpdate: false);
+            await FailAsync(renewal, RenewalErrorCode.CardDeclinedOnCapture, "Your card was declined when the order shipped. Please update your payment method.", markCardForUpdate: false);
             return false;
         }
 

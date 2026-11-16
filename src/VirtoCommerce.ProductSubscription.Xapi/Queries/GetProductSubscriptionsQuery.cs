@@ -13,6 +13,9 @@ public class GetProductSubscriptionsQuery : SearchQuery<SubscriptionSearchResult
     public IList<string> Statuses { get; set; }
     public string UserId { get; set; }
 
+    /// <summary>Culture the money fields are formatted in ("en-US").</summary>
+    public string CultureName { get; set; }
+
     public override IEnumerable<QueryArgument> GetArguments()
     {
         foreach (var argument in base.GetArguments())
@@ -22,6 +25,7 @@ public class GetProductSubscriptionsQuery : SearchQuery<SubscriptionSearchResult
 
         yield return Argument<NonNullGraphType<StringGraphType>>(nameof(StoreId));
         yield return Argument<ListGraphType<StringGraphType>>(nameof(Statuses));
+        yield return Argument<StringGraphType>(nameof(CultureName), description: "Culture the money fields are formatted in (\"en-US\")");
     }
 
     public override void Map(IResolveFieldContext context)
@@ -29,5 +33,6 @@ public class GetProductSubscriptionsQuery : SearchQuery<SubscriptionSearchResult
         base.Map(context);
         StoreId = context.GetArgument<string>(nameof(StoreId));
         Statuses = context.GetArgument<List<string>>(nameof(Statuses));
+        CultureName = context.GetArgument<string>(nameof(CultureName));
     }
 }

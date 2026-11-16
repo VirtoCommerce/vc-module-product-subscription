@@ -83,6 +83,10 @@ namespace VirtoCommerce.ProductSubscription.Data.PostgreSql.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("LastErrorMessage")
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)");
@@ -147,6 +151,10 @@ namespace VirtoCommerce.ProductSubscription.Data.PostgreSql.Migrations
                     b.Property<string>("ReviewReason")
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)");
+
+                    b.Property<string>("ReviewReasonCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime>("ScheduledDate")
                         .HasColumnType("timestamp with time zone");
