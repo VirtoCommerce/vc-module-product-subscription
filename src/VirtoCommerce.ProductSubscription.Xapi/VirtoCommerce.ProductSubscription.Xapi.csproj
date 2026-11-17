@@ -8,7 +8,7 @@
     <PackageReference Include="VirtoCommerce.Platform.Security" Version="3.1097.0" />
     <PackageReference Include="VirtoCommerce.Xapi.Core" Version="3.1032.0" />
     <PackageReference Include="VirtoCommerce.XCatalog.Core" Version="3.1026.0" />
-    <PackageReference Include="VirtoCommerce.XCart.Core" Version="3.1043.0-alpha.300-vcst-6507" />
+    <PackageReference Include="VirtoCommerce.XCart.Core" Version="3.1049.0-alpha.318-vcst-6507" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VirtoCommerce.ProductSubscription.Core\VirtoCommerce.ProductSubscription.Core.csproj" />
