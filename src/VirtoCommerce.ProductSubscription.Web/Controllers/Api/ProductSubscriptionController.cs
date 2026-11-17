@@ -159,7 +159,23 @@ public class ProductSubscriptionController(
         criteria.CustomerId = customerId;
         criteria.StoreId = storeId;
         criteria.Take = MaxSavedCards;
-        return Ok((await storedPaymentMethodSearchService.SearchAsync(criteria)).Results);
+        var cards = (await storedPaymentMethodSearchService.SearchAsync(criteria)).Results;
+        return Ok(cards.Select(WithoutSecrets).ToList());
+    }
+
+    /// <summary>
+    /// A copy of the card the back office may show: brand, last digits, expiry, status, default. The provider's token,
+    /// customer reference, fingerprint and transaction references let someone charge or track the card: never sent out.
+    /// </summary>
+    public static StoredPaymentMethod WithoutSecrets(StoredPaymentMethod card)
+    {
+        var copy = (StoredPaymentMethod)card.Clone();
+        copy.Token = null;
+        copy.ProviderCustomerRef = null;
+        copy.Fingerprint = null;
+        copy.NetworkTransactionId = null;
+        copy.InitialTransactionRef = null;
+        return copy;
     }
 
     [HttpGet("consents/{id}")]
