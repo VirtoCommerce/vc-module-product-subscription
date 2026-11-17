@@ -34,37 +34,83 @@ test("the product page offers Subscribe & Save with a frequency", async ({ page 
   await expect(page.getByTestId("purchase-option-frequency")).toBeVisible();
 });
 
-test("the account lists subscriptions, deliveries and status tabs", async ({ page }) => {
-  await open(page, "/account/subscriptions");
-  await expect(page.locator('[data-test-id^="subscription-row-"]').first()).toBeVisible();
-  await expect(page.locator('[data-test-id^="subscriptions-tab-"]').first()).toBeVisible();
-  await expect(page.getByText("Upcoming deliveries")).toBeVisible();
+// The account page lists upcoming deliveries by month. Each delivery card has a settings menu (⚙); what it offers is
+// what the store lets customers do (Product Subscription > Customer actions). The scenarios assume the defaults:
+// skip, order now and change card off; pause and change frequency on. Cancelling is always offered.
+const DELIVERY = '[data-test-id^="subscription-delivery-"]';
+const MENU_BUTTON = '[data-test-id^="subscription-settings-"][data-test-id$="-button"]';
+const FREQUENCY_CHANGE = '[data-test-id^="subscription-frequency-change-"]';
 
-  // the status tabs switch the list
-  const paused = page.getByTestId("subscriptions-tab-paused").getByRole("button");
-  await paused.click();
-  await expect(paused).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByTestId("subscriptions-tab-active").getByRole("button")).toHaveAttribute("aria-pressed", "false");
+async function openDeliveries(page: Page) {
+  await open(page, "/account/subscriptions");
+  await expect(page.locator(DELIVERY).first()).toBeVisible({ timeout: 60_000 });
+}
+
+/** Opens the settings menu of the first delivery that has one and returns its test id prefix. */
+async function openFirstMenu(page: Page) {
+  const button = page.locator(MENU_BUTTON).first();
+  const prefix = (await button.getAttribute("data-test-id"))!.replace(/-button$/, "");
+  await button.click();
+  return prefix;
+}
+
+test("the account lists upcoming deliveries by month", async ({ page }) => {
+  await openDeliveries(page);
+  await expect(page.getByText(/active · next delivery/)).toBeVisible();
+  // skipping moved from a button on the card into the settings menu
+  await expect(page.getByTestId("subscription-delivery-skip-button")).toHaveCount(0);
+  await expect(page.locator(MENU_BUTTON).first()).toBeVisible();
 });
 
-test("a subscription shows its schedule and is paused and resumed", async ({ page }) => {
-  await open(page, "/account/subscriptions");
-  await page.locator('[data-test-id^="subscription-row-"]', { hasText: "Active" }).first().click();
-  await expect(page).toHaveURL(/\/account\/subscriptions\/.+/);
-  await expect(page.getByTestId("subscription-quantity")).toBeVisible();
-  await expect(page.getByTestId("subscription-frequency")).toBeVisible();
-  await expect(page.getByTestId("subscription-next-date")).toBeVisible();
+test("the delivery menu offers only what the store allows", async ({ page }) => {
+  await openDeliveries(page);
+  const menu = await openFirstMenu(page);
+  await expect(page.getByTestId(`${menu}-cancel`)).toBeVisible();
+  for (const off of ["skip", "order-now", "change-card"]) {
+    await expect(page.getByTestId(`${menu}-${off}`), `${off} is off by default`).toHaveCount(0);
+  }
+  // Escape closes the menu; its panel stays in the page, hidden
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId(`${menu}-cancel`)).toBeHidden();
+});
 
-  await page.getByTestId("subscription-pause").click();
-  await page.getByTestId("subscription-pause-confirm").click();
-  // the status badge follows the server: resume only once the pause is saved, or the two requests race
-  await expect(page.getByTestId("status-Paused")).toBeVisible();
-  await page.getByTestId("subscription-resume").click();
-  await expect(page.getByTestId("status-Active")).toBeVisible();
-  await expect(page.getByTestId("subscription-pause")).toBeVisible();
-  // and the server agrees after a reload
+test("a subscription is paused and resumed", async ({ page }) => {
+  await openDeliveries(page);
+  // the frequency dialog of one product pauses that product only; taken from a delivery not placed yet, so the
+  // subscription is a healthy one (a past-due one would come back with its failed delivery still to pay)
+  const change = page.locator(`[data-test-id^="subscription-delivery-upcoming-"] ${FREQUENCY_CHANGE}`).first();
+  const subscriptionId = (await change.getAttribute("data-test-id"))!.replace("subscription-frequency-change-", "");
+  await change.click();
+  await expect(page.getByTestId("purchase-options-modal")).toBeVisible();
+  await page.getByTestId("purchase-options-modal-pause").click();
+  await page.getByTestId("subscription-confirm-modal-ok").click();
+  await expect(page.getByTestId("subscription-confirm-modal")).toHaveCount(0);
+
+  // it moves to "Paused and cancelled", folded until opened
+  const inactive = page.getByTestId("subscriptions-inactive");
+  const resume = page.getByTestId(`subscription-resume-${subscriptionId}`);
+  await expect(inactive).toBeVisible();
+  if (!(await resume.isVisible())) {
+    await inactive.locator(".vc-widget__header-container").click();
+  }
+  await resume.click();
+  // and is back among the deliveries, also after a reload
+  const back = page.getByTestId(`subscription-frequency-change-${subscriptionId}`).first();
+  await expect(back).toBeVisible();
   await page.reload();
-  await expect(page.getByTestId("status-Active")).toBeVisible({ timeout: 60_000 });
+  await expect(back).toBeVisible({ timeout: 60_000 });
+});
+
+test("the frequency dialog shows the plan's frequencies", async ({ page }) => {
+  await openDeliveries(page);
+  await page.locator(FREQUENCY_CHANGE).first().click();
+  const dialog = page.getByTestId("purchase-options-modal");
+  await expect(dialog).toBeVisible();
+  await expect(page.getByTestId("purchase-options-modal-frequency")).toBeVisible();
+  await expect(page.getByTestId("purchase-options-modal-save")).toBeVisible();
+  // closed without saving
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
 });
 
 test("saved payment methods are listed", async ({ page }) => {
@@ -119,7 +165,8 @@ test("checkout asks for the subscription terms before the order can be placed", 
   await setPacks(page, "one");
   try {
     await open(page, "/cart");
-    await expect(page.locator('[data-test-id^="cart-line-subscribe-"]').first()).toBeVisible();
+    // a subscribed line shows its subscription (frequency and a Change link) instead of the Subscribe button
+    await expect(page.locator('[data-test-id^="cart-line-subscription-change-"]').first()).toBeVisible();
     const terms = page.getByTestId("checkout-subscription-terms");
     await expect(terms).toBeVisible();
     // US auto-renewal rules: the consent box starts unchecked and the order can't be placed without it
@@ -148,24 +195,25 @@ test("checkout asks for the subscription terms before the order can be placed", 
 });
 
 test("cancelling a subscription takes one confirmation", async ({ page }) => {
-  await open(page, "/account/subscriptions");
-  await page.locator('[data-test-id^="subscription-row-"]', { hasText: "Active" }).first().click();
-  await page.getByTestId("subscription-cancel").click();
+  await openDeliveries(page);
+  const menu = await openFirstMenu(page);
+  await page.getByTestId(`${menu}-cancel`).click();
   // one click to confirm; the scenario closes the dialog instead, keeping the subscription
-  await expect(page.getByTestId("subscription-cancel-confirm")).toBeVisible();
-  await page.getByRole("button", { name: "Keep subscription" }).click();
-  await expect(page.getByTestId("subscription-cancel-confirm")).toHaveCount(0);
-  await expect(page.getByTestId("subscription-pause")).toBeVisible();
+  const dialog = page.getByTestId("subscription-confirm-modal");
+  await expect(dialog).toBeVisible();
+  await expect(page.getByTestId("subscription-confirm-modal-ok")).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(MENU_BUTTON).first()).toBeVisible();
 });
 
 test("a renewal waiting for 3-D Secure is confirmed and authorized", async ({ page }, testInfo) => {
   // completes the payment for good: once, on the phone (the more demanding layout)
   test.skip(!isPhone(testInfo), "runs once, on the phone");
-  await open(page, "/account/subscriptions");
-  const confirmButton = page.getByTestId("renewal-confirm-payment").first();
-  await page.locator('[data-test-id^="subscription-row-"]').first().waitFor();
-  test.skip(!(await confirmButton.isVisible()), "no renewal is waiting for the customer");
-  const renewal = (await page.locator('[data-test-id^="renewal-"]', { has: confirmButton }).first().getAttribute("data-test-id"))!;
+  await openDeliveries(page);
+  const confirmButton = page.getByTestId("subscription-delivery-confirm-payment").first();
+  test.skip(!(await confirmButton.isVisible()), "no delivery is waiting for the customer");
+  const delivery = (await page.locator(DELIVERY, { has: confirmButton }).first().getAttribute("data-test-id"))!;
 
   await confirmButton.click();
   await expect(page).toHaveURL(/\/account\/orders\/.+\/payment/);
@@ -175,7 +223,7 @@ test("a renewal waiting for 3-D Secure is confirmed and authorized", async ({ pa
   await page.getByTestId("mock-3ds-approve").click();
 
   await expect(async () => {
-    await open(page, "/account/subscriptions");
-    await expect(page.getByTestId(renewal).getByTestId("renewal-confirm-payment")).toHaveCount(0);
+    await openDeliveries(page);
+    await expect(page.getByTestId(delivery).getByTestId("subscription-delivery-confirm-payment")).toHaveCount(0);
   }).toPass({ timeout: 60_000 });
 });
