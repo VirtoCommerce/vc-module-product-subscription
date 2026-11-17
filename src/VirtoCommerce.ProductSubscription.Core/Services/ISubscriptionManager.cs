@@ -21,7 +21,11 @@ public interface ISubscriptionManager
     /// </summary>
     Task<IList<Subscription>> LinkStoredPaymentMethodAsync(StoredPaymentMethod storedPaymentMethod);
 
-    Task<Subscription> SkipNextAsync(string subscriptionId);
+    /// <summary>
+    /// Skips the next delivery. <paramref name="expectedNextOrderDate"/> is the delivery the customer saw: when given and
+    /// the subscription has moved on since (another skip, a change), the skip is refused instead of skipping a later one.
+    /// </summary>
+    Task<Subscription> SkipNextAsync(string subscriptionId, System.DateTime? expectedNextOrderDate = null);
     Task<Subscription> PauseAsync(string subscriptionId, System.DateTime? resumeDate);
     Task<Subscription> ResumeAsync(string subscriptionId);
     Task<Subscription> CancelAsync(string subscriptionId, string reason);

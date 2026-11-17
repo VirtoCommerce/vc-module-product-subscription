@@ -18,7 +18,7 @@ public class ProductSubscriptionCommandHandler(ISubscriptionService subscription
         IRequestHandler<ChangeProductSubscriptionCommand, Subscription>
 {
     public virtual Task<Subscription> Handle(SkipProductSubscriptionCommand request, CancellationToken cancellationToken)
-        => Owned(request, () => subscriptionManager.SkipNextAsync(request.SubscriptionId));
+        => Owned(request, () => subscriptionManager.SkipNextAsync(request.SubscriptionId, request.ExpectedNextOrderDate));
 
     public virtual Task<Subscription> Handle(ResumeProductSubscriptionCommand request, CancellationToken cancellationToken)
         => Owned(request, () => subscriptionManager.ResumeAsync(request.SubscriptionId));

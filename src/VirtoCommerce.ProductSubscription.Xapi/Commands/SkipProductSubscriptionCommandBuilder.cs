@@ -5,7 +5,7 @@ using VirtoCommerce.ProductSubscription.Xapi.Schemas;
 namespace VirtoCommerce.ProductSubscription.Xapi.Commands;
 
 public class SkipProductSubscriptionCommandBuilder(IAuthorizationService authorizationService)
-    : SubscriptionCommandBuilder<SkipProductSubscriptionCommand, Subscription, InputSubscriptionIdType, ProductSubscriptionType>(authorizationService)
+    : SubscriptionCommandBuilder<SkipProductSubscriptionCommand, Subscription, InputSkipSubscriptionType, ProductSubscriptionType>(authorizationService)
 {
     protected override string Name => "skipProductSubscription";
 }

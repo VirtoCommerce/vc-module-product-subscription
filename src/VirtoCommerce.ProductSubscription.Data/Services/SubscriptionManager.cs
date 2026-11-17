@@ -234,11 +234,19 @@ public class SubscriptionManager(
         });
     }
 
-    public virtual Task<Subscription> SkipNextAsync(string subscriptionId)
+    public virtual Task<Subscription> SkipNextAsync(string subscriptionId, DateTime? expectedNextOrderDate = null)
     {
         return WithLockAsync(subscriptionId, async subscription =>
         {
             EnsureStatus(subscription, SubscriptionStatus.Active, SubscriptionStatus.PastDue);
+
+            // The page the customer acted on may be stale: a minute of slack absorbs date serialization, while a real
+            // move (a skip, a change) is at least a day.
+            if (expectedNextOrderDate != null
+                && Math.Abs((expectedNextOrderDate.Value.ToUniversalTime() - DateTime.SpecifyKind(subscription.NextOrderDate, DateTimeKind.Utc)).TotalMinutes) >= 1)
+            {
+                throw new SubscriptionOperationException("The next delivery has changed since this page was opened. Refresh the page and try again.");
+            }
 
             await DetachFromOpenRenewalAsync(subscription, "Skipped by customer");
 
