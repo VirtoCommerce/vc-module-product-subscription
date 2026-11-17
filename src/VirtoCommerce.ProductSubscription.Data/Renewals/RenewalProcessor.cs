@@ -731,6 +731,9 @@ public class RenewalProcessor(
             return renewal;
         }
 
+        // One call charges at most once: a soft decline schedules the retry, and ignoreSchedule must not run it at once.
+        var charged = false;
+
         for (var step = 0; step < MaxSteps; step++)
         {
             var before = renewal.State;
@@ -752,7 +755,8 @@ public class RenewalProcessor(
                         await SkipUnreviewedAsync(renewal);
                         break;
 
-                    case RenewalState.Ordered:
+                    case RenewalState.Ordered when !charged:
+                        charged = true;
                         await ChargeAsync(renewal, store);
                         break;
 
@@ -765,7 +769,8 @@ public class RenewalProcessor(
 
                         break;
 
-                    case RenewalState.RetryScheduled when ignoreSchedule || renewal.NextAttemptDate <= now:
+                    case RenewalState.RetryScheduled when !charged && (ignoreSchedule || renewal.NextAttemptDate <= now):
+                        charged = true;
                         renewal.ChangeState(RenewalState.Ordered, "Retrying the payment", now);
                         await ChargeAsync(renewal, store);
                         break;

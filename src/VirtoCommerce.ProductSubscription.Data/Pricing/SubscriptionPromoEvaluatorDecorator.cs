@@ -27,7 +27,10 @@ public class SubscriptionPromoEvaluatorDecorator(IMarketingPromoEvaluator inner)
             return result;
         }
 
-        var entries = (promoContext.PromoEntries ?? []).Concat(promoContext.CartPromoEntries ?? [])
+        // Only the entries being priced. A cart prices its own lines (xCart sets PromoEntries to the cart's entries);
+        // the catalog prices products and passes the cart's lines only as context. A subscription line there must not
+        // discount the product page price: the page would show it, then take the subscription discount off again.
+        var entries = (promoContext.PromoEntries ?? [])
             .Select(x => (Entry: x, Discount: SubscriptionPromoAttributes.Get(x)))
             .Where(x => x.Discount != null && x.Discount.DiscountType != SubscriptionDiscountType.None && x.Discount.DiscountValue > 0)
             .GroupBy(x => x.Entry.ProductId)

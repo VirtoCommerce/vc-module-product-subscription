@@ -32,12 +32,15 @@
   <ItemGroup>
     <PackageReference Include="VirtoCommerce.NotificationsModule.TemplateLoader.FileSystem" Version="3.1018.0" />
   </ItemGroup>
+  <!-- The templates are .html/.txt files, which the Web SDK does not treat as Content, so a Content Update matched nothing
+       and the package shipped without them. Module.cs reads them from {moduleRoot}/NotificationTemplates, next to bin/,
+       as the other modules lay them out. -->
   <ItemGroup>
-    <Content Update="NotificationTemplates\**">
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <NotificationTemplates Include="NotificationTemplates\**" />
   </ItemGroup>
+  <Target Name="CopyNotificationTemplatesOnPublish" AfterTargets="Publish">
+    <Copy SourceFiles="@(NotificationTemplates)" DestinationFiles="$(PublishDir)\..\%(Identity)" />
+  </Target>
   <ItemGroup>
     <ProjectReference Include="..\VirtoCommerce.ProductSubscription.Core\VirtoCommerce.ProductSubscription.Core.csproj" />
     <ProjectReference Include="..\VirtoCommerce.ProductSubscription.Data\VirtoCommerce.ProductSubscription.Data.csproj" />

@@ -261,6 +261,11 @@ public class RenewalCartBuilder(
         shipment.ShipmentMethodOption = rate.OptionName;
         shipment.Currency = aggregate.Cart.Currency;
         shipment.DeliveryAddress = deliveryAddress;
+        // xCart prices a shipment from its rate only for a saved cart, and its validator rejects a price that differs from
+        // the rate. The renewal cart lives in memory, so a paid method would fail with "The shipment method price is
+        // changed": price the shipment here.
+        shipment.Price = rate.Rate;
+        shipment.DiscountAmount = rate.DiscountAmount;
 
         await aggregate.AddShipmentAsync(shipment, rates);
     }

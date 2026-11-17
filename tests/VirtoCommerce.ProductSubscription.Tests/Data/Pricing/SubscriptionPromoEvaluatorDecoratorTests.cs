@@ -43,6 +43,26 @@ public class SubscriptionPromoEvaluatorDecoratorTests
     }
 
     [Fact]
+    public async Task EvaluatePromotionAsync_ProductPricing_IgnoresSubscriptionLinesInTheCart()
+    {
+        // Arrange: the catalog prices the product page (unmarked entries) with the cart's lines as context, and the cart
+        // already holds this product as a subscription line. The page price must stay the regular one.
+        _innerMock.Setup(x => x.EvaluatePromotionAsync(It.IsAny<IEvaluationContext>())).ReturnsAsync(() => new PromotionResult());
+        var discount = new SubscriptionLineDiscount("plan-1", "Monthly", SubscriptionDiscountType.Percent, 10m);
+        var context = new PromotionEvaluationContext
+        {
+            PromoEntries = [CreateEntry("P1")],
+            CartPromoEntries = [CreateEntry("P1", discount)],
+        };
+
+        // Act
+        var result = await CreateSut().EvaluatePromotionAsync(context);
+
+        // Assert
+        GetSubscriptionRewards(result).Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task EvaluatePromotionAsync_InnerReturnsSameCachedInstance_DoesNotAccumulateRewards()
     {
         // Arrange: the Marketing evaluation policy caches its result and returns the same instance every time.
