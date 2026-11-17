@@ -723,11 +723,7 @@ public class RenewalProcessor(
         var store = await storeService.GetNoCloneAsync(renewal.StoreId);
         if (store == null)
         {
-            // Nothing can be priced, ordered or charged without the store: end the renewal instead of failing on every run.
-            renewal.AddEvent(RenewalEventType.Error, $"The store {renewal.StoreId} no longer exists.");
-            renewal.ChangeState(RenewalState.Cancelled, "The store no longer exists");
-            await renewalService.SaveChangesAsync([renewal]);
-            await ReleaseSubscriptionsAsync(renewal);
+            await CancelForMissingStoreAsync(renewal);
             return renewal;
         }
 
@@ -817,6 +813,15 @@ public class RenewalProcessor(
         }
 
         return renewal;
+    }
+
+    /// <summary>Nothing can be priced, ordered or charged without the store: ends the renewal instead of failing on every run.</summary>
+    protected virtual async Task CancelForMissingStoreAsync(Renewal renewal)
+    {
+        renewal.AddEvent(RenewalEventType.Error, $"The store {renewal.StoreId} no longer exists.");
+        renewal.ChangeState(RenewalState.Cancelled, "The store no longer exists");
+        await renewalService.SaveChangesAsync([renewal]);
+        await ReleaseSubscriptionsAsync(renewal);
     }
 
     protected virtual async Task PrepareAndNotifyAsync(Renewal renewal)

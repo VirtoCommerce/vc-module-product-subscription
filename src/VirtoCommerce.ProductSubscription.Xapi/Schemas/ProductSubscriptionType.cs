@@ -107,27 +107,7 @@ public class ProductSubscriptionType : ExtendableGraphType<Subscription>
 
         Field<NonNullGraphType<ListGraphType<NonNullGraphType<SubscriptionIntervalType>>>>("availableIntervals")
             .Description("Frequencies the customer can switch to")
-            .Resolve(context =>
-            {
-                var subscription = context.Source;
-                if (string.IsNullOrEmpty(subscription.PlanId))
-                {
-                    return new[] { new SubscriptionPlanInterval { Unit = subscription.IntervalUnit, Count = subscription.IntervalCount, IsDefault = true } };
-                }
-
-                return Load(context, "product_subscription_plans", subscription.PlanId,
-                        ids => context.RequestServices.GetRequiredService<ISubscriptionPlanService>().GetAsync(ids, clone: false))
-                    .Then(plan =>
-                    {
-                        var intervals = plan?.Intervals?.ToList() ?? [];
-                        if (!intervals.Any(i => i.Unit == subscription.IntervalUnit && i.Count == subscription.IntervalCount))
-                        {
-                            intervals.Insert(0, new SubscriptionPlanInterval { Unit = subscription.IntervalUnit, Count = subscription.IntervalCount });
-                        }
-
-                        return intervals;
-                    });
-            });
+            .Resolve(ResolveAvailableIntervals);
 
         Field<NonNullGraphType<BooleanGraphType>>("canSkip").Resolve(x => x.Source.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue);
         Field<NonNullGraphType<BooleanGraphType>>("canPause").Resolve(x => x.Source.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue);
@@ -135,6 +115,29 @@ public class ProductSubscriptionType : ExtendableGraphType<Subscription>
         Field<NonNullGraphType<BooleanGraphType>>("canCancel").Resolve(x => x.Source.Status != SubscriptionStatus.Cancelled);
         Field<NonNullGraphType<BooleanGraphType>>("canOrderNow").Resolve(x => x.Source.Status == SubscriptionStatus.Active);
         Field<NonNullGraphType<BooleanGraphType>>("canChange").Resolve(x => x.Source.Status != SubscriptionStatus.Cancelled);
+    }
+
+    /// <summary>The plan's frequencies, with the subscription's own first when the plan no longer offers it.</summary>
+    private static object ResolveAvailableIntervals(IResolveFieldContext<Subscription> context)
+    {
+        var subscription = context.Source;
+        if (string.IsNullOrEmpty(subscription.PlanId))
+        {
+            return new[] { new SubscriptionPlanInterval { Unit = subscription.IntervalUnit, Count = subscription.IntervalCount, IsDefault = true } };
+        }
+
+        return Load(context, "product_subscription_plans", subscription.PlanId,
+                ids => context.RequestServices.GetRequiredService<ISubscriptionPlanService>().GetAsync(ids, clone: false))
+            .Then(plan =>
+            {
+                var intervals = plan?.Intervals?.ToList() ?? [];
+                if (!intervals.Any(i => i.Unit == subscription.IntervalUnit && i.Count == subscription.IntervalCount))
+                {
+                    intervals.Insert(0, new SubscriptionPlanInterval { Unit = subscription.IntervalUnit, Count = subscription.IntervalCount });
+                }
+
+                return intervals;
+            });
     }
 
     /// <summary>Loads <paramref name="id"/> with the other ids this request asks for under <paramref name="loaderName"/>, in one call.</summary>
