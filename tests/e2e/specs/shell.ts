@@ -5,6 +5,21 @@ export const isPhone = (testInfo: TestInfo) => testInfo.project.name.endsWith("-
 /** The blade on top: the only one on a phone, the rightmost on a desktop */
 export const topBlade = (page: Page) => page.locator(".vc-blade").last();
 
+/**
+ * Opens a module entry from the menu's "More" section. The menu is drawn before the module's plugin has registered its
+ * blades: a click in that moment changes the URL but opens nothing ("No workspace blade found"). The click is repeated
+ * until a blade opens, as a person would click again.
+ */
+export async function openFromMenu(page: Page, testInfo: TestInfo, item: string) {
+  await expect(async () => {
+    await page.goto("/apps/admin-shell/#/");
+    if (isPhone(testInfo)) await page.locator(".as-mbar__menu").click();
+    await page.locator(".as-rail__item", { hasText: "More" }).click();
+    await page.locator(".as-item__main", { hasText: item }).first().click();
+    await expect(topBlade(page)).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 60_000 });
+}
+
 export async function openRoute(page: Page, route: string) {
   await page.goto(`/apps/admin-shell/#${route}`);
   await expect(topBlade(page)).toBeVisible();

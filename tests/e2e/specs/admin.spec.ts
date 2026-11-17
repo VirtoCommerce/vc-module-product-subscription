@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { command, confirm, hasCommand, isPhone, openRoute, topBlade, watchConsole } from "./shell";
+import { command, confirm, hasCommand, openFromMenu, openRoute, topBlade, watchConsole } from "./shell";
 
 // The Product Subscriptions back office in the Admin Shell, on a desktop and on a phone. Every scenario leaves the data
 // as it found it: edits are reset, a paused subscription is resumed, the temporary plan is deleted.
@@ -19,19 +19,13 @@ test.afterEach(() => {
 });
 
 test("the menu opens the subscriptions list", async ({ page }, testInfo) => {
-  await page.goto("/apps/admin-shell/#/");
-  if (isPhone(testInfo)) await page.locator(".as-mbar__menu").click();
   // no section of its own yet: under More until it is placed with the menu editor
-  await page.locator(".as-rail__item", { hasText: "More" }).click();
-  await page.locator(".as-item__main", { hasText: "Subscriptions" }).first().click();
+  await openFromMenu(page, testInfo, "Subscriptions");
   await expect(topBlade(page).getByText(SUBSCRIPTION_NUMBER).first()).toBeVisible();
 });
 
 test("plans have their own menu entry", async ({ page }, testInfo) => {
-  await page.goto("/apps/admin-shell/#/");
-  if (isPhone(testInfo)) await page.locator(".as-mbar__menu").click();
-  await page.locator(".as-rail__item", { hasText: "More" }).click();
-  await page.locator(".as-item__main", { hasText: "Subscription plans" }).first().click();
+  await openFromMenu(page, testInfo, "Subscription plans");
   // on a phone the blade's title moves into the app bar
   await expect(page.getByText("Subscription plans").first()).toBeVisible();
   await expect(page).toHaveURL(/product-subscription-plans/);
@@ -118,9 +112,13 @@ test("renewals are listed and a renewal shows its payment, items and history", a
   await expect(blade.getByText("History")).toBeVisible();
   await expect(blade.locator(".ps-timeline__item").first()).toBeVisible();
 
-  // the order opens in the Orders module's screen (its AngularJS blade inside the shell without its Vue plugin)
-  await blade.locator(".ps-info .ps-link").first().click();
-  await expect(page).toHaveURL(/legacy\?url=\/workspace\/orders|orders/);
+  // the order opens in the Orders module's screen: its own blade next to the renewal when the Orders module has its
+  // Admin Shell plugin, its AngularJS blade inside the shell otherwise
+  const orderLink = blade.locator(".ps-info .ps-link").first();
+  const orderNumber = (await orderLink.innerText()).trim();
+  await orderLink.click();
+  await expect(page).toHaveURL(/\/order\/|legacy\?url=\/workspace\/orders/);
+  await expect(topBlade(page).getByText(orderNumber).first()).toBeVisible();
 });
 
 test("a subscription opens its renewal from its renewals card", async ({ page }) => {
@@ -168,6 +166,12 @@ test("a plan is created and deleted", async ({ page }) => {
   await expect(plan.getByText("New subscription plan")).toBeVisible();
   const name = `E2E plan ${Date.now()}`;
   await plan.getByPlaceholder("e.g. Subscribe & Save").fill(name);
+  // the store is filled in only when there is one; with several, it is picked
+  const store = plan.locator(".vc-select", { hasText: "Store" }).getByRole("combobox").first();
+  if (!(await plan.getByRole("combobox").filter({ hasText: "B2B-store" }).count())) {
+    await store.click();
+    await page.getByRole("option", { name: "B2B-store", exact: true }).first().click();
+  }
   // inactive, so the storefront never offers it
   // the switch's input is visually hidden behind its track: clicked directly
   const active = plan.getByRole("switch");
@@ -234,10 +238,15 @@ test("a contact's subscriptions open from the Customer module's contact blade", 
   expect(memberId).toBeTruthy();
 
   await openRoute(page, `/customers/customer-contact/${memberId}`);
-  const widget = page.locator(".vc-widget", { hasText: "Subscriptions" });
-  await expect(widget).toBeVisible();
+  // by its id: other modules add widgets with "subscriptions" in the name (back in stock)
+  const widget = page.locator('.vc-widget[data-widget-id="ProductSubscriptionCustomerSubscriptions"]');
+  await expect(widget).toBeAttached();
   await expect(widget).toContainText(/\d/);
-  await widget.click();
+  // with many widgets the strip shows the first few and puts the rest under its "More" button, as a person sees it
+  if (!(await widget.isVisible())) {
+    await page.locator(".vc-widget-container-desktop__more, .vc-widget-container-mobile__more").first().click();
+  }
+  await page.locator('[data-widget-id="ProductSubscriptionCustomerSubscriptions"]').filter({ visible: true }).first().click();
 
   const list = topBlade(page);
   await expect(list.getByText("Customer subscriptions")).toBeVisible();

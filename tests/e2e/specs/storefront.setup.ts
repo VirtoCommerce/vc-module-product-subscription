@@ -5,7 +5,7 @@ import { required } from "./env";
 setup("sign in to the storefront", async ({ page }) => {
   setup.setTimeout(180_000);
   await page.goto("/sign-in");
-  const email = page.locator('input[autocomplete="email"]');
+  const email = page.locator('input[autocomplete~="email"]');
   // a dev server compiles the app on a fresh browser's first visit
   await expect(email).toBeVisible({ timeout: 120_000 });
   await email.fill(required("E2E_BUYER_USER"));
