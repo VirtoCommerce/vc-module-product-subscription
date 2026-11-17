@@ -89,6 +89,7 @@ public class Module : IModule, IHasConfiguration
         serviceCollection.AddTransient<ISubscriptionOfferService, SubscriptionOfferService>();
         serviceCollection.AddTransient<ISubscriptionDiscountCalculator, SubscriptionDiscountCalculator>();
         serviceCollection.AddTransient<ISubscriptionTermsService, SubscriptionTermsService>();
+        serviceCollection.AddTransient<ISubscriptionCustomerActionsService, SubscriptionCustomerActionsService>();
         serviceCollection.AddTransient<ISubscriptionNotificationService, SubscriptionNotificationService>();
         serviceCollection.AddTransient<ISubscriptionManager, SubscriptionManager>();
         serviceCollection.AddTransient<IRenewalCartBuilder, RenewalCartBuilder>();

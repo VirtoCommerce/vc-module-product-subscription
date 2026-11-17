@@ -1,7 +1,9 @@
 using System.Linq;
 using GraphQL.Types;
+using Microsoft.Extensions.DependencyInjection;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.ProductSubscription.Core.Models;
+using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.Xapi.Core.Schemas;
 using RenewalErrorCode = VirtoCommerce.ProductSubscription.Core.Models.RenewalErrorCode;
 using RenewalReviewReasonCode = VirtoCommerce.ProductSubscription.Core.Models.RenewalReviewReasonCode;
@@ -50,7 +52,9 @@ public class RenewalType : ExtendableGraphType<Renewal>
         Field<NonNullGraphType<ListGraphType<NonNullGraphType<RenewalEventType>>>>("events")
             .Description("Customer-visible history")
             .Resolve(x => x.Source.Events.Where(e => e.EventType != Core.Models.RenewalEventType.Error).OrderByDescending(e => e.EventDate).ToList());
-        Field<NonNullGraphType<BooleanGraphType>>("canSkip").Resolve(x => RenewalState.BeforeOrder.Contains(x.Source.State));
+        Field<NonNullGraphType<BooleanGraphType>>("canSkip").ResolveAsync(async x =>
+            RenewalState.BeforeOrder.Contains(x.Source.State)
+            && (await x.RequestServices.GetRequiredService<ISubscriptionCustomerActionsService>().GetAsync(x.Source.StoreId)).CanSkip);
         Field<NonNullGraphType<BooleanGraphType>>("canAcceptReview").Resolve(x => x.Source.State == RenewalState.ReviewRequired);
         Field<NonNullGraphType<BooleanGraphType>>("canRetryPayment").Resolve(x => x.Source.State is RenewalState.Failed or RenewalState.RetryScheduled or RenewalState.PaymentActionRequired && !string.IsNullOrEmpty(x.Source.OrderId));
         Field<NonNullGraphType<BooleanGraphType>>("requiresPaymentAction").Resolve(x => x.Source.State == RenewalState.PaymentActionRequired);

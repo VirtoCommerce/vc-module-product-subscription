@@ -109,12 +109,27 @@ public class ProductSubscriptionType : ExtendableGraphType<Subscription>
             .Description("Frequencies the customer can switch to")
             .Resolve(ResolveAvailableIntervals);
 
-        Field<NonNullGraphType<BooleanGraphType>>("canSkip").Resolve(x => x.Source.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue);
-        Field<NonNullGraphType<BooleanGraphType>>("canPause").Resolve(x => x.Source.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue);
+        // The can* fields combine the subscription's status with the store's "Customer actions" settings, so the storefront
+        // shows only what the xAPI will accept. Resume and cancel have no store flag.
+        Field<NonNullGraphType<BooleanGraphType>>("canSkip").ResolveAsync(async x =>
+            x.Source.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue && (await GetCustomerActionsAsync(x)).CanSkip);
+        Field<NonNullGraphType<BooleanGraphType>>("canPause").ResolveAsync(async x =>
+            x.Source.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue && (await GetCustomerActionsAsync(x)).CanPause);
         Field<NonNullGraphType<BooleanGraphType>>("canResume").Resolve(x => x.Source.Status == SubscriptionStatus.Paused);
         Field<NonNullGraphType<BooleanGraphType>>("canCancel").Resolve(x => x.Source.Status != SubscriptionStatus.Cancelled);
-        Field<NonNullGraphType<BooleanGraphType>>("canOrderNow").Resolve(x => x.Source.Status == SubscriptionStatus.Active);
+        Field<NonNullGraphType<BooleanGraphType>>("canOrderNow").ResolveAsync(async x =>
+            x.Source.Status == SubscriptionStatus.Active && (await GetCustomerActionsAsync(x)).CanOrderNow);
         Field<NonNullGraphType<BooleanGraphType>>("canChange").Resolve(x => x.Source.Status != SubscriptionStatus.Cancelled);
+        Field<NonNullGraphType<BooleanGraphType>>("canChangeFrequency").ResolveAsync(async x =>
+            x.Source.Status != SubscriptionStatus.Cancelled && (await GetCustomerActionsAsync(x)).CanChangeFrequency);
+        Field<NonNullGraphType<BooleanGraphType>>("canChangePaymentMethod").ResolveAsync(async x =>
+            x.Source.Status != SubscriptionStatus.Cancelled && (await GetCustomerActionsAsync(x)).CanChangePaymentMethod);
+    }
+
+    /// <summary>The store's customer actions; the store service caches the store, so a page of subscriptions reads it once.</summary>
+    protected static Task<SubscriptionCustomerActions> GetCustomerActionsAsync(IResolveFieldContext<Subscription> context)
+    {
+        return context.RequestServices.GetRequiredService<ISubscriptionCustomerActionsService>().GetAsync(context.Source.StoreId);
     }
 
     /// <summary>The plan's frequencies, with the subscription's own first when the plan no longer offers it.</summary>

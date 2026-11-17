@@ -182,6 +182,54 @@ public static class ModuleConstants
                 DefaultValue = true,
             };
 
+            // What a customer can do with a subscription from the storefront. Each flag hides the action in the storefront
+            // (it is public, and folded into the can* fields) and makes the xAPI refuse it. The back office is not limited.
+            // Cancelling has no flag: US auto-renewal laws require that a customer can always cancel online.
+            public static SettingDescriptor CustomerCanSkip { get; } = new()
+            {
+                Name = "ProductSubscription.Customer.AllowSkip",
+                GroupName = "Product Subscription|Customer actions",
+                ValueType = SettingValueType.Boolean,
+                DefaultValue = false,
+                IsPublic = true,
+            };
+
+            public static SettingDescriptor CustomerCanOrderNow { get; } = new()
+            {
+                Name = "ProductSubscription.Customer.AllowOrderNow",
+                GroupName = "Product Subscription|Customer actions",
+                ValueType = SettingValueType.Boolean,
+                DefaultValue = false,
+                IsPublic = true,
+            };
+
+            public static SettingDescriptor CustomerCanChangePaymentMethod { get; } = new()
+            {
+                Name = "ProductSubscription.Customer.AllowChangePaymentMethod",
+                GroupName = "Product Subscription|Customer actions",
+                ValueType = SettingValueType.Boolean,
+                DefaultValue = false,
+                IsPublic = true,
+            };
+
+            public static SettingDescriptor CustomerCanPause { get; } = new()
+            {
+                Name = "ProductSubscription.Customer.AllowPause",
+                GroupName = "Product Subscription|Customer actions",
+                ValueType = SettingValueType.Boolean,
+                DefaultValue = true,
+                IsPublic = true,
+            };
+
+            public static SettingDescriptor CustomerCanChangeFrequency { get; } = new()
+            {
+                Name = "ProductSubscription.Customer.AllowChangeFrequency",
+                GroupName = "Product Subscription|Customer actions",
+                ValueType = SettingValueType.Boolean,
+                DefaultValue = true,
+                IsPublic = true,
+            };
+
             public static IEnumerable<SettingDescriptor> AllStoreSettings
             {
                 get
@@ -195,6 +243,11 @@ public static class ModuleConstants
                     yield return TermsVersion;
                     yield return TermsText;
                     yield return AnnualReminderEnabled;
+                    yield return CustomerCanSkip;
+                    yield return CustomerCanOrderNow;
+                    yield return CustomerCanChangePaymentMethod;
+                    yield return CustomerCanPause;
+                    yield return CustomerCanChangeFrequency;
                 }
             }
         }

@@ -48,6 +48,28 @@
           "description": "Shown before the payment fields at checkout (US auto-renewal disclosure)"
         }
       },
+      "Customer": {
+        "AllowSkip": {
+          "title": "Customers can skip a delivery",
+          "description": "Show Skip delivery in My account and accept it from the storefront"
+        },
+        "AllowOrderNow": {
+          "title": "Customers can order now",
+          "description": "Let customers place the next delivery right away, without waiting for its date"
+        },
+        "AllowChangePaymentMethod": {
+          "title": "Customers can change the card",
+          "description": "Let customers pick another saved card for their subscription"
+        },
+        "AllowPause": {
+          "title": "Customers can pause",
+          "description": "Let customers pause a subscription and resume it later"
+        },
+        "AllowChangeFrequency": {
+          "title": "Customers can change the frequency",
+          "description": "Let customers choose another delivery frequency offered by the plan"
+        }
+      },
       "AnnualReminder": {
         "Enabled": {
           "title": "Send yearly reminder",
