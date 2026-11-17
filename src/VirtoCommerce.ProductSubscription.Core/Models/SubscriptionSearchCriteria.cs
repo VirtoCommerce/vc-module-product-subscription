@@ -13,6 +13,10 @@ public class SubscriptionSearchCriteria : SearchCriteriaBase
     public string ProductId { get; set; }
     public string PlanId { get; set; }
     public string InitialOrderId { get; set; }
+
+    /// <summary>Only subscriptions started by one of these orders.</summary>
+    public IList<string> InitialOrderIds { get; set; }
+
     public string StoredPaymentMethodId { get; set; }
     public string OuterId { get; set; }
     public IList<string> OuterIds { get; set; }

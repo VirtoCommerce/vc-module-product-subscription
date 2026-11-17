@@ -57,6 +57,11 @@ public class RenewalSearchService(
             query = query.Where(x => x.OrderId == criteria.OrderId);
         }
 
+        if (!criteria.OrderIds.IsNullOrEmpty())
+        {
+            query = query.Where(x => criteria.OrderIds.Contains(x.OrderId));
+        }
+
         if (!string.IsNullOrEmpty(criteria.SubscriptionId))
         {
             query = query.Where(x => repo.RenewalItems.Any(i => i.RenewalId == x.Id && i.SubscriptionId == criteria.SubscriptionId));

@@ -18,6 +18,7 @@
     <dependency id="VirtoCommerce.BackgroundJobs" version="3.1054.0" />
     <dependency id="VirtoCommerce.Xapi" version="3.1032.0" />
     <dependency id="VirtoCommerce.XCatalog" version="3.1026.0" />
+    <dependency id="VirtoCommerce.XOrder" version="3.1018.0" />
     <dependency id="VirtoCommerce.XCart" version="3.1049.0-alpha.318-vcst-6507" />
   </dependencies>
 

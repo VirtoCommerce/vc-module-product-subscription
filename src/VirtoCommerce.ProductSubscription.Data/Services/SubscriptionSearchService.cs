@@ -65,6 +65,11 @@ public class SubscriptionSearchService(
             query = query.Where(x => x.InitialOrderId == criteria.InitialOrderId);
         }
 
+        if (!criteria.InitialOrderIds.IsNullOrEmpty())
+        {
+            query = query.Where(x => criteria.InitialOrderIds.Contains(x.InitialOrderId));
+        }
+
         if (!string.IsNullOrEmpty(criteria.StoredPaymentMethodId))
         {
             query = query.Where(x => x.StoredPaymentMethodId == criteria.StoredPaymentMethodId);

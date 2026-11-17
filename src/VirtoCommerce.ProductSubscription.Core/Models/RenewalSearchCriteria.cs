@@ -12,6 +12,9 @@ public class RenewalSearchCriteria : SearchCriteriaBase
     public string SubscriptionId { get; set; }
     public string OrderId { get; set; }
 
+    /// <summary>Only renewals that placed one of these orders.</summary>
+    public IList<string> OrderIds { get; set; }
+
     /// <summary>Only renewals the scheduler should process at or before this moment.</summary>
     public DateTime? DueBefore { get; set; }
 

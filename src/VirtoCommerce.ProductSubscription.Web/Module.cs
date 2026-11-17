@@ -89,6 +89,7 @@ public class Module : IModule, IHasConfiguration
         serviceCollection.AddTransient<ISubscriptionOfferService, SubscriptionOfferService>();
         serviceCollection.AddTransient<ISubscriptionDiscountCalculator, SubscriptionDiscountCalculator>();
         serviceCollection.AddTransient<ISubscriptionTermsService, SubscriptionTermsService>();
+        serviceCollection.AddTransient<IOrderSubscriptionInfoService, OrderSubscriptionInfoService>();
         serviceCollection.AddTransient<ISubscriptionCustomerActionsService, SubscriptionCustomerActionsService>();
         serviceCollection.AddTransient<ISubscriptionNotificationService, SubscriptionNotificationService>();
         serviceCollection.AddTransient<ISubscriptionManager, SubscriptionManager>();
@@ -123,6 +124,8 @@ public class Module : IModule, IHasConfiguration
             builder.AddSchema(serviceCollection, typeof(XapiAssemblyMarker));
             builder.AddGraphTypeHook<ProductTypeHook>();
             builder.AddGraphTypeHook<LineItemTypeHook>();
+            builder.AddGraphTypeHook<CustomerOrderTypeHook>();
+            builder.AddGraphTypeHook<OrderLineItemTypeHook>();
         });
 
         serviceCollection.AddSingleton<ScopedSchemaFactory<XapiAssemblyMarker>>();
