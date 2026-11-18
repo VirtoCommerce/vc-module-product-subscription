@@ -7,13 +7,13 @@ using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.Xapi.Core.Infrastructure;
+using VirtoCommerce.ProductSubscription.Core;
 
 namespace VirtoCommerce.ProductSubscription.Xapi.Queries;
 
 public class GetCartSubscriptionItemsQueryHandler(IShoppingCartService cartService, ISubscriptionCartItemSearchService searchService)
     : IQueryHandler<GetCartSubscriptionItemsQuery, IList<SubscriptionCartItem>>
 {
-    private const int MaxCartChoices = 1000;
 
     public virtual async Task<IList<SubscriptionCartItem>> Handle(GetCartSubscriptionItemsQuery request, CancellationToken cancellationToken)
     {
@@ -27,8 +27,8 @@ public class GetCartSubscriptionItemsQueryHandler(IShoppingCartService cartServi
 
         var criteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
         criteria.CartIds = [cart.Id];
-        criteria.Take = MaxCartChoices;
+        criteria.Take = ModuleConstants.SearchPageSize;
         var lineIds = cart.Items?.Select(x => x.Id).ToHashSet() ?? [];
-        return (await searchService.SearchAsync(criteria)).Results.Where(x => lineIds.Contains(x.LineItemId)).ToList();
+        return (await searchService.SearchAllAsync(criteria)).Where(x => lineIds.Contains(x.LineItemId)).ToList();
     }
 }

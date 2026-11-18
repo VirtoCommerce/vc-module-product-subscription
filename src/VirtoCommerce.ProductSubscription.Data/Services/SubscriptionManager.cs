@@ -43,9 +43,6 @@ public class SubscriptionManager(
     ILogger<SubscriptionManager> logger)
     : ISubscriptionManager
 {
-    private const int MaxCartChoices = 1000;
-    private const int MaxSubscriptionsPerOrder = 1000;
-    private const int MaxSavedCards = 100;
     private const int MaxQuantity = 9999;
 
     private static readonly PaymentStatus[] _paidStatuses = [PaymentStatus.Authorized, PaymentStatus.Paid];
@@ -59,8 +56,8 @@ public class SubscriptionManager(
 
         var choicesCriteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
         choicesCriteria.CartIds = [order.ShoppingCartId];
-        choicesCriteria.Take = MaxCartChoices;
-        var choices = (await cartItemSearchService.SearchAsync(choicesCriteria)).Results;
+        choicesCriteria.Take = ModuleConstants.SearchPageSize;
+        var choices = await cartItemSearchService.SearchAllNoCloneAsync(choicesCriteria);
         if (choices.Count == 0)
         {
             return [];
@@ -173,8 +170,8 @@ public class SubscriptionManager(
             var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
             criteria.InitialOrderId = order.Id;
             criteria.Statuses = [SubscriptionStatus.PendingActivation];
-            criteria.Take = MaxSubscriptionsPerOrder;
-            var pending = (await subscriptionSearchService.SearchAsync(criteria)).Results;
+            criteria.Take = ModuleConstants.SearchPageSize;
+            var pending = await subscriptionSearchService.SearchAllAsync(criteria);
             if (pending.Count == 0)
             {
                 return pending;
@@ -213,8 +210,8 @@ public class SubscriptionManager(
             criteria.InitialOrderId = storedPaymentMethod.InitialOrderId;
             criteria.CustomerId = storedPaymentMethod.CustomerId;
             criteria.Statuses = [SubscriptionStatus.PendingActivation, SubscriptionStatus.Active, SubscriptionStatus.Paused, SubscriptionStatus.PastDue];
-            criteria.Take = MaxSubscriptionsPerOrder;
-            var toLink = (await subscriptionSearchService.SearchAsync(criteria)).Results
+            criteria.Take = ModuleConstants.SearchPageSize;
+            var toLink = (await subscriptionSearchService.SearchAllAsync(criteria))
                 .Where(x => x.StoredPaymentMethodId != storedPaymentMethod.Id)
                 .ToList();
             if (toLink.Count == 0)
@@ -553,8 +550,8 @@ public class SubscriptionManager(
         customerCriteria.CustomerId = order.CustomerId;
         customerCriteria.PaymentMethodCode = paymentMethodCode;
         customerCriteria.Statuses = [StoredPaymentMethodStatus.Active];
-        customerCriteria.Take = MaxSavedCards;
-        var cards = (await storedPaymentMethodSearchService.SearchAsync(customerCriteria)).Results;
+        customerCriteria.Take = ModuleConstants.SearchPageSize;
+        var cards = await storedPaymentMethodSearchService.SearchAllNoCloneAsync(customerCriteria);
 
         var placedDate = order.CreatedDate == default ? DateTime.MinValue : order.CreatedDate.AddMinutes(-1);
 

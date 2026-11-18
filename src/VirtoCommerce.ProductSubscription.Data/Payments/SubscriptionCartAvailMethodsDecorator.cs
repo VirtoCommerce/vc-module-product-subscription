@@ -10,6 +10,7 @@ using VirtoCommerce.ShippingModule.Core.Model;
 using VirtoCommerce.XCart.Core;
 using VirtoCommerce.XCart.Core.Models;
 using VirtoCommerce.XCart.Core.Services;
+using VirtoCommerce.ProductSubscription.Core;
 
 namespace VirtoCommerce.ProductSubscription.Data.Payments;
 
@@ -22,7 +23,6 @@ public class SubscriptionCartAvailMethodsDecorator(
     ISubscriptionCartItemSearchService cartItemSearchService)
     : ICartAvailMethodsService
 {
-    private const int MaxCartChoices = 1000;
 
     public virtual async Task<IEnumerable<PaymentMethod>> GetAvailablePaymentMethodsAsync(CartAggregate cartAggregate)
     {
@@ -62,8 +62,8 @@ public class SubscriptionCartAvailMethodsDecorator(
 
         var criteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
         criteria.CartIds = [cart.Id];
-        criteria.Take = MaxCartChoices;
-        var choices = (await cartItemSearchService.SearchAsync(criteria)).Results;
+        criteria.Take = Core.ModuleConstants.SearchPageSize;
+        var choices = await cartItemSearchService.SearchAllNoCloneAsync(criteria);
 
         var lineIds = cart.Items.Select(x => x.Id).ToHashSet();
         return choices.Any(x => lineIds.Contains(x.LineItemId));

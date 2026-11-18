@@ -13,6 +13,12 @@ public static class ModuleConstants
 
     public const string ConsentPurpose = "subscription";
 
+    /// <summary>
+    /// Page size of the module's "load them all" searches (SearchAllAsync / SearchAllNoCloneAsync): every record is read,
+    /// this many per database round trip.
+    /// </summary>
+    public const int SearchPageSize = 100;
+
     private const int MinutesPerDay = 24 * 60;
     // Most card networks keep an authorization for 7 days.
     private const int DefaultAuthorizationLifetimeDays = 7;

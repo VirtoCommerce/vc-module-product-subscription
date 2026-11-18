@@ -17,9 +17,12 @@ public class GetSubscriptionOffersQueryHandler(
     IMediator mediator)
     : IQueryHandler<GetSubscriptionOffersQuery, IList<SubscriptionOffer>>
 {
+    /// <summary>The most products one request prices: a page of a category or of search results.</summary>
+    protected const int MaxProductsPerRequest = 100;
+
     public virtual async Task<IList<SubscriptionOffer>> Handle(GetSubscriptionOffersQuery request, CancellationToken cancellationToken)
     {
-        var offers = (await offerService.GetOffersAsync(request.StoreId, request.ProductIds?.Take(100).ToList())).Values.ToList();
+        var offers = (await offerService.GetOffersAsync(request.StoreId, request.ProductIds?.Take(MaxProductsPerRequest).ToList())).Values.ToList();
 
         if (offers.Count > 0)
         {

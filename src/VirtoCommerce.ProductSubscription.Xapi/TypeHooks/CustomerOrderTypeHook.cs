@@ -1,13 +1,11 @@
 using System.Linq;
 using GraphQL;
 using GraphQL.Types;
-using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Xapi.Schemas;
 using VirtoCommerce.Xapi.Core.Extensions;
 using VirtoCommerce.Xapi.Core.Infrastructure;
 using VirtoCommerce.XOrder.Core;
 using VirtoCommerce.XOrder.Core.Schemas;
-using OrderLineItem = VirtoCommerce.OrdersModule.Core.Model.LineItem;
 
 namespace VirtoCommerce.ProductSubscription.Xapi.TypeHooks;
 
@@ -31,7 +29,7 @@ public class CustomerOrderTypeHook : IGraphTypeHook
             .Description("The subscription side of this order: the renewal that placed it and the subscriptions behind its lines; null when it has none")
             .Resolve(context =>
             {
-                var orderId = ((CustomerOrderAggregate)context.Source).Order?.Id;
+                var orderId = context.Source.Order?.Id;
                 return string.IsNullOrEmpty(orderId) ? null : OrderSubscriptionInfoLoader.Load(context, orderId);
             });
     }
@@ -54,7 +52,7 @@ public class OrderLineItemTypeHook : IGraphTypeHook
             .Resolve(context =>
             {
                 var orderId = context.GetValueForSource<CustomerOrderAggregate>()?.Order?.Id;
-                var productId = ((OrderLineItem)context.Source).ProductId;
+                var productId = context.Source.ProductId;
                 if (string.IsNullOrEmpty(orderId) || string.IsNullOrEmpty(productId))
                 {
                     return null;

@@ -32,16 +32,16 @@ public class OrderSubscriptionInfoServiceTests
             .ReturnsAsync((SubscriptionSearchCriteria c, bool _) =>
             {
                 _subscriptionCriteria = c;
-                var results = _subscriptions.Where(x => c.InitialOrderIds.Contains(x.InitialOrderId) && (c.CustomerId == null || x.CustomerId == c.CustomerId)).ToList();
-                return new SubscriptionSearchResult { Results = results, TotalCount = results.Count };
+                var all = _subscriptions.Where(x => c.InitialOrderIds.Contains(x.InitialOrderId) && (c.CustomerId == null || x.CustomerId == c.CustomerId)).ToList();
+                return new SubscriptionSearchResult { Results = all.Skip(c.Skip).Take(c.Take).ToList(), TotalCount = all.Count };
             });
         _renewalSearch
             .Setup(x => x.SearchAsync(It.IsAny<RenewalSearchCriteria>(), It.IsAny<bool>()))
             .ReturnsAsync((RenewalSearchCriteria c, bool _) =>
             {
                 _renewalCriteria = c;
-                var results = _renewals.Where(x => c.OrderIds.Contains(x.OrderId) && (c.CustomerId == null || x.CustomerId == c.CustomerId)).ToList();
-                return new RenewalSearchResult { Results = results, TotalCount = results.Count };
+                var all = _renewals.Where(x => c.OrderIds.Contains(x.OrderId) && (c.CustomerId == null || x.CustomerId == c.CustomerId)).ToList();
+                return new RenewalSearchResult { Results = all.Skip(c.Skip).Take(c.Take).ToList(), TotalCount = all.Count };
             });
         _subscriptionService
             .Setup(x => x.GetAsync(It.IsAny<IList<string>>(), It.IsAny<string>(), It.IsAny<bool>()))
@@ -122,6 +122,21 @@ public class OrderSubscriptionInfoServiceTests
         _renewalSearch.Verify(x => x.SearchAsync(It.IsAny<RenewalSearchCriteria>(), It.IsAny<bool>()), Times.Once);
         // s1 came with its first order: not loaded again for the renewal
         _subscriptionService.Verify(x => x.GetAsync(It.IsAny<IList<string>>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Every_subscription_of_a_big_checkout_is_listed_not_only_the_first_page()
+    {
+        // a bulk B2B checkout: more subscribed lines than one search page
+        for (var i = 0; i < 250; i++)
+        {
+            AddSubscription($"s{i}", $"product-{i}", initialOrderId: "bulk-checkout");
+        }
+
+        var info = (await Service().GetForOrdersAsync(["bulk-checkout"], Customer)).Single();
+
+        info.Subscriptions.Should().HaveCount(250);
+        _subscriptionSearch.Verify(x => x.SearchAsync(It.IsAny<SubscriptionSearchCriteria>(), It.IsAny<bool>()), Times.Exactly(3));
     }
 
     [Fact]

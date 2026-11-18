@@ -10,6 +10,7 @@ using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.XCart.Core.Models;
+using VirtoCommerce.ProductSubscription.Core;
 
 namespace VirtoCommerce.ProductSubscription.Data.Pricing;
 
@@ -23,7 +24,6 @@ public class SubscriptionPromoEntriesMiddleware(
     ILogger<SubscriptionPromoEntriesMiddleware> logger)
     : IAsyncMiddleware<PromotionEvaluationContextCartMap>
 {
-    private const int MaxCartChoices = 1000;
 
     public async Task Run(PromotionEvaluationContextCartMap parameter, Func<PromotionEvaluationContextCartMap, Task> next)
     {
@@ -104,8 +104,8 @@ public class SubscriptionPromoEntriesMiddleware(
 
         var criteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
         criteria.CartIds = [cart.Id];
-        criteria.Take = MaxCartChoices;
-        var choices = (await cartItemSearchService.SearchAsync(criteria)).Results;
+        criteria.Take = ModuleConstants.SearchPageSize;
+        var choices = await cartItemSearchService.SearchAllNoCloneAsync(criteria);
         if (choices.Count == 0)
         {
             return result;

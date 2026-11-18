@@ -14,6 +14,7 @@ using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.ProductSubscription.Data.BackgroundJobs;
 using VirtoCommerce.ProductSubscription.Data.Import;
 using Permissions = VirtoCommerce.ProductSubscription.Core.ModuleConstants.Security.Permissions;
+using VirtoCommerce.ProductSubscription.Core;
 
 namespace VirtoCommerce.ProductSubscription.Web.Controllers.Api;
 
@@ -40,7 +41,6 @@ public class ProductSubscriptionController(
     RenewalSchedulerJob renewalSchedulerJob)
     : Controller
 {
-    private const int MaxSavedCards = 100;
 
     #region Plans
 
@@ -158,8 +158,8 @@ public class ProductSubscriptionController(
         var criteria = AbstractTypeFactory<StoredPaymentMethodSearchCriteria>.TryCreateInstance();
         criteria.CustomerId = customerId;
         criteria.StoreId = storeId;
-        criteria.Take = MaxSavedCards;
-        var cards = (await storedPaymentMethodSearchService.SearchAsync(criteria)).Results;
+        criteria.Take = ModuleConstants.SearchPageSize;
+        var cards = await storedPaymentMethodSearchService.SearchAllNoCloneAsync(criteria);
         return Ok(cards.Select(WithoutSecrets).ToList());
     }
 

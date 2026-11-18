@@ -236,9 +236,9 @@ public class LegacySubscriptionImporter(
         {
             var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
             criteria.OuterIds = batch.Select(x => x.Result.OuterId).ToList();
-            criteria.Take = batch.Length * 2;
+            criteria.Take = ModuleConstants.SearchPageSize;
 
-            var existing = (await subscriptionSearchService.SearchAsync(criteria, clone: false)).Results
+            var existing = (await subscriptionSearchService.SearchAllNoCloneAsync(criteria))
                 .Where(x => !string.IsNullOrEmpty(x.OuterId))
                 .GroupBy(x => x.OuterId, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);

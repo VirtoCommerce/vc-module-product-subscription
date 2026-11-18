@@ -212,9 +212,9 @@ public class RenewalProcessor(
             criteria.Statuses = [SubscriptionStatus.Active];
             criteria.WithoutOpenRenewal = true;
             criteria.NextOrderDateBefore = dueBefore;
-            criteria.Take = SchedulerPageSize;
+            criteria.Take = ModuleConstants.SearchPageSize;
 
-            var due = (await subscriptionSearchService.SearchAsync(criteria)).Results
+            var due = (await subscriptionSearchService.SearchAllAsync(criteria))
                 .Where(x => GetGroupKey(x) == groupKey)
                 .ToList();
 
@@ -1420,9 +1420,9 @@ public class RenewalProcessor(
     {
         var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
         criteria.CurrentRenewalId = renewal.Id;
-        criteria.Take = SchedulerPageSize;
+        criteria.Take = ModuleConstants.SearchPageSize;
 
-        var linked = (await subscriptionSearchService.SearchAsync(criteria)).Results;
+        var linked = await subscriptionSearchService.SearchAllAsync(criteria);
         if (linked.Count == 0)
         {
             return;

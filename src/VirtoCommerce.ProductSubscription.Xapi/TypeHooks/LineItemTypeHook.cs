@@ -13,6 +13,7 @@ using VirtoCommerce.Xapi.Core.Helpers;
 using VirtoCommerce.Xapi.Core.Infrastructure;
 using VirtoCommerce.XCart.Core;
 using VirtoCommerce.XCart.Core.Schemas;
+using VirtoCommerce.ProductSubscription.Core;
 
 namespace VirtoCommerce.ProductSubscription.Xapi.TypeHooks;
 
@@ -46,8 +47,8 @@ public class LineItemTypeHook : IGraphTypeHook
                     var searchService = fieldContext.RequestServices.GetRequiredService<ISubscriptionCartItemSearchService>();
                     var criteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
                     criteria.CartIds = [cartId];
-                    criteria.Take = 1000;
-                    var items = (await searchService.SearchAsync(criteria)).Results;
+                    criteria.Take = Core.ModuleConstants.SearchPageSize;
+                    var items = await searchService.SearchAllNoCloneAsync(criteria);
                     var wanted = lineItemIds.ToHashSet();
                     return items.Where(x => wanted.Contains(x.LineItemId)).GroupBy(x => x.LineItemId).ToDictionary(x => x.Key, x => x.First());
                 });

@@ -6,6 +6,7 @@ using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
+using VirtoCommerce.ProductSubscription.Core;
 
 namespace VirtoCommerce.ProductSubscription.Data.Handlers;
 
@@ -32,8 +33,8 @@ public class CartChangedEventHandler(
 
         var criteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
         criteria.CartIds = carts.Select(x => x.Cart.Id).Where(x => x != null).Distinct().ToList();
-        criteria.Take = 1000;
-        var choices = (await cartItemSearchService.SearchAsync(criteria)).Results;
+        criteria.Take = ModuleConstants.SearchPageSize;
+        var choices = await cartItemSearchService.SearchAllNoCloneAsync(criteria);
         if (choices.Count == 0)
         {
             return;

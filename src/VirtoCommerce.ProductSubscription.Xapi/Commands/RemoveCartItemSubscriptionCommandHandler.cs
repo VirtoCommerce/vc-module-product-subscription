@@ -7,6 +7,7 @@ using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.ProductSubscription.Xapi.Queries;
+using VirtoCommerce.ProductSubscription.Core;
 
 namespace VirtoCommerce.ProductSubscription.Xapi.Commands;
 
@@ -16,7 +17,6 @@ public class RemoveCartItemSubscriptionCommandHandler(
     ISubscriptionCartItemService cartItemService)
     : IRequestHandler<RemoveCartItemSubscriptionCommand, bool>
 {
-    private const int MaxChoicesPerLine = 10;
 
     public virtual async Task<bool> Handle(RemoveCartItemSubscriptionCommand request, CancellationToken cancellationToken)
     {
@@ -31,8 +31,8 @@ public class RemoveCartItemSubscriptionCommandHandler(
         var criteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
         criteria.CartIds = [cart.Id];
         criteria.LineItemId = request.LineItemId;
-        criteria.Take = MaxChoicesPerLine;
-        var items = (await cartItemSearchService.SearchAsync(criteria)).Results;
+        criteria.Take = ModuleConstants.SearchPageSize;
+        var items = await cartItemSearchService.SearchAllAsync(criteria);
         if (items.Count == 0)
         {
             return false;

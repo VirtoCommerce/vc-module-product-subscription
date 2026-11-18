@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
+using VirtoCommerce.ProductSubscription.Core;
 
 namespace VirtoCommerce.ProductSubscription.Data.Services;
 
@@ -74,10 +75,9 @@ public class OrderSubscriptionInfoService(
         var criteria = AbstractTypeFactory<RenewalSearchCriteria>.TryCreateInstance();
         criteria.OrderIds = orderIds;
         criteria.CustomerId = customerId;
-        // A renewal places one order; a few spare rows cover a re-placed order.
-        criteria.Take = orderIds.Count * 2;
+        criteria.Take = ModuleConstants.SearchPageSize;
 
-        return (await renewalSearchService.SearchNoCloneAsync(criteria)).Results;
+        return await renewalSearchService.SearchAllNoCloneAsync(criteria);
     }
 
     protected virtual async Task<IList<Subscription>> GetStartedSubscriptionsAsync(IList<string> orderIds, string customerId)
@@ -85,10 +85,9 @@ public class OrderSubscriptionInfoService(
         var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
         criteria.InitialOrderIds = orderIds;
         criteria.CustomerId = customerId;
-        // Every line of a checkout can start a subscription.
-        criteria.Take = 1000;
+        criteria.Take = ModuleConstants.SearchPageSize;
 
-        return (await subscriptionSearchService.SearchNoCloneAsync(criteria)).Results;
+        return await subscriptionSearchService.SearchAllNoCloneAsync(criteria);
     }
 
     protected static OrderSubscriptionInfo GetOrAdd(IDictionary<string, OrderSubscriptionInfo> result, string orderId)
