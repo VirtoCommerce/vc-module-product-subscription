@@ -303,8 +303,10 @@ test("a variation added with Subscribe & Save is subscribed in the cart", async 
     const value = await stepper.locator("input").inputValue();
     await stepper.getByRole("button", { name: "Increase quantity" }).click();
     await expect(stepper.locator("input")).not.toHaveValue(value);
+    // the choice is applied once the server has saved the line: the row says so (leaving earlier would drop it)
+    await expect(row.locator(".purchase-options__status")).toContainText("In your cart as a subscription", { timeout: 30_000 });
 
-    // the choice is applied to the line once the server has saved it
+    // the cart shows the line subscribed
     await expect(async () => {
       await open(page, "/cart");
       await expect(page.locator(CART_LINE_SUBSCRIPTION)).toHaveCount(before + 1, { timeout: 5_000 });
