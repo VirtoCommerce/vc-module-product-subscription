@@ -1,0 +1,1 @@
+Seuraava toimituksesi: {{ delivery_date_text }}

@@ -1,0 +1,1 @@
+Din nästa leverans: {{ delivery_date_text }}

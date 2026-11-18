@@ -1,0 +1,1 @@
+定期購入の注文 {{ renewal.order_number }} を作成しました

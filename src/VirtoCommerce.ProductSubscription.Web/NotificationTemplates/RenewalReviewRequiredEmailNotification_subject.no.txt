@@ -1,0 +1,1 @@
+Se over leveringen {{ delivery_date_text }}

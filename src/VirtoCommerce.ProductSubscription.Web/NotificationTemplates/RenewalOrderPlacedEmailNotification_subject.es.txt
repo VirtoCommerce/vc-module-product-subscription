@@ -1,0 +1,1 @@
+Se ha realizado el pedido {{ renewal.order_number }} de tu suscripción

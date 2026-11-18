@@ -1,0 +1,1 @@
+Twoje subskrypcje w sklepie {{ store_name }}: coroczne przypomnienie

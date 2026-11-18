@@ -1,0 +1,1 @@
+Bekräfta betalningen för beställning {{ renewal.order_number }}

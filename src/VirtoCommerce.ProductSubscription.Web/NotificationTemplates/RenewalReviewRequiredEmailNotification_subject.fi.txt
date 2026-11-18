@@ -1,0 +1,1 @@
+Tarkista toimituksesi {{ delivery_date_text }}

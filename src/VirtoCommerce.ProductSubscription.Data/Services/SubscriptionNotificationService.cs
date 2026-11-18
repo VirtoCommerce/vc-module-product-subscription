@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
@@ -35,8 +36,9 @@ public class SubscriptionNotificationService(
     ILogger<SubscriptionNotificationService> logger)
     : ISubscriptionNotificationService
 {
-    // "Friday, November 20, 2026" in English, the culture's own long date elsewhere.
-    private const string DateFormat = "D";
+    // The culture's long date without the weekday: "November 20, 2026", "20. November 2026", "20 ноября 2026 г.".
+    // The weekday would sit in the nominative inside sentences ("доставка на пятница").
+    private static readonly Regex Weekday = new(@"[,\s]*dddd[,\s]*", RegexOptions.Compiled);
 
     public virtual async Task SendAsync<T>(IList<Subscription> subscriptions, Renewal renewal = null, Action<T> configure = null)
         where T : SubscriptionEmailNotificationBase
@@ -196,7 +198,8 @@ public class SubscriptionNotificationService(
     protected virtual string FormatDate(DateTime date, CultureInfo culture, TimeZoneInfo timeZone)
     {
         var utc = date.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(date, DateTimeKind.Utc) : date.ToUniversalTime();
-        return TimeZoneInfo.ConvertTimeFromUtc(utc, timeZone).ToString(DateFormat, culture);
+        var pattern = Weekday.Replace(culture.DateTimeFormat.LongDatePattern, " ").Trim();
+        return TimeZoneInfo.ConvertTimeFromUtc(utc, timeZone).ToString(pattern, culture);
     }
 
     protected virtual string FormatMoney(decimal amount, Currency currency, CultureInfo culture)

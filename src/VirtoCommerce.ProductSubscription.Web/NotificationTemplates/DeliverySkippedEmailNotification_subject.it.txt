@@ -1,0 +1,1 @@
+La consegna del {{ delivery_date_text }} è stata saltata

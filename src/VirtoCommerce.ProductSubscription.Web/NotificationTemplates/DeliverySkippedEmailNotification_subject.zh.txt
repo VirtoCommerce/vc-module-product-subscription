@@ -1,0 +1,1 @@
+您 {{ delivery_date_text }} 的配送已跳过

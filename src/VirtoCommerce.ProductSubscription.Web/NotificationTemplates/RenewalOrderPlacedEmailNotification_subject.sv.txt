@@ -1,0 +1,1 @@
+Beställning {{ renewal.order_number }} är lagd för din prenumeration

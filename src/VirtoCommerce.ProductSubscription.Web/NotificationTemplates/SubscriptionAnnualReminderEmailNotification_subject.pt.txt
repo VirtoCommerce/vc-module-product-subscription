@@ -1,0 +1,1 @@
+Suas assinaturas na loja {{ store_name }}: lembrete anual
