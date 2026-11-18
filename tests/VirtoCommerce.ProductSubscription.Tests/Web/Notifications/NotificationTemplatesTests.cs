@@ -99,9 +99,9 @@ public class NotificationTemplatesTests
         model.ManageUrl = "https://shop.example.com/account/subscriptions?subscription=s1";
         model.SubscriptionsUrl = "https://shop.example.com/account/subscriptions";
         model.OrderUrl = "https://shop.example.com/account/orders/o1";
-        model.DeliveryDateText = "Friday, November 20, 2026";
-        model.CutoffDateText = "Thursday, November 19, 2026";
-        model.NextDeliveryDateText = "Sunday, December 20, 2026";
+        model.DeliveryDateText = "November 20, 2026";
+        model.CutoffDateText = "November 19, 2026";
+        model.NextDeliveryDateText = "December 20, 2026";
         model.TotalText = "$90.00";
         model.CardText = "Visa •••• 4242";
         model.Lines = new List<SubscriptionEmailLine>
@@ -115,7 +115,7 @@ public class NotificationTemplatesTests
                 FrequencyText = "Every month",
                 DiscountText = "Save 10%",
                 TotalText = "$90.00",
-                NextDateText = "Sunday, December 20, 2026",
+                NextDateText = "December 20, 2026",
                 ManageUrl = "https://shop.example.com/account/subscriptions?subscription=s1",
                 IsAvailable = false,
                 Message = "Only 2 left",

@@ -37,7 +37,7 @@ public abstract class SubscriptionEmailNotificationBase(string type) : EmailNoti
     /// <summary>The products of this email, ready to show: one line per renewal item (or per subscription).</summary>
     public IList<SubscriptionEmailLine> Lines { get; set; } = new List<SubscriptionEmailLine>();
 
-    /// <summary>The delivery date, e.g. "Friday, November 20, 2026".</summary>
+    /// <summary>The delivery date, e.g. "November 20, 2026".</summary>
     public string DeliveryDateText { get; set; }
 
     /// <summary>The last day to change or skip the delivery, in the store's time zone.</summary>
