@@ -227,3 +227,110 @@ test("a renewal waiting for 3-D Secure is confirmed and authorized", async ({ pa
     await expect(page.getByTestId(delivery).getByTestId("subscription-delivery-confirm-payment")).toHaveCount(0);
   }).toPass({ timeout: 60_000 });
 });
+
+// Variations: each row of a B2B variations list or table, and the variation a B2C page has selected, offer Subscribe &
+// Save when a plan covers the variation. The defaults are the local demo data (a plan "Demo: variations" on both).
+const B2B_VARIATIONS_PATH =
+  process.env.E2E_B2B_VARIATIONS_PATH ?? "/kitchen-supplies/everything-for-kitchen/BENDING-STRAWS-PAPER-STRIPE";
+const B2C_VARIATIONS_PATH =
+  process.env.E2E_B2C_VARIATIONS_PATH ?? "/speeds-medical/medicines-treatments/pain-relief/paracetamol-500mg";
+// the B2C option that selects a variation with a price and a plan, and one that selects a variation without a price
+const B2C_OPTION_WITH_PLAN = process.env.E2E_B2C_OPTION_WITH_PLAN ?? "3x8 (24)";
+const B2C_OPTION_WITHOUT_PRICE = process.env.E2E_B2C_OPTION_WITHOUT_PRICE ?? "2x8 (16)";
+const ROW_SUBSCRIBE = '[data-test-id^="purchase-option-subscribe-"]';
+const ROW_FREQUENCY = '[data-test-id^="purchase-option-frequency-"]';
+const CART_LINE_SUBSCRIPTION = '[data-test-id^="cart-line-subscription-change-"]';
+
+async function openB2bVariations(page: Page) {
+  await open(page, B2B_VARIATIONS_PATH);
+  await expect(page.locator(ROW_SUBSCRIBE).first()).toBeAttached({ timeout: 60_000 });
+}
+
+/**
+ * Takes the first variation row out of the cart: a line already in the cart brings its subscription with it (the row
+ * shows the box ticked), and the scenarios start from a row that isn't bought yet.
+ */
+async function clearFirstVariationRow(page: Page) {
+  await openB2bVariations(page);
+  const stepper = page.locator(".purchase-options--compact").first().getByTestId("quantity-stepper");
+  for (let i = 0; i < 6; i++) {
+    const value = await stepper.locator("input").inputValue();
+    if (EMPTY.test(value)) return;
+    await stepper.getByRole("button", { name: "Decrease quantity" }).click();
+    await expect(stepper.locator("input")).not.toHaveValue(value);
+    await page.waitForTimeout(3_000);
+  }
+  throw new Error("the variation row didn't leave the cart");
+}
+
+/** Ticks a row's Subscribe & Save (once: a second click would untick it) and expects its frequency. */
+async function subscribeRow(row: ReturnType<Page["locator"]>) {
+  const box = row.locator(ROW_SUBSCRIBE);
+  if (!(await box.isChecked())) await row.getByText("Subscribe & Save").click();
+  await expect(box).toBeChecked();
+  await expect(row.locator(ROW_FREQUENCY)).toBeVisible();
+}
+
+test("each variation row offers Subscribe & Save, in the list and in the table", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  await clearFirstVariationRow(page);
+  const row = page.locator(".purchase-options--compact").first();
+  // one checkbox under the row's own add-to-cart; the frequency only once it is ticked
+  await expect(row.getByTestId("quantity-stepper")).toBeVisible();
+  await expect(row.locator(ROW_SUBSCRIBE)).not.toBeChecked();
+  await expect(row.locator(ROW_FREQUENCY)).toHaveCount(0);
+  await subscribeRow(row);
+
+  // a phone has no table view
+  if (isPhone(testInfo)) return;
+  await page.getByText("Table", { exact: true }).click();
+  const tableRow = page.locator("table .purchase-options--compact, .variations-table .purchase-options--compact").first();
+  await expect(tableRow.locator(ROW_SUBSCRIBE)).toBeAttached();
+  await subscribeRow(tableRow);
+});
+
+test("a variation added with Subscribe & Save is subscribed in the cart", async ({ page }) => {
+  test.setTimeout(240_000);
+  await clearFirstVariationRow(page);
+  await open(page, "/cart");
+  const before = await page.locator(CART_LINE_SUBSCRIPTION).count();
+
+  await openB2bVariations(page);
+  const row = page.locator(".purchase-options--compact").first();
+  const stepper = row.getByTestId("quantity-stepper");
+  try {
+    await subscribeRow(row);
+    const value = await stepper.locator("input").inputValue();
+    await stepper.getByRole("button", { name: "Increase quantity" }).click();
+    await expect(stepper.locator("input")).not.toHaveValue(value);
+
+    // the choice is applied to the line once the server has saved it
+    await expect(async () => {
+      await open(page, "/cart");
+      await expect(page.locator(CART_LINE_SUBSCRIPTION)).toHaveCount(before + 1, { timeout: 5_000 });
+    }).toPass({ timeout: 60_000 });
+  } finally {
+    // the scenario leaves the variation out of the cart
+    await clearFirstVariationRow(page);
+  }
+});
+
+test("the selected B2C variation offers the same purchase options as a simple product", async ({ page }) => {
+  test.setTimeout(180_000);
+  await open(page, B2C_VARIATIONS_PATH);
+  // until a variation is selected there is nothing to buy
+  await expect(page.getByTestId("purchase-option-subscribe")).toHaveCount(0);
+
+  await page.getByRole("button", { name: B2C_OPTION_WITH_PLAN, exact: true }).click();
+  await expect(page.getByTestId("purchase-option-once")).toBeVisible();
+  await page.getByTestId("purchase-option-subscribe").click();
+  await expect(page.getByTestId("purchase-option-frequency")).toBeVisible();
+
+  // a variation without a price can't be bought: no purchase options
+  await page.getByRole("button", { name: B2C_OPTION_WITHOUT_PRICE, exact: true }).click();
+  await expect(page.getByTestId("purchase-option-subscribe")).toHaveCount(0);
+
+  // back to the first one: it starts again from one-time (nothing of it is in the cart)
+  await page.getByRole("button", { name: B2C_OPTION_WITH_PLAN, exact: true }).click();
+  await expect(page.getByTestId("purchase-option-frequency")).toHaveCount(0);
+});
