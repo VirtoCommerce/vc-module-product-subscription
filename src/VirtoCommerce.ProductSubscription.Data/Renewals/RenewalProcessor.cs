@@ -1163,13 +1163,18 @@ public class RenewalProcessor(
             return false;
         }
 
-        var current = attempts[^1];
-        var previous = attempts.Count > 1 ? attempts[^2] : null;
+        // The request falls between the previous attempt and the current one.
+        var until = attempts[^1].EventDate;
+        var since = attempts.Count > 1 ? attempts[^2].EventDate : DateTime.MinValue;
 
-        return events.Any(x => x.EventType == RenewalEventType.CustomerAction
-            && x.Message == RetryRequestedEventMessage
-            && x.EventDate <= current.EventDate
-            && (previous == null || x.EventDate >= previous.EventDate));
+        return events
+            .Where(x => x.EventDate >= since && x.EventDate <= until)
+            .Any(IsRetryRequest);
+    }
+
+    private static bool IsRetryRequest(RenewalEvent renewalEvent)
+    {
+        return renewalEvent.EventType == RenewalEventType.CustomerAction && renewalEvent.Message == RetryRequestedEventMessage;
     }
 
     protected virtual Task OnProviderErrorAsync(Renewal renewal)
