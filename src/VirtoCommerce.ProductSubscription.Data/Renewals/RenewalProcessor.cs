@@ -153,6 +153,7 @@ public class RenewalProcessor(
                     if (toResume.Count > 0)
                     {
                         await subscriptionService.SaveChangesAsync(toResume);
+                        await notificationService.SendAsync<SubscriptionResumedEmailNotification>(toResume, configure: x => x.IsAutomatic = true);
                     }
                 });
 
@@ -557,6 +558,8 @@ public class RenewalProcessor(
             renewal.AddEvent(RenewalEventType.CustomerAction, "Delivery skipped");
             renewal.ChangeState(RenewalState.Skipped, "Delivery skipped");
             await renewalService.SaveChangesAsync([renewal]);
+
+            await notificationService.SendAsync<DeliverySkippedEmailNotification>(subscriptions, renewal);
             return renewal;
         });
     }
@@ -927,6 +930,8 @@ public class RenewalProcessor(
         var subscriptions = await LoadSubscriptionsAsync(renewal, onlyActive: false);
         await AdvanceSubscriptionsAsync(renewal, subscriptions, order: null);
         renewal.ChangeState(RenewalState.Skipped, "Skipped: the changes were not reviewed in time");
+
+        await notificationService.SendAsync<DeliverySkippedEmailNotification>(subscriptions, renewal, x => x.IsAutomatic = true);
     }
 
     protected virtual async Task ChargeAsync(Renewal renewal, Store store)
@@ -1080,6 +1085,9 @@ public class RenewalProcessor(
         {
             renewal.ChangeState(RenewalState.Authorized, "Payment authorized; it is captured when the order ships");
         }
+
+        var subscriptions = await LoadSubscriptionsAsync(renewal, onlyActive: false);
+        await notificationService.SendAsync<RenewalOrderPlacedEmailNotification>(subscriptions, renewal);
     }
 
     protected virtual async Task OnRequiresActionAsync(

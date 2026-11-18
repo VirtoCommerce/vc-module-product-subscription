@@ -163,6 +163,10 @@ public class Module : IModule, IHasConfiguration
         notificationRegistrar.RegisterNotification<RenewalPaymentFailedEmailNotification>().WithTemplatesFromPath(templatesPath);
         notificationRegistrar.RegisterNotification<SubscriptionCancelledEmailNotification>().WithTemplatesFromPath(templatesPath);
         notificationRegistrar.RegisterNotification<SubscriptionAnnualReminderEmailNotification>().WithTemplatesFromPath(templatesPath);
+        notificationRegistrar.RegisterNotification<RenewalOrderPlacedEmailNotification>().WithTemplatesFromPath(templatesPath);
+        notificationRegistrar.RegisterNotification<DeliverySkippedEmailNotification>().WithTemplatesFromPath(templatesPath);
+        notificationRegistrar.RegisterNotification<SubscriptionPausedEmailNotification>().WithTemplatesFromPath(templatesPath);
+        notificationRegistrar.RegisterNotification<SubscriptionResumedEmailNotification>().WithTemplatesFromPath(templatesPath);
 
         // The mock stored-card connector is for development, demos and CI only.
         if (Configuration.GetValue(EnableMockPaymentMethodKey, false))
