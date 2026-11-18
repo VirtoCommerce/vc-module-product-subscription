@@ -167,7 +167,7 @@ public static class ModuleConstants
                 Name = "ProductSubscription.Terms.Version",
                 GroupName = "Product Subscription|Terms",
                 ValueType = SettingValueType.ShortText,
-                DefaultValue = "2026-10",
+                DefaultValue = "2026-11",
                 IsPublic = true,
             };
 
@@ -258,11 +258,17 @@ public static class ModuleConstants
             }
         }
 
+        /// <summary>
+        /// The default terms, in Markdown: one paragraph per topic with a bold lead-in. The storefront renders it as Markdown;
+        /// a store's own plain text still shows as it is.
+        /// </summary>
         public const string DefaultTermsText =
-            "Your subscription renews automatically at the frequency you chose until you cancel. " +
-            "Each delivery is charged to your saved payment method at the price shown in the reminder we email before every order, " +
-            "including the subscription discount, shipping and tax. If the price goes up, we ask you to confirm before we charge more. " +
-            "You can skip, pause, change or cancel any time in My account › Subscriptions; cancelling stops all future charges right away.";
+            "**Automatic renewal.** Subscribed items are ordered again at the interval you chose and charged to the card saved at checkout, " +
+            "at the price on the order date minus your subscription discount.\n\n" +
+            "**Changes and cancellation.** You can skip a delivery, change the quantity or interval, pause or cancel at any time " +
+            "before the cut-off, one day before each order date, in Account › Subscriptions.\n\n" +
+            "**Price changes.** If the price goes up after the reminder we email before every delivery, we ask you to review " +
+            "the delivery before it is ordered.";
 
         public static IEnumerable<SettingDescriptor> AllSettings => General.AllGeneralSettings.Concat(Store.AllStoreSettings);
     }
