@@ -88,7 +88,7 @@ public class SubscriptionNotificationService(
             notification.OrderUrl = string.IsNullOrEmpty(renewal?.OrderId) ? string.Empty : $"{storeUrl}account/orders/{renewal.OrderId}";
             notification.From = store.EmailWithName ?? store.Email;
             notification.To = email;
-            notification.LanguageCode = languageCode;
+            notification.LanguageCode = GetTemplateLanguage(notification, languageCode);
             notification.TenantIdentity = renewal != null
                 ? new TenantIdentity(renewal.Id, nameof(Renewal))
                 : new TenantIdentity(first.Id, nameof(Subscription));
@@ -240,6 +240,27 @@ public class SubscriptionNotificationService(
         }
 
         return string.IsNullOrEmpty(card.Brand) ? $"•••• {card.Last4}" : $"{card.Brand} •••• {card.Last4}";
+    }
+
+    /// <summary>
+    /// The language to pick the template by. The platform matches it exactly, while the module ships templates per language
+    /// ("de") and stores use cultures ("de-DE"): a template for the culture wins, then one for its language.
+    /// </summary>
+    protected virtual string GetTemplateLanguage(SubscriptionEmailNotificationBase notification, string languageCode)
+    {
+        if (string.IsNullOrEmpty(languageCode) || notification.Templates == null)
+        {
+            return languageCode;
+        }
+
+        if (notification.Templates.Any(x => x.LanguageCode.EqualsIgnoreCase(languageCode)))
+        {
+            return languageCode;
+        }
+
+        // The module's Norwegian templates are "no"; stores use "nb-NO" (Bokmål) or "no-NO".
+        var language = SubscriptionEmailTexts.GetLanguage(languageCode);
+        return notification.Templates.Any(x => x.LanguageCode.EqualsIgnoreCase(language)) ? language : languageCode;
     }
 
     protected virtual string GetAccentColor(Store store)

@@ -1,1 +1,1 @@
-Your next delivery: {{ renewal.scheduled_date | date.to_string "%b %d" }}
+Your next delivery: {{ delivery_date_text }}

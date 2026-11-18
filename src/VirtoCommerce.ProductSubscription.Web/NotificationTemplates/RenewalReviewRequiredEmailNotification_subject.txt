@@ -1,1 +1,1 @@
-Please review your next delivery
+Please review your delivery of {{ delivery_date_text }}

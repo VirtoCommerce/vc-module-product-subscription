@@ -134,8 +134,14 @@ public static class SubscriptionEmailTexts
             return DefaultLanguage;
         }
 
-        var language = languageCode.Split('-', '_')[0];
-        return Frequencies.ContainsKey(language) ? language.ToLowerInvariant() : DefaultLanguage;
+        var language = languageCode.Split('-', '_')[0].ToLowerInvariant();
+        // Norwegian Bokmål stores use "nb-NO"; its texts are filed under "no".
+        if (language is "nb" or "nn")
+        {
+            language = "no";
+        }
+
+        return Frequencies.ContainsKey(language) ? language : DefaultLanguage;
     }
 
     /// <summary>"Every month", "Every 2 weeks" in the given language.</summary>

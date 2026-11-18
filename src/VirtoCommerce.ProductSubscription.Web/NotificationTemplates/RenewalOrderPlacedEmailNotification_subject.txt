@@ -1,0 +1,1 @@
+Order {{ renewal.order_number }} is placed for your subscription
