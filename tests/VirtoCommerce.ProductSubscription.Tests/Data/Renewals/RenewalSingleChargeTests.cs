@@ -1,9 +1,13 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Moq;
 using VirtoCommerce.PaymentModule.Core.Model.StoredCredentials;
 using VirtoCommerce.PaymentModule.Model.Requests;
 using VirtoCommerce.ProductSubscription.Core.Models;
+using VirtoCommerce.ProductSubscription.Core.Notifications;
 using Xunit;
 
 namespace VirtoCommerce.ProductSubscription.Tests.Data.Renewals;
@@ -52,5 +56,33 @@ public class RenewalSingleChargeTests
         renewal = _harness.GetRenewal(renewal.Id);
         renewal.State.Should().Be(RenewalState.RetryScheduled);
         _harness.GetSubscription(subscription.Id).Status.Should().NotBe(SubscriptionStatus.PastDue);
+    }
+
+    [Fact]
+    public async Task RetryPayment_SoftDecline_TellsTheCustomer_ButAutomaticRetriesStayQuiet()
+    {
+        var subscription = _harness.AddSubscription("customer-1", _harness.Now);
+        await _harness.Processor.ProcessDueAsync();
+        var renewal = _harness.GetRenewalsOf(subscription.Id).Single();
+        // the first decline is told
+        VerifyPaymentFailedEmails(Times.Once());
+
+        // an automatic retry that is declined again stays quiet
+        _harness.Now = _harness.GetRenewal(renewal.Id).NextAttemptDate!.Value.AddMinutes(1);
+        await _harness.Processor.ProcessDueAsync();
+        _harness.PaymentMethod.Requests.Should().HaveCount(2);
+        VerifyPaymentFailedEmails(Times.Once());
+
+        // the customer asks for a retry and waits for its result: its decline is told
+        await _harness.Processor.RetryPaymentAsync(renewal.Id);
+        _harness.PaymentMethod.Requests.Should().HaveCount(3);
+        VerifyPaymentFailedEmails(Times.Exactly(2));
+    }
+
+    private void VerifyPaymentFailedEmails(Times times)
+    {
+        _harness.Notifications.Verify(
+            x => x.SendAsync(It.IsAny<IList<Subscription>>(), It.IsAny<Renewal>(), It.IsAny<Action<RenewalPaymentFailedEmailNotification>>()),
+            times);
     }
 }

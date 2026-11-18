@@ -57,6 +57,8 @@ public class RenewalProcessor(
     private const int DueRenewalsPageSize = 50;
     // A price increase within rounding is not an increase.
     private const decimal PriceIncreaseTolerance = 0.005m;
+    /// <summary>The event a customer's or administrator's payment retry leaves before its charge attempt.</summary>
+    protected const string RetryRequestedEventMessage = "Payment retry requested";
     private static readonly TimeSpan _processingErrorRetryDelay = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan _providerErrorRetryDelay = TimeSpan.FromMinutes(15);
     // How long to wait for the result of a retry the payment provider runs on its own, before giving up on it.
@@ -616,7 +618,7 @@ public class RenewalProcessor(
                 renewal.StoredPaymentMethodId = withCard.StoredPaymentMethodId;
             }
 
-            renewal.AddEvent(RenewalEventType.CustomerAction, "Payment retry requested");
+            renewal.AddEvent(RenewalEventType.CustomerAction, RetryRequestedEventMessage);
             renewal.ChangeState(RenewalState.Ordered, "Retrying the payment", UtcNow);
             await renewalService.SaveChangesAsync([renewal]);
 
@@ -1142,11 +1144,32 @@ public class RenewalProcessor(
         renewal.LastErrorMessage = "Your card was declined. We'll try again automatically.";
         renewal.ChangeState(RenewalState.RetryScheduled, $"Temporary decline; next attempt {renewal.NextAttemptDate:yyyy-MM-dd HH:mm} UTC", renewal.NextAttemptDate);
 
-        if (renewal.AttemptCount == 1)
+        // The first decline is told, and so is the decline of a retry someone asked for: they wait for its result.
+        // The automatic retries in between stay quiet, so a card that keeps failing doesn't send an email per attempt.
+        if (renewal.AttemptCount == 1 || IsRequestedRetry(renewal))
         {
             var subscriptions = await LoadSubscriptionsAsync(renewal, onlyActive: false);
             await notificationService.SendAsync<RenewalPaymentFailedEmailNotification>(subscriptions, renewal, x => x.WillRetry = true);
         }
+    }
+
+    /// <summary>Whether the latest charge attempt is a retry the customer or an administrator asked for (<see cref="RetryPaymentAsync"/>).</summary>
+    protected virtual bool IsRequestedRetry(Renewal renewal)
+    {
+        var events = renewal.Events?.OrderBy(x => x.EventDate).ToList() ?? [];
+        var attempts = events.Where(x => x.EventType == RenewalEventType.PaymentAttempt).ToList();
+        if (attempts.Count == 0)
+        {
+            return false;
+        }
+
+        var current = attempts[^1];
+        var previous = attempts.Count > 1 ? attempts[^2] : null;
+
+        return events.Any(x => x.EventType == RenewalEventType.CustomerAction
+            && x.Message == RetryRequestedEventMessage
+            && x.EventDate <= current.EventDate
+            && (previous == null || x.EventDate >= previous.EventDate));
     }
 
     protected virtual Task OnProviderErrorAsync(Renewal renewal)
