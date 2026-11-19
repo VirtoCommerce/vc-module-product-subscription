@@ -53,11 +53,17 @@ public class RenewalConfiguredLineBuilder(
 {
     public const string ConfigurationChangedMessage = "The configuration of this product can't be ordered as it is any more.";
 
-    public virtual async Task<RenewalConfiguredLineResult> AddAsync(CartAggregate aggregate, Renewal renewal, SubscriptionConfiguration configuration, int quantity)
+    public virtual Task<RenewalConfiguredLineResult> AddAsync(CartAggregate aggregate, Renewal renewal, SubscriptionConfiguration configuration, int quantity)
     {
         ArgumentNullException.ThrowIfNull(aggregate);
         ArgumentNullException.ThrowIfNull(configuration);
         configuration.Sections ??= new List<SubscriptionConfigurationSection>();
+
+        return AddConfiguredLineAsync(aggregate, renewal, configuration, quantity);
+    }
+
+    protected virtual async Task<RenewalConfiguredLineResult> AddConfiguredLineAsync(CartAggregate aggregate, Renewal renewal, SubscriptionConfiguration configuration, int quantity)
+    {
 
         var result = new RenewalConfiguredLineResult { Configuration = (SubscriptionConfiguration)configuration.Clone() };
         foreach (var section in result.Configuration.Sections)
@@ -89,7 +95,10 @@ public class RenewalConfiguredLineBuilder(
         }
         catch (InvalidOperationException ex)
         {
-            logger.LogInformation(ex, "Renewal {RenewalNumber}: the configuration of {ProductId} can't be rebuilt", renewal?.Number, configuration.ProductId);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(ex, "Renewal {RenewalNumber}: the configuration of {ProductId} can't be rebuilt", renewal?.Number, configuration.ProductId);
+            }
             return Changed(result);
         }
 

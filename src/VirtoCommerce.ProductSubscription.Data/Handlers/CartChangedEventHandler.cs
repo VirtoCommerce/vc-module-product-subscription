@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using VirtoCommerce.CartModule.Core.Events;
+using VirtoCommerce.CartModule.Core.Model;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.ProductSubscription.Core.Models;
@@ -50,20 +51,9 @@ public class CartChangedEventHandler(
             if (lineItem == null)
             {
                 stale.Add(choice.Id);
-                continue;
             }
-
-            // A cart loaded without its configuration says nothing about it: keep the stored fingerprint.
-            if (lineItem.IsConfigured && lineItem.ConfigurationItems == null)
+            else if (WithCurrentFingerprint(choice, lineItem) is { } copy)
             {
-                continue;
-            }
-
-            var hash = SubscriptionConfigurationMapper.GetHash(lineItem);
-            if (hash != choice.ConfigurationHash)
-            {
-                var copy = (SubscriptionCartItem)choice.Clone();
-                copy.ConfigurationHash = hash;
                 changed.Add(copy);
             }
         }
@@ -77,5 +67,25 @@ public class CartChangedEventHandler(
         {
             await cartItemService.SaveChangesAsync(changed);
         }
+    }
+
+    /// <summary>A copy of the choice with the line's current configuration fingerprint, or null when it hasn't changed.</summary>
+    protected static SubscriptionCartItem WithCurrentFingerprint(SubscriptionCartItem choice, LineItem lineItem)
+    {
+        // A cart loaded without its configuration says nothing about it: keep the stored fingerprint.
+        if (lineItem.IsConfigured && lineItem.ConfigurationItems == null)
+        {
+            return null;
+        }
+
+        var hash = SubscriptionConfigurationMapper.GetHash(lineItem);
+        if (hash == choice.ConfigurationHash)
+        {
+            return null;
+        }
+
+        var copy = (SubscriptionCartItem)choice.Clone();
+        copy.ConfigurationHash = hash;
+        return copy;
     }
 }

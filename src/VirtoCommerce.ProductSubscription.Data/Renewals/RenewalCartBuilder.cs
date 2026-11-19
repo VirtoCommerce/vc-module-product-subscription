@@ -153,9 +153,9 @@ public class RenewalCartBuilder(
             if (lineItem == null)
             {
                 copy.IsAvailable = false;
-                copy.Message = copy.IsConfigurationChanged
-                    ? configuredLine.Message
-                    : errors.FirstOrDefault() ?? "This product is not available right now.";
+                copy.Message = (copy.IsConfigurationChanged ? configuredLine?.Message : null)
+                    ?? errors.FirstOrDefault()
+                    ?? "This product is not available right now.";
                 copy.ListPrice = 0;
                 copy.DiscountAmount = 0;
                 copy.Total = 0;

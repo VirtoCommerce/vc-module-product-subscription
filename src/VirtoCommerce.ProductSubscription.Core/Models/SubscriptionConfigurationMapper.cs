@@ -71,6 +71,8 @@ public static class SubscriptionConfigurationMapper
 
     public static SubscriptionConfigurationSection ToSection(OrderConfigurationItem item)
     {
+        var files = ToFiles(item.Files?.Select(x => (x.Name, x.Url, x.ContentType, x.Size)));
+
         return new SubscriptionConfigurationSection
         {
             SectionId = item.SectionId,
@@ -82,12 +84,15 @@ public static class SubscriptionConfigurationMapper
             Quantity = item.Quantity,
             UnitPrice = string.IsNullOrEmpty(item.ProductId) ? null : item.SalePrice,
             CustomText = NullIfEmpty(item.CustomText),
-            Files = ToFiles(item.Files?.Select(x => (x.Name, x.Url, x.ContentType, x.Size))),
+            // A section without files has no files list, so the stored JSON leaves it out.
+            Files = files.Count > 0 ? files : null,
         };
     }
 
     public static SubscriptionConfigurationSection ToSection(CartConfigurationItem item)
     {
+        var files = ToFiles(item.Files?.Select(x => (x.Name, x.Url, x.ContentType, x.Size)));
+
         return new SubscriptionConfigurationSection
         {
             SectionId = item.SectionId,
@@ -99,18 +104,17 @@ public static class SubscriptionConfigurationMapper
             Quantity = item.Quantity,
             UnitPrice = string.IsNullOrEmpty(item.ProductId) ? null : item.SalePrice,
             CustomText = NullIfEmpty(item.CustomText),
-            Files = ToFiles(item.Files?.Select(x => (x.Name, x.Url, x.ContentType, x.Size))),
+            // A section without files has no files list, so the stored JSON leaves it out.
+            Files = files.Count > 0 ? files : null,
         };
     }
 
     private static List<SubscriptionConfigurationFile> ToFiles(IEnumerable<(string Name, string Url, string ContentType, long Size)> files)
     {
-        var result = files?
+        return (files ?? [])
             .Where(x => !string.IsNullOrEmpty(x.Url))
             .Select(x => new SubscriptionConfigurationFile { Name = x.Name, Url = x.Url, ContentType = x.ContentType, Size = x.Size })
             .ToList();
-
-        return result?.Count > 0 ? result : null;
     }
 
     private static string NullIfEmpty(string value)
