@@ -122,6 +122,6 @@ public class RenewalReasonCodeTests
     {
         RenewalErrorCode.All.Should().OnlyHaveUniqueItems().And.AllSatisfy(x => x.Should().MatchRegex("^[A-Z_]+$"));
         RenewalReviewReasonCode.All.Should().OnlyHaveUniqueItems().And.AllSatisfy(x => x.Should().MatchRegex("^[A-Z_]+$"));
-        RenewalReviewReasonCode.All.Should().BeEquivalentTo("ITEMS_UNAVAILABLE", "NO_SHIPPING_METHOD", "PRICE_INCREASED");
+        RenewalReviewReasonCode.All.Should().BeEquivalentTo("ITEMS_UNAVAILABLE", "NO_SHIPPING_METHOD", "PRICE_INCREASED", "CONFIGURATION_CHANGED", "NO_PAYMENT_METHOD");
     }
 }

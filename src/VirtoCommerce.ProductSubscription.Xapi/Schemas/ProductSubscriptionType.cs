@@ -32,6 +32,10 @@ public class ProductSubscriptionType : ExtendableGraphType<Subscription>
         Field(x => x.ProductName, nullable: true);
         Field(x => x.ImageUrl, nullable: true);
         Field(x => x.Quantity);
+        Field<SubscriptionConfigurationType>("configuration")
+            .Description("For a configurable product: the options every delivery orders. Null for other products.")
+            .Resolve(x => x.Source.Configuration);
+        Field(x => x.ConfigurationHash, nullable: true).Description("Fingerprint of the configuration");
         Field(x => x.PlanId, nullable: true);
         Field(x => x.PlanName, nullable: true);
         Field<NonNullGraphType<SubscriptionIntervalUnitEnum>>("intervalUnit").Resolve(x => x.Source.IntervalUnit);

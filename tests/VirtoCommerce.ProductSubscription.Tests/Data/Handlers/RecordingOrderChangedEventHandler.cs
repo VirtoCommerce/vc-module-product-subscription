@@ -10,8 +10,8 @@ using VirtoCommerce.ProductSubscription.Tests.Data.Renewals;
 namespace VirtoCommerce.ProductSubscription.Tests.Data.Handlers;
 
 /// <summary>Records what the handler enqueues instead of using the background job engine.</summary>
-public class RecordingOrderChangedEventHandler()
-    : OrderChangedEventHandler(Mock.Of<ISubscriptionManager>(), new InProcessDistributedLock(), NullLogger<OrderChangedEventHandler>.Instance)
+public class RecordingOrderChangedEventHandler(ISubscriptionManager subscriptionManager = null)
+    : OrderChangedEventHandler(subscriptionManager ?? Mock.Of<ISubscriptionManager>(), new InProcessDistributedLock(), NullLogger<OrderChangedEventHandler>.Instance)
 {
     public List<OrderChangedJobPayload> Enqueued { get; } = [];
 

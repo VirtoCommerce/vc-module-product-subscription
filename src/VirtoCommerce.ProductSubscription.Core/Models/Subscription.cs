@@ -24,6 +24,14 @@ public class Subscription : AuditableEntity, ICloneable
     public string ImageUrl { get; set; }
     public int Quantity { get; set; } = 1;
 
+    /// <summary>
+    /// For a configurable product: the options chosen in the first order. Every delivery is rebuilt from it; null for other products.
+    /// </summary>
+    public SubscriptionConfiguration Configuration { get; set; }
+
+    /// <summary>Fingerprint of <see cref="Configuration"/> (<see cref="SubscriptionConfiguration.ComputeHash()"/>); null for other products.</summary>
+    public string ConfigurationHash { get; set; }
+
     public string PlanId { get; set; }
     public string PlanName { get; set; }
     public SubscriptionIntervalUnit IntervalUnit { get; set; } = SubscriptionIntervalUnit.Month;
@@ -89,6 +97,7 @@ public class Subscription : AuditableEntity, ICloneable
     {
         var result = (Subscription)MemberwiseClone();
         result.ShippingAddress = (Address)ShippingAddress?.Clone();
+        result.Configuration = (SubscriptionConfiguration)Configuration?.Clone();
         return result;
     }
 }

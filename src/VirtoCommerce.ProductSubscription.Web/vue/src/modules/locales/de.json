@@ -136,7 +136,10 @@
       "RESUME_DATE": "Fortsetzen am",
       "REASON": "Grund",
       "ONLY_OPEN": "Nur offene",
-      "LOCATION": "Pfad"
+      "LOCATION": "Pfad",
+      "CONFIGURED_PRICE": "Preis der Konfiguration",
+      "CAPTURED_FROM": "Übernommen aus",
+      "FINGERPRINT": "Fingerabdruck"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "Grund der Kündigung (optional)",
         "CANCEL_CONFIRM": "Abonnement kündigen",
         "KEEP": "Behalten",
-        "DEFAULT_CANCEL_REASON": "Von einem Administrator gekündigt"
+        "DEFAULT_CANCEL_REASON": "Von einem Administrator gekündigt",
+        "CONFIGURATION": "Konfiguration"
       },
       "RENEWALS": {
         "TITLE": "Verlängerungen",

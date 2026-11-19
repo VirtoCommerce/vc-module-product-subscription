@@ -136,7 +136,10 @@
       "RESUME_DATE": "Jatkuu",
       "REASON": "Syy",
       "ONLY_OPEN": "Vain avoimet",
-      "LOCATION": "Sijainti"
+      "LOCATION": "Sijainti",
+      "CONFIGURED_PRICE": "Kokoonpanon hinta",
+      "CAPTURED_FROM": "Otettu tilauksesta",
+      "FINGERPRINT": "Sormenjälki"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "Peruutuksen syy (valinnainen)",
         "CANCEL_CONFIRM": "Peru kestotilaus",
         "KEEP": "Säilytä",
-        "DEFAULT_CANCEL_REASON": "Ylläpitäjän perumana"
+        "DEFAULT_CANCEL_REASON": "Ylläpitäjän perumana",
+        "CONFIGURATION": "Kokoonpano"
       },
       "RENEWALS": {
         "TITLE": "Toimitukset",

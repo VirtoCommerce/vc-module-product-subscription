@@ -26,6 +26,9 @@ public class SubscriptionCartItemEntity : AuditableEntity, IDataEntity<Subscript
     [StringLength(128)]
     public string CustomerId { get; set; }
 
+    [StringLength(64)]
+    public string ConfigurationHash { get; set; }
+
     [Required]
     [StringLength(128)]
     public string PlanId { get; set; }
@@ -50,6 +53,7 @@ public class SubscriptionCartItemEntity : AuditableEntity, IDataEntity<Subscript
         model.LineItemId = LineItemId;
         model.ProductId = ProductId;
         model.CustomerId = CustomerId;
+        model.ConfigurationHash = ConfigurationHash;
         model.PlanId = PlanId;
         model.IntervalUnit = EnumUtility.SafeParse(IntervalUnit, SubscriptionIntervalUnit.Month);
         model.IntervalCount = IntervalCount;
@@ -71,6 +75,7 @@ public class SubscriptionCartItemEntity : AuditableEntity, IDataEntity<Subscript
         LineItemId = model.LineItemId;
         ProductId = model.ProductId;
         CustomerId = model.CustomerId;
+        ConfigurationHash = model.ConfigurationHash;
         PlanId = model.PlanId;
         IntervalUnit = model.IntervalUnit.ToString();
         IntervalCount = Math.Max(1, model.IntervalCount);
@@ -86,6 +91,7 @@ public class SubscriptionCartItemEntity : AuditableEntity, IDataEntity<Subscript
         target.LineItemId = LineItemId;
         target.ProductId = ProductId;
         target.CustomerId = CustomerId;
+        target.ConfigurationHash = ConfigurationHash;
         target.PlanId = PlanId;
         target.IntervalUnit = IntervalUnit;
         target.IntervalCount = IntervalCount;

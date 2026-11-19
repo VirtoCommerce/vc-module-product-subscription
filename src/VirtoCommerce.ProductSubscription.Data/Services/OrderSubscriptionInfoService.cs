@@ -14,16 +14,24 @@ public class OrderSubscriptionInfoService(
     ISubscriptionService subscriptionService)
     : IOrderSubscriptionInfoService
 {
-    /// <summary>The most orders answered in one call: a page of order history.</summary>
+    /// <summary>The most orders looked up in one batch; more are answered batch by batch.</summary>
     protected const int MaxOrders = 100;
 
     public virtual async Task<IList<OrderSubscriptionInfo>> GetForOrdersAsync(IList<string> orderIds, string customerId = null)
     {
-        var ids = orderIds?.Where(x => !string.IsNullOrEmpty(x)).Distinct().Take(MaxOrders).ToList() ?? [];
-        if (ids.Count == 0)
+        var ids = orderIds?.Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList() ?? [];
+        var result = new List<OrderSubscriptionInfo>();
+        foreach (var batch in ids.Chunk(MaxOrders))
         {
-            return [];
+            result.AddRange(await GetForBatchAsync(batch, customerId));
         }
+
+        return result;
+    }
+
+    /// <summary>The subscription info of at most <see cref="MaxOrders"/> orders.</summary>
+    protected virtual async Task<IList<OrderSubscriptionInfo>> GetForBatchAsync(IList<string> ids, string customerId)
+    {
 
         var renewals = await GetRenewalsAsync(ids, customerId);
         var started = await GetStartedSubscriptionsAsync(ids, customerId);

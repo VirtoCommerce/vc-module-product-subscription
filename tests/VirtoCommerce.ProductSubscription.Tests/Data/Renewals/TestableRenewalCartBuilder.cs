@@ -8,7 +8,7 @@ namespace VirtoCommerce.ProductSubscription.Tests.Data.Renewals;
 
 /// <summary>Exposes how the cart builder splits a shared cart line between subscriptions.</summary>
 public class TestableRenewalCartBuilder()
-    : RenewalCartBuilder(Mock.Of<ICartAggregateRepository>(), Mock.Of<ICartAvailMethodsService>(), Mock.Of<ICustomerOrderBuilder>())
+    : RenewalCartBuilder(Mock.Of<ICartAggregateRepository>(), Mock.Of<ICartAvailMethodsService>(), Mock.Of<ICustomerOrderBuilder>(), Mock.Of<IRenewalConfiguredLineBuilder>())
 {
     public static decimal[] Split(int lineQuantity, decimal lineTotal, params int[] quantities)
     {

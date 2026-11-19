@@ -87,6 +87,47 @@ public class NotificationTemplatesTests
         }
     }
 
+    public static TheoryData<string> ReviewRequiredBodies()
+    {
+        var data = new TheoryData<string>();
+        foreach (var file in Directory.GetFiles(TemplatesPath, "RenewalReviewRequiredEmailNotification_body*.html"))
+        {
+            data.Add(Path.GetFileName(file));
+        }
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(ReviewRequiredBodies))]
+    public async Task A_changed_configuration_lists_the_options_and_marks_the_missing_one(string fileName)
+    {
+        var template = Template.ParseLiquid(await File.ReadAllTextAsync(Path.Combine(TemplatesPath, fileName), TestContext.Current.CancellationToken));
+        var model = CreateModel(typeof(RenewalReviewRequiredEmailNotification));
+        model.Renewal.ReviewReasonCode = RenewalReviewReasonCode.ConfigurationChanged;
+        model.Lines[0].ConfigurationLines = new List<SubscriptionEmailConfigurationLine>
+        {
+            new() { Text = "Drinks: Fanta Mango × 6" },
+            new() { Text = "Snacks: Pretzels × 2", IsAvailable = false },
+        };
+        var context = new LiquidTemplateContext
+        {
+            StrictVariables = true,
+            TemplateLoaderLexerOptions = new LexerOptions { Lang = ScriptLang.Liquid, Mode = ScriptMode.Default },
+        };
+        var scriptObject = new ScriptObject();
+        scriptObject.Import(model);
+        context.PushGlobal(scriptObject);
+
+        // the texts are escaped in the email (× becomes &#215;)
+        var output = System.Net.WebUtility.HtmlDecode(await template.RenderAsync(context));
+
+        output.Should().Contain("Drinks: Fanta Mango × 6").And.Contain("Snacks: Pretzels × 2");
+        // the missing option is marked, the available one isn't
+        output.Should().MatchRegex(@"Pretzels × 2 <span style=""color:#b91c1c"">\(");
+        output.Should().NotMatchRegex(@"Fanta Mango × 6 <span");
+        output.Should().NotContain("{{").And.NotContain("{%");
+    }
+
     private static SubscriptionEmailNotificationBase CreateModel(Type type)
     {
         var model = (SubscriptionEmailNotificationBase)Activator.CreateInstance(type);

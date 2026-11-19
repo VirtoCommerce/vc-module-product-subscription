@@ -16,7 +16,16 @@ public static class RenewalReviewReasonCode
     /// <summary>The total is higher than the one in the reminder.</summary>
     public const string PriceIncreased = "PRICE_INCREASED";
 
-    public static string[] All { get; } = [ItemsUnavailable, NoShippingMethod, PriceIncreased];
+    /// <summary>
+    /// A configured product can't be ordered with the options of the subscription (an option was removed or ran out).
+    /// The renewal never orders a different configuration: the customer skips the delivery or subscribes again.
+    /// </summary>
+    public const string ConfigurationChanged = "CONFIGURATION_CHANGED";
+
+    /// <summary>The payment method of the subscription can't be used any more: the customer chooses another card.</summary>
+    public const string NoPaymentMethod = "NO_PAYMENT_METHOD";
+
+    public static string[] All { get; } = [ItemsUnavailable, NoShippingMethod, PriceIncreased, ConfigurationChanged, NoPaymentMethod];
 }
 
 /// <summary>

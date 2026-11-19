@@ -136,7 +136,10 @@
       "RESUME_DATE": "Reprise le",
       "REASON": "Motif",
       "ONLY_OPEN": "Ouverts uniquement",
-      "LOCATION": "Emplacement"
+      "LOCATION": "Emplacement",
+      "CONFIGURED_PRICE": "Prix configuré",
+      "CAPTURED_FROM": "Reprise de la commande",
+      "FINGERPRINT": "Empreinte"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "Motif de la résiliation (facultatif)",
         "CANCEL_CONFIRM": "Résilier l'abonnement",
         "KEEP": "Conserver",
-        "DEFAULT_CANCEL_REASON": "Résilié par un administrateur"
+        "DEFAULT_CANCEL_REASON": "Résilié par un administrateur",
+        "CONFIGURATION": "Configuration"
       },
       "RENEWALS": {
         "TITLE": "Renouvellements",

@@ -161,6 +161,36 @@ public class SubscriptionNotificationService(
         }
     }
 
+    /// <summary>One text per section of a configured product: the chosen product and quantity, or the text and files.</summary>
+    protected virtual IList<SubscriptionEmailConfigurationLine> CreateConfigurationLines(SubscriptionConfiguration configuration)
+    {
+        if (configuration?.Sections == null)
+        {
+            return [];
+        }
+
+        return configuration.Sections
+            .Select(section =>
+            {
+                var line = AbstractTypeFactory<SubscriptionEmailConfigurationLine>.TryCreateInstance();
+                line.Text = $"{section.Name}: {GetSectionValue(section)}";
+                line.IsAvailable = section.IsAvailable != false;
+                return line;
+            })
+            .ToList();
+    }
+
+    protected static string GetSectionValue(SubscriptionConfigurationSection section)
+    {
+        if (!string.IsNullOrEmpty(section.ProductName))
+        {
+            return $"{section.ProductName} × {section.Quantity}";
+        }
+
+        var files = section.Files?.Select(x => x.Name).Where(x => !string.IsNullOrEmpty(x)) ?? [];
+        return string.Join(", ", new[] { section.CustomText }.Where(x => !string.IsNullOrEmpty(x)).Concat(files));
+    }
+
     protected virtual SubscriptionEmailLine CreateLine(Subscription subscription, RenewalItem item, Currency currency, CultureInfo culture,
         TimeZoneInfo timeZone, string languageCode, string storeUrl)
     {
@@ -173,6 +203,7 @@ public class SubscriptionNotificationService(
         line.TotalText = item == null ? string.Empty : FormatMoney(item.Total, currency, culture);
         line.IsAvailable = item?.IsAvailable ?? true;
         line.Message = item?.Message ?? string.Empty;
+        line.ConfigurationLines = CreateConfigurationLines(item?.Configuration ?? subscription?.Configuration);
 
         if (subscription != null)
         {

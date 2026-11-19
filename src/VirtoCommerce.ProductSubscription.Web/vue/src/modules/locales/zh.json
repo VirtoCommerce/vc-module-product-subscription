@@ -136,7 +136,10 @@
       "RESUME_DATE": "恢复日期",
       "REASON": "原因",
       "ONLY_OPEN": "仅未完成",
-      "LOCATION": "位置"
+      "LOCATION": "位置",
+      "CONFIGURED_PRICE": "配置价格",
+      "CAPTURED_FROM": "来源订单",
+      "FINGERPRINT": "指纹"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "取消原因（可选）",
         "CANCEL_CONFIRM": "取消订阅",
         "KEEP": "保留订阅",
-        "DEFAULT_CANCEL_REASON": "由管理员取消"
+        "DEFAULT_CANCEL_REASON": "由管理员取消",
+        "CONFIGURATION": "配置"
       },
       "RENEWALS": {
         "TITLE": "续订",

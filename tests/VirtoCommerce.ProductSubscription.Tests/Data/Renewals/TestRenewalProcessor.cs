@@ -38,4 +38,6 @@ public class TestRenewalProcessor(
     protected override DateTime UtcNow => Now;
 
     protected override Task<int> GetAuthorizationLifetimeMinutesAsync() => Task.FromResult(7 * 24 * 60);
+
+    public RenewalReviewReason ReviewReasonOf(VirtoCommerce.ProductSubscription.Core.Models.Renewal renewal, RenewalCartResult cart) => GetReviewReason(renewal, cart);
 }

@@ -136,7 +136,10 @@
       "RESUME_DATE": "Wznów dnia",
       "REASON": "Powód",
       "ONLY_OPEN": "Tylko otwarte",
-      "LOCATION": "Lokalizacja"
+      "LOCATION": "Lokalizacja",
+      "CONFIGURED_PRICE": "Cena konfiguracji",
+      "CAPTURED_FROM": "Pobrano z zamówienia",
+      "FINGERPRINT": "Odcisk"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "Powód anulowania (opcjonalnie)",
         "CANCEL_CONFIRM": "Anuluj subskrypcję",
         "KEEP": "Zachowaj",
-        "DEFAULT_CANCEL_REASON": "Anulowano przez administratora"
+        "DEFAULT_CANCEL_REASON": "Anulowano przez administratora",
+        "CONFIGURATION": "Konfiguracja"
       },
       "RENEWALS": {
         "TITLE": "Odnowienia",

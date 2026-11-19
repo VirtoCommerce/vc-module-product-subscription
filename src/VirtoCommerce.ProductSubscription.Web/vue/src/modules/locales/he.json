@@ -136,7 +136,10 @@
       "RESUME_DATE": "תאריך המשך",
       "REASON": "סיבה",
       "ONLY_OPEN": "פתוחים בלבד",
-      "LOCATION": "מיקום"
+      "LOCATION": "מיקום",
+      "CONFIGURED_PRICE": "מחיר התצורה",
+      "CAPTURED_FROM": "נלקחה מהזמנה",
+      "FINGERPRINT": "טביעת אצבע"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "סיבת הביטול (אופציונלי)",
         "CANCEL_CONFIRM": "ביטול המנוי",
         "KEEP": "השארת המנוי",
-        "DEFAULT_CANCEL_REASON": "בוטל על ידי מנהל מערכת"
+        "DEFAULT_CANCEL_REASON": "בוטל על ידי מנהל מערכת",
+        "CONFIGURATION": "תצורה"
       },
       "RENEWALS": {
         "TITLE": "חידושים",

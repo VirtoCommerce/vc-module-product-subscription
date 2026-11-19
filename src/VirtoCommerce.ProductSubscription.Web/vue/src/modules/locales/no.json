@@ -136,7 +136,10 @@
       "RESUME_DATE": "Gjenoppta",
       "REASON": "Årsak",
       "ONLY_OPEN": "Bare åpne",
-      "LOCATION": "Plassering"
+      "LOCATION": "Plassering",
+      "CONFIGURED_PRICE": "Konfigurert pris",
+      "CAPTURED_FROM": "Hentet fra",
+      "FINGERPRINT": "Fingeravtrykk"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "Hvorfor avsluttes det? Valgfritt",
         "CANCEL_CONFIRM": "Avslutt abonnement",
         "KEEP": "Behold",
-        "DEFAULT_CANCEL_REASON": "Avsluttet av en administrator"
+        "DEFAULT_CANCEL_REASON": "Avsluttet av en administrator",
+        "CONFIGURATION": "Konfigurasjon"
       },
       "RENEWALS": {
         "TITLE": "Fornyelser",

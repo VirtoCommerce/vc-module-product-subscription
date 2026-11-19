@@ -152,13 +152,14 @@ public class OrderSubscriptionInfoServiceTests
     }
 
     [Fact]
-    public async Task No_orders_ask_nothing_and_a_long_list_is_capped()
+    public async Task No_orders_ask_nothing_and_a_long_list_is_answered_in_batches()
     {
         (await Service().GetForOrdersAsync([])).Should().BeEmpty();
         _subscriptionSearch.Verify(x => x.SearchAsync(It.IsAny<SubscriptionSearchCriteria>(), It.IsAny<bool>()), Times.Never);
 
+        // Every order is looked up, 100 at a time: none of a long list is left without its subscription info.
         await Service().GetForOrdersAsync(Enumerable.Range(0, 250).Select(i => $"o{i}").ToList());
-        _subscriptionCriteria.InitialOrderIds.Should().HaveCount(100);
-        _renewalCriteria.OrderIds.Should().HaveCount(100);
+        _subscriptionCriteria.InitialOrderIds.Should().HaveCount(50).And.Contain("o249");
+        _renewalCriteria.OrderIds.Should().HaveCount(50).And.Contain("o249");
     }
 }

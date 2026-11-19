@@ -136,7 +136,10 @@
       "RESUME_DATE": "再開日",
       "REASON": "理由",
       "ONLY_OPEN": "未完了のみ",
-      "LOCATION": "場所"
+      "LOCATION": "場所",
+      "CONFIGURED_PRICE": "構成価格",
+      "CAPTURED_FROM": "取得元の注文",
+      "FINGERPRINT": "フィンガープリント"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "解約理由（任意）",
         "CANCEL_CONFIRM": "サブスクリプションを解約",
         "KEEP": "解約しない",
-        "DEFAULT_CANCEL_REASON": "管理者により解約"
+        "DEFAULT_CANCEL_REASON": "管理者により解約",
+        "CONFIGURATION": "構成"
       },
       "RENEWALS": {
         "TITLE": "定期配送",

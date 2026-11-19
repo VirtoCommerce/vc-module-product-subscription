@@ -42,7 +42,7 @@ public class RenewalCartShipmentTests
     private static ShippingMethod Method(string code) => new Mock<ShippingMethod>(code) { CallBase = true }.Object;
 
     private sealed class ShipmentBuilder(ICartAvailMethodsService availMethods)
-        : RenewalCartBuilder(Mock.Of<ICartAggregateRepository>(), availMethods, Mock.Of<ICustomerOrderBuilder>())
+        : RenewalCartBuilder(Mock.Of<ICartAggregateRepository>(), availMethods, Mock.Of<ICustomerOrderBuilder>(), Mock.Of<IRenewalConfiguredLineBuilder>())
     {
         public Task AddShipment(CartAggregate aggregate, Renewal renewal) => AddShipmentAsync(aggregate, renewal, deliveryAddress: null);
     }

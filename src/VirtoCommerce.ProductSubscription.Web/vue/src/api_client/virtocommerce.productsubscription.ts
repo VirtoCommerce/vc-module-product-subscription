@@ -1512,6 +1512,9 @@ export interface RenewalItem {
     productName?: string | undefined;
     imageUrl?: string | undefined;
     quantity?: number;
+    configuration?: SubscriptionConfiguration | undefined;
+    configurationHash?: string | undefined;
+    isConfigurationChanged?: boolean;
     listPrice?: number;
     discountAmount?: number;
     total?: number;
@@ -1598,6 +1601,42 @@ export interface StoredPaymentMethod {
     id?: string | undefined;
 }
 
+export interface SubscriptionConfiguration {
+    schemaVersion?: number;
+    productId?: string | undefined;
+    capturedFrom?: SubscriptionConfigurationSource | undefined;
+    capturedAt?: Date | undefined;
+    sections?: SubscriptionConfigurationSection[] | undefined;
+    configuredUnitPrice?: number | undefined;
+}
+
+export interface SubscriptionConfigurationSource {
+    orderId?: string | undefined;
+    orderNumber?: string | undefined;
+    lineItemId?: string | undefined;
+}
+
+export interface SubscriptionConfigurationSection {
+    sectionId?: string | undefined;
+    name?: string | undefined;
+    type?: string | undefined;
+    productId?: string | undefined;
+    sku?: string | undefined;
+    productName?: string | undefined;
+    quantity?: number;
+    unitPrice?: number | undefined;
+    customText?: string | undefined;
+    files?: SubscriptionConfigurationFile[] | undefined;
+    isAvailable?: boolean | undefined;
+}
+
+export interface SubscriptionConfigurationFile {
+    name?: string | undefined;
+    url?: string | undefined;
+    contentType?: string | undefined;
+    size?: number;
+}
+
 export interface Subscription {
     number?: string | undefined;
     storeId?: string | undefined;
@@ -1610,6 +1649,8 @@ export interface Subscription {
     productName?: string | undefined;
     imageUrl?: string | undefined;
     quantity?: number;
+    configuration?: SubscriptionConfiguration | undefined;
+    configurationHash?: string | undefined;
     planId?: string | undefined;
     planName?: string | undefined;
     intervalUnit?: SubscriptionIntervalUnit;

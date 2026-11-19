@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace VirtoCommerce.ProductSubscription.Core.Notifications;
 
 /// <summary>One product of a subscription email, with every text formatted for the email's language and currency.</summary>
@@ -30,4 +32,16 @@ public class SubscriptionEmailLine
 
     /// <summary>Why the item can't be delivered as it is (out of stock, quantity limits).</summary>
     public string Message { get; set; }
+
+    /// <summary>The configured product's options, one text per section ("Drinks: Fanta Mango × 6"); empty for a plain product.</summary>
+    public IList<SubscriptionEmailConfigurationLine> ConfigurationLines { get; set; } = new List<SubscriptionEmailConfigurationLine>();
+}
+
+/// <summary>One option of a configured product in an email.</summary>
+public class SubscriptionEmailConfigurationLine
+{
+    public string Text { get; set; }
+
+    /// <summary>False when the option can no longer be delivered (the reason a renewal waits for review).</summary>
+    public bool IsAvailable { get; set; } = true;
 }

@@ -136,7 +136,10 @@
       "RESUME_DATE": "Возобновить",
       "REASON": "Причина",
       "ONLY_OPEN": "Только открытые",
-      "LOCATION": "Расположение"
+      "LOCATION": "Расположение",
+      "CONFIGURED_PRICE": "Цена конфигурации",
+      "CAPTURED_FROM": "Взята из заказа",
+      "FINGERPRINT": "Отпечаток"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "Причина отмены (необязательно)",
         "CANCEL_CONFIRM": "Отменить подписку",
         "KEEP": "Оставить",
-        "DEFAULT_CANCEL_REASON": "Отменено администратором"
+        "DEFAULT_CANCEL_REASON": "Отменено администратором",
+        "CONFIGURATION": "Конфигурация"
       },
       "RENEWALS": {
         "TITLE": "Продления",

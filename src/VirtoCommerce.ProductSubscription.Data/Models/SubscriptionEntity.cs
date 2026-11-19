@@ -46,6 +46,11 @@ public class SubscriptionEntity : AuditableEntity, IDataEntity<SubscriptionEntit
 
     public int Quantity { get; set; }
 
+    public string ConfigurationJson { get; set; }
+
+    [StringLength(64)]
+    public string ConfigurationHash { get; set; }
+
     [StringLength(128)]
     public string PlanId { get; set; }
 
@@ -144,6 +149,8 @@ public class SubscriptionEntity : AuditableEntity, IDataEntity<SubscriptionEntit
         model.ProductName = ProductName;
         model.ImageUrl = ImageUrl;
         model.Quantity = Quantity;
+        model.Configuration = SubscriptionConfigurationJson.Deserialize(ConfigurationJson);
+        model.ConfigurationHash = ConfigurationHash;
         model.PlanId = PlanId;
         model.PlanName = PlanName;
         model.IntervalUnit = EnumUtility.SafeParse(IntervalUnit, SubscriptionIntervalUnit.Month);
@@ -203,6 +210,8 @@ public class SubscriptionEntity : AuditableEntity, IDataEntity<SubscriptionEntit
         ProductName = model.ProductName;
         ImageUrl = model.ImageUrl;
         Quantity = model.Quantity;
+        ConfigurationJson = SubscriptionConfigurationJson.Serialize(model.Configuration);
+        ConfigurationHash = model.ConfigurationHash;
         PlanId = model.PlanId;
         PlanName = model.PlanName;
         IntervalUnit = model.IntervalUnit.ToString();
@@ -254,6 +263,8 @@ public class SubscriptionEntity : AuditableEntity, IDataEntity<SubscriptionEntit
         target.ProductName = ProductName;
         target.ImageUrl = ImageUrl;
         target.Quantity = Quantity;
+        target.ConfigurationJson = ConfigurationJson;
+        target.ConfigurationHash = ConfigurationHash;
         target.PlanId = PlanId;
         target.PlanName = PlanName;
         target.IntervalUnit = IntervalUnit;
