@@ -93,6 +93,36 @@ public class SubscriptionPromoEntriesMiddleware(
             .FirstOrDefault();
     }
 
+    /// <summary>
+    /// xCart gives a reward to every line of its product, so a product that also has a line without the discount (a one-time
+    /// line, e.g. another configuration of it) gets none: a one-time purchase is never discounted. Subscribing such a line
+    /// is refused, so this happens only when a one-time line was added after the subscribed one.
+    /// </summary>
+    protected virtual void RemoveProductsWithOneTimeLines(ShoppingCart cart, Dictionary<string, SubscriptionLineDiscount> discounts)
+    {
+        var mixedProductIds = (cart.Items ?? [])
+            .Where(IsOrderedLine)
+            .Where(x => !discounts.ContainsKey(x.Id))
+            .Select(x => x.ProductId)
+            .ToHashSet();
+
+        var withheld = (cart.Items ?? [])
+            .Where(x => !string.IsNullOrEmpty(x.Id) && discounts.ContainsKey(x.Id) && mixedProductIds.Contains(x.ProductId))
+            .ToList();
+
+        foreach (var lineItem in withheld)
+        {
+            discounts.Remove(lineItem.Id);
+            logger.LogWarning("Cart {CartId}: no subscription discount for product {ProductId}, the cart also has a one-time line of it", cart.Id, lineItem.ProductId);
+        }
+    }
+
+    /// <summary>A line the order will charge for: saved, selected for checkout, not a gift.</summary>
+    protected static bool IsOrderedLine(LineItem lineItem)
+    {
+        return !string.IsNullOrEmpty(lineItem.Id) && lineItem.SelectedForCheckout && !lineItem.IsGift;
+    }
+
     /// <summary>Returns discounts keyed by cart line id.</summary>
     protected virtual async Task<Dictionary<string, SubscriptionLineDiscount>> GetCheckoutDiscountsAsync(ShoppingCart cart)
     {
@@ -121,6 +151,8 @@ public class SubscriptionPromoEntriesMiddleware(
                 result[choice.LineItemId] = new SubscriptionLineDiscount(plan.Id, plan.Name, plan.DiscountType, plan.DiscountValue);
             }
         }
+
+        RemoveProductsWithOneTimeLines(cart, result);
 
         return result;
     }

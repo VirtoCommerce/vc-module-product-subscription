@@ -136,7 +136,10 @@
       "RESUME_DATE": "Reanudar el",
       "REASON": "Motivo",
       "ONLY_OPEN": "Solo abiertas",
-      "LOCATION": "Ubicación"
+      "LOCATION": "Ubicación",
+      "CONFIGURED_PRICE": "Precio configurado",
+      "CAPTURED_FROM": "Tomada del pedido",
+      "FINGERPRINT": "Huella"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "Motivo de la cancelación (opcional)",
         "CANCEL_CONFIRM": "Cancelar suscripción",
         "KEEP": "Conservarla",
-        "DEFAULT_CANCEL_REASON": "Cancelada por un administrador"
+        "DEFAULT_CANCEL_REASON": "Cancelada por un administrador",
+        "CONFIGURATION": "Configuración"
       },
       "RENEWALS": {
         "TITLE": "Renovaciones",

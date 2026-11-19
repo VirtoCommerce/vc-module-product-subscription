@@ -12,7 +12,8 @@ namespace VirtoCommerce.ProductSubscription.Data.Handlers;
 
 /// <summary>
 /// Removes subscription choices for cart lines that no longer exist, so a later one-time purchase of the same product
-/// is never turned into a subscription by a stale choice.
+/// is never turned into a subscription by a stale choice. Keeps the configuration fingerprint of a configured line
+/// current when the customer changes its options.
 /// </summary>
 public class CartChangedEventHandler(
     ISubscriptionCartItemSearchService cartItemSearchService,
@@ -41,19 +42,40 @@ public class CartChangedEventHandler(
         }
 
         var stale = new List<string>();
+        var changed = new List<SubscriptionCartItem>();
         foreach (var choice in choices)
         {
             var (cart, deleted) = carts.First(x => x.Cart.Id == choice.CartId);
-            var lineExists = !deleted && cart.Items?.Any(x => x.Id == choice.LineItemId) == true;
-            if (!lineExists)
+            var lineItem = deleted ? null : cart.Items?.FirstOrDefault(x => x.Id == choice.LineItemId);
+            if (lineItem == null)
             {
                 stale.Add(choice.Id);
+                continue;
+            }
+
+            // A cart loaded without its configuration says nothing about it: keep the stored fingerprint.
+            if (lineItem.IsConfigured && lineItem.ConfigurationItems == null)
+            {
+                continue;
+            }
+
+            var hash = SubscriptionConfigurationMapper.GetHash(lineItem);
+            if (hash != choice.ConfigurationHash)
+            {
+                var copy = (SubscriptionCartItem)choice.Clone();
+                copy.ConfigurationHash = hash;
+                changed.Add(copy);
             }
         }
 
         if (stale.Count > 0)
         {
             await cartItemService.DeleteAsync(stale);
+        }
+
+        if (changed.Count > 0)
+        {
+            await cartItemService.SaveChangesAsync(changed);
         }
     }
 }

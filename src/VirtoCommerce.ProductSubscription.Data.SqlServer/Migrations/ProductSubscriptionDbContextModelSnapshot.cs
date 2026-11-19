@@ -263,6 +263,14 @@ namespace VirtoCommerce.ProductSubscription.Data.SqlServer.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<string>("ConfigurationHash")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("ConfigurationJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal>("DiscountAmount")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
@@ -272,6 +280,9 @@ namespace VirtoCommerce.ProductSubscription.Data.SqlServer.Migrations
                         .HasColumnType("nvarchar(2048)");
 
                     b.Property<bool>("IsAvailable")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsConfigurationChanged")
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsExcluded")
@@ -325,6 +336,9 @@ namespace VirtoCommerce.ProductSubscription.Data.SqlServer.Migrations
                     b.HasIndex("SubscriptionId")
                         .HasDatabaseName("IX_SubscriptionRenewalItem_SubscriptionId");
 
+                    b.HasIndex("ProductId", "ConfigurationHash")
+                        .HasDatabaseName("IX_SubscriptionRenewalItem_ProductId_ConfigurationHash");
+
                     b.ToTable("SubscriptionRenewalItem", (string)null);
                 });
 
@@ -339,6 +353,11 @@ namespace VirtoCommerce.ProductSubscription.Data.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("ConfigurationHash")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
 
                     b.Property<string>("CreatedBy")
                         .HasMaxLength(64)
@@ -410,6 +429,14 @@ namespace VirtoCommerce.ProductSubscription.Data.SqlServer.Migrations
 
                     b.Property<DateTime?>("CancelledDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("ConfigurationHash")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("ConfigurationJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ConsentId")
                         .HasMaxLength(128)
@@ -597,6 +624,9 @@ namespace VirtoCommerce.ProductSubscription.Data.SqlServer.Migrations
 
                     b.HasIndex("CustomerId", "StoreId")
                         .HasDatabaseName("IX_ProductSubscription_CustomerId_StoreId");
+
+                    b.HasIndex("ProductId", "ConfigurationHash")
+                        .HasDatabaseName("IX_ProductSubscription_ProductId_ConfigurationHash");
 
                     b.HasIndex("Status", "NextOrderDate")
                         .HasDatabaseName("IX_ProductSubscription_Status_NextOrderDate");

@@ -262,6 +262,14 @@ namespace VirtoCommerce.ProductSubscription.Data.PostgreSql.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<string>("ConfigurationHash")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ConfigurationJson")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("DiscountAmount")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)");
@@ -271,6 +279,9 @@ namespace VirtoCommerce.ProductSubscription.Data.PostgreSql.Migrations
                         .HasColumnType("character varying(2048)");
 
                     b.Property<bool>("IsAvailable")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsConfigurationChanged")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsExcluded")
@@ -324,6 +335,9 @@ namespace VirtoCommerce.ProductSubscription.Data.PostgreSql.Migrations
                     b.HasIndex("SubscriptionId")
                         .HasDatabaseName("IX_SubscriptionRenewalItem_SubscriptionId");
 
+                    b.HasIndex("ProductId", "ConfigurationHash")
+                        .HasDatabaseName("IX_SubscriptionRenewalItem_ProductId_ConfigurationHash");
+
                     b.ToTable("SubscriptionRenewalItem", (string)null);
                 });
 
@@ -338,6 +352,11 @@ namespace VirtoCommerce.ProductSubscription.Data.PostgreSql.Migrations
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
+
+                    b.Property<string>("ConfigurationHash")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<string>("CreatedBy")
                         .HasMaxLength(64)
@@ -409,6 +428,14 @@ namespace VirtoCommerce.ProductSubscription.Data.PostgreSql.Migrations
 
                     b.Property<DateTime?>("CancelledDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ConfigurationHash")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ConfigurationJson")
+                        .HasColumnType("text");
 
                     b.Property<string>("ConsentId")
                         .HasMaxLength(128)
@@ -595,6 +622,9 @@ namespace VirtoCommerce.ProductSubscription.Data.PostgreSql.Migrations
 
                     b.HasIndex("CustomerId", "StoreId")
                         .HasDatabaseName("IX_ProductSubscription_CustomerId_StoreId");
+
+                    b.HasIndex("ProductId", "ConfigurationHash")
+                        .HasDatabaseName("IX_ProductSubscription_ProductId_ConfigurationHash");
 
                     b.HasIndex("Status", "NextOrderDate")
                         .HasDatabaseName("IX_ProductSubscription_Status_NextOrderDate");

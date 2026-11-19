@@ -12,6 +12,17 @@ public class RenewalItem : Entity, ICloneable
     public string ImageUrl { get; set; }
     public int Quantity { get; set; }
 
+    /// <summary>
+    /// For a configurable product: the configuration this delivery orders, copied from the subscription. Sections that
+    /// can't be ordered any more are marked with <see cref="SubscriptionConfigurationSection.IsAvailable"/> = false.
+    /// </summary>
+    public SubscriptionConfiguration Configuration { get; set; }
+
+    public string ConfigurationHash { get; set; }
+
+    /// <summary>True when the configuration can't be ordered as it is (an option was removed or ran out).</summary>
+    public bool IsConfigurationChanged { get; set; }
+
     public decimal ListPrice { get; set; }
     public decimal DiscountAmount { get; set; }
     /// <summary>Line total after discounts, before tax.</summary>
@@ -25,6 +36,8 @@ public class RenewalItem : Entity, ICloneable
 
     public virtual object Clone()
     {
-        return MemberwiseClone();
+        var result = (RenewalItem)MemberwiseClone();
+        result.Configuration = (SubscriptionConfiguration)Configuration?.Clone();
+        return result;
     }
 }

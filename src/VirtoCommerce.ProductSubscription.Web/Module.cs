@@ -94,6 +94,7 @@ public class Module : IModule, IHasConfiguration
         serviceCollection.AddTransient<ISubscriptionNotificationService, SubscriptionNotificationService>();
         serviceCollection.AddTransient<ISubscriptionManager, SubscriptionManager>();
         serviceCollection.AddTransient<IRenewalCartBuilder, RenewalCartBuilder>();
+        serviceCollection.AddTransient<IRenewalConfiguredLineBuilder, RenewalConfiguredLineBuilder>();
         serviceCollection.AddTransient<IRenewalProcessor, RenewalProcessor>();
         serviceCollection.AddTransient<IStoredPaymentMethodUsageProvider, SubscriptionStoredPaymentMethodUsageProvider>();
         serviceCollection.AddTransient<ILegacySubscriptionImporter, LegacySubscriptionImporter>();

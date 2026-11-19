@@ -136,7 +136,10 @@
       "RESUME_DATE": "الاستئناف في",
       "REASON": "السبب",
       "ONLY_OPEN": "المفتوحة فقط",
-      "LOCATION": "الموقع"
+      "LOCATION": "الموقع",
+      "CONFIGURED_PRICE": "سعر التهيئة",
+      "CAPTURED_FROM": "مأخوذة من الطلب",
+      "FINGERPRINT": "البصمة"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "سبب الإلغاء (اختياري)",
         "CANCEL_CONFIRM": "إلغاء الاشتراك",
         "KEEP": "الإبقاء عليه",
-        "DEFAULT_CANCEL_REASON": "ألغاه أحد المسؤولين"
+        "DEFAULT_CANCEL_REASON": "ألغاه أحد المسؤولين",
+        "CONFIGURATION": "التهيئة"
       },
       "RENEWALS": {
         "TITLE": "التجديدات",

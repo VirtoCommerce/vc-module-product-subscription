@@ -86,19 +86,16 @@ public class SubscriptionManager(
         var now = DateTime.UtcNow;
         var subscriptions = new List<Subscription>();
         var usedChoices = new List<SubscriptionCartItem>();
-        // Order lines don't keep the cart line id, so match by product; each line backs one choice, so two lines of the
-        // same product keep their own quantity and price.
-        var unmatchedLines = order.Items.ToList();
+        var matches = MatchOrderLines(choices, order.Items.ToList());
 
         foreach (var choice in choices)
         {
-            var lineItem = unmatchedLines.FirstOrDefault(x => x.ProductId == choice.ProductId);
-            if (lineItem == null || !plans.TryGetValue(choice.PlanId, out var plan))
+            if (!matches.TryGetValue(choice, out var lineItem) || !plans.TryGetValue(choice.PlanId, out var plan))
             {
                 continue;
             }
 
-            unmatchedLines.Remove(lineItem);
+            var configuration = SubscriptionConfigurationMapper.FromOrderLine(lineItem, order.Id, order.Number);
 
             var subscription = AbstractTypeFactory<Subscription>.TryCreateInstance();
             subscription.StoreId = order.StoreId;
@@ -111,6 +108,8 @@ public class SubscriptionManager(
             subscription.ProductName = lineItem.Name;
             subscription.ImageUrl = lineItem.ImageUrl;
             subscription.Quantity = Math.Max(1, lineItem.Quantity);
+            subscription.Configuration = configuration;
+            subscription.ConfigurationHash = configuration?.ComputeHash();
             subscription.PlanId = plan.Id;
             subscription.PlanName = plan.Name;
             subscription.IntervalUnit = choice.IntervalUnit;
@@ -156,6 +155,43 @@ public class SubscriptionManager(
         await notificationService.SendAsync<SubscriptionCreatedEmailNotification>(subscriptions);
 
         return subscriptions;
+    }
+
+    /// <summary>
+    /// The order line each cart choice became. Order lines don't keep the cart line id, so a choice is matched by product
+    /// and configuration fingerprint; each line backs one choice, so two lines of one product keep their own quantity,
+    /// price and configuration. Exact matches are taken for every choice first: a choice whose fingerprint is out of date
+    /// then falls back to a line no other choice matched exactly, never to another choice's line.
+    /// </summary>
+    protected virtual IDictionary<SubscriptionCartItem, LineItem> MatchOrderLines(IList<SubscriptionCartItem> choices, IList<LineItem> lines)
+    {
+        var result = new Dictionary<SubscriptionCartItem, LineItem>();
+        var unmatched = lines.ToList();
+        var hashes = lines.ToDictionary(x => x, SubscriptionConfigurationMapper.GetHash);
+
+        foreach (var choice in choices)
+        {
+            var line = unmatched.FirstOrDefault(x => x.ProductId == choice.ProductId && hashes[x] == choice.ConfigurationHash);
+            if (line != null)
+            {
+                result[choice] = line;
+                unmatched.Remove(line);
+            }
+        }
+
+        foreach (var choice in choices.Where(x => !result.ContainsKey(x)))
+        {
+            var sameProduct = unmatched.Where(x => x.ProductId == choice.ProductId).ToList();
+            var line = sameProduct.FirstOrDefault(x => x.IsConfigured == !string.IsNullOrEmpty(choice.ConfigurationHash))
+                ?? sameProduct.FirstOrDefault();
+            if (line != null)
+            {
+                result[choice] = line;
+                unmatched.Remove(line);
+            }
+        }
+
+        return result;
     }
 
     public virtual async Task<IList<Subscription>> ActivateForOrderAsync(CustomerOrder order)

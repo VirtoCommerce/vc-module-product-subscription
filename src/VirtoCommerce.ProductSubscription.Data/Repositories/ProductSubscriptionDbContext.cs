@@ -56,6 +56,8 @@ public class ProductSubscriptionDbContext : DbContextBase
             builder.HasIndex(x => new { x.CustomerId, x.StoreId }).HasDatabaseName("IX_ProductSubscription_CustomerId_StoreId");
             builder.HasIndex(x => new { x.Status, x.NextOrderDate }).HasDatabaseName("IX_ProductSubscription_Status_NextOrderDate");
             builder.HasIndex(x => x.InitialOrderId).HasDatabaseName("IX_ProductSubscription_InitialOrderId");
+            builder.HasIndex(x => new { x.ProductId, x.ConfigurationHash }).HasDatabaseName("IX_ProductSubscription_ProductId_ConfigurationHash");
+            builder.Property(x => x.ConfigurationHash).IsUnicode(false);
             // The legacy import is idempotent by OuterId: one subscription per legacy subscription.
             builder.HasIndex(x => x.OuterId).IsUnique().HasDatabaseName("IX_ProductSubscription_OuterId");
         });
@@ -86,6 +88,8 @@ public class ProductSubscriptionDbContext : DbContextBase
             builder.Property(x => x.Total).HasPrecision(MoneyPrecision, MoneyScale);
             builder.HasOne(x => x.Renewal).WithMany(x => x.Items).HasForeignKey(x => x.RenewalId).IsRequired().OnDelete(DeleteBehavior.Cascade);
             builder.HasIndex(x => x.SubscriptionId).HasDatabaseName("IX_SubscriptionRenewalItem_SubscriptionId");
+            builder.HasIndex(x => new { x.ProductId, x.ConfigurationHash }).HasDatabaseName("IX_SubscriptionRenewalItem_ProductId_ConfigurationHash");
+            builder.Property(x => x.ConfigurationHash).IsUnicode(false);
         });
 
         modelBuilder.Entity<RenewalEventEntity>(builder =>
@@ -100,6 +104,7 @@ public class ProductSubscriptionDbContext : DbContextBase
             builder.ToTable("SubscriptionCartItem").HasKey(x => x.Id);
             builder.Property(x => x.Id).HasMaxLength(IdLength).ValueGeneratedOnAdd();
             builder.HasIndex(x => new { x.CartId, x.LineItemId }).IsUnique().HasDatabaseName("IX_SubscriptionCartItem_CartId_LineItemId");
+            builder.Property(x => x.ConfigurationHash).IsUnicode(false);
         });
 
         base.OnModelCreating(modelBuilder);

@@ -31,6 +31,14 @@ public class RenewalItemEntity : Entity, IDataEntity<RenewalItemEntity, RenewalI
     public string ImageUrl { get; set; }
 
     public int Quantity { get; set; }
+
+    public string ConfigurationJson { get; set; }
+
+    [StringLength(64)]
+    public string ConfigurationHash { get; set; }
+
+    public bool IsConfigurationChanged { get; set; }
+
     public decimal ListPrice { get; set; }
     public decimal DiscountAmount { get; set; }
     public decimal Total { get; set; }
@@ -51,6 +59,9 @@ public class RenewalItemEntity : Entity, IDataEntity<RenewalItemEntity, RenewalI
         model.ProductName = ProductName;
         model.ImageUrl = ImageUrl;
         model.Quantity = Quantity;
+        model.Configuration = SubscriptionConfigurationJson.Deserialize(ConfigurationJson);
+        model.ConfigurationHash = ConfigurationHash;
+        model.IsConfigurationChanged = IsConfigurationChanged;
         model.ListPrice = ListPrice;
         model.DiscountAmount = DiscountAmount;
         model.Total = Total;
@@ -70,6 +81,9 @@ public class RenewalItemEntity : Entity, IDataEntity<RenewalItemEntity, RenewalI
         ProductName = model.ProductName;
         ImageUrl = model.ImageUrl;
         Quantity = model.Quantity;
+        ConfigurationJson = SubscriptionConfigurationJson.Serialize(model.Configuration);
+        ConfigurationHash = model.ConfigurationHash;
+        IsConfigurationChanged = model.IsConfigurationChanged;
         ListPrice = model.ListPrice;
         DiscountAmount = model.DiscountAmount;
         Total = model.Total;
@@ -87,6 +101,9 @@ public class RenewalItemEntity : Entity, IDataEntity<RenewalItemEntity, RenewalI
         target.ProductName = ProductName;
         target.ImageUrl = ImageUrl;
         target.Quantity = Quantity;
+        target.ConfigurationJson = ConfigurationJson;
+        target.ConfigurationHash = ConfigurationHash;
+        target.IsConfigurationChanged = IsConfigurationChanged;
         target.ListPrice = ListPrice;
         target.DiscountAmount = DiscountAmount;
         target.Total = Total;

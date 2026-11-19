@@ -361,6 +361,8 @@ public class RenewalProcessor(
             item.ProductName = x.ProductName;
             item.ImageUrl = x.ImageUrl;
             item.Quantity = x.Quantity;
+            item.Configuration = (SubscriptionConfiguration)x.Configuration?.Clone();
+            item.ConfigurationHash = x.ConfigurationHash;
             return item;
         }).ToList();
         renewal.AddEvent(RenewalEventType.StateChanged, isManual ? "Order now requested" : $"Renewal scheduled for {scheduledDate:yyyy-MM-dd}");
@@ -904,6 +906,13 @@ public class RenewalProcessor(
     /// <summary>Why the renewal needs the customer's review before it is ordered, or null when it doesn't.</summary>
     protected virtual RenewalReviewReason GetReviewReason(Renewal renewal, RenewalCartResult cart)
     {
+        if (cart.HasConfigurationChanges)
+        {
+            var changed = renewal.Items.Where(x => x.IsConfigurationChanged && !x.IsExcluded).Select(x => x.ProductName);
+            return new RenewalReviewReason(RenewalReviewReasonCode.ConfigurationChanged,
+                $"The configuration of {string.Join(", ", changed)} can't be ordered as it is any more. Skip this delivery or subscribe again with a new configuration.");
+        }
+
         if (cart.HasUnavailableItems)
         {
             var names = renewal.Items.Where(x => !x.IsAvailable && !x.IsExcluded).Select(x => x.ProductName);

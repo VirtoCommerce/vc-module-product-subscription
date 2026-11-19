@@ -170,6 +170,76 @@
         </VcCard>
 
         <VcCard
+          v-if="configuration"
+          :header="$t('PRODUCT_SUBSCRIPTION.PAGES.DETAILS.CONFIGURATION')"
+          icon="lucide-sliders-horizontal"
+          data-test-id="subscription-configuration"
+        >
+          <!-- read-only: a different composition needs a new subscription -->
+          <dl class="ps-info">
+            <template
+              v-for="(section, index) in configuration.sections ?? []"
+              :key="section.sectionId ?? index"
+            >
+              <dt>{{ section.name || section.sectionId }}</dt>
+              <dd>
+                <template v-if="section.productId">
+                  {{ section.productName || section.productId }} × {{ section.quantity }}
+                  <span
+                    v-if="section.sku"
+                    class="ps-muted"
+                    dir="ltr"
+                  >
+                    · {{ section.sku }}</span
+                  >
+                </template>
+                <template v-else-if="section.customText">“{{ section.customText }}”</template>
+                <template v-else-if="section.files?.length">
+                  <template
+                    v-for="(file, fileIndex) in section.files"
+                    :key="file.url ?? fileIndex"
+                  >
+                    <a
+                      :href="file.url"
+                      class="ps-link"
+                      target="_blank"
+                      rel="noopener"
+                      >{{ file.name || file.url }}</a
+                    ><template v-if="fileIndex < section.files.length - 1">, </template>
+                  </template>
+                </template>
+                <template v-else>—</template>
+              </dd>
+            </template>
+            <template v-if="configuration.configuredUnitPrice != null">
+              <dt>{{ $t("PRODUCT_SUBSCRIPTION.FIELDS.CONFIGURED_PRICE") }}</dt>
+              <dd>{{ f.money(configuration.configuredUnitPrice, item.currency) }}</dd>
+            </template>
+            <template v-if="configuration.capturedFrom?.orderId">
+              <dt>{{ $t("PRODUCT_SUBSCRIPTION.FIELDS.CAPTURED_FROM") }}</dt>
+              <dd>
+                <a
+                  href="#"
+                  class="ps-link"
+                  @click.prevent="openOrder(openBlade, configuration.capturedFrom.orderId)"
+                  >{{ configuration.capturedFrom.orderNumber || configuration.capturedFrom.orderId }}</a
+                >
+              </dd>
+            </template>
+            <template v-if="item.configurationHash">
+              <dt>{{ $t("PRODUCT_SUBSCRIPTION.FIELDS.FINGERPRINT") }}</dt>
+              <dd
+                class="ps-muted"
+                dir="ltr"
+                :title="item.configurationHash"
+              >
+                {{ item.configurationHash.slice(0, 4) }}…{{ item.configurationHash.slice(-3) }}
+              </dd>
+            </template>
+          </dl>
+        </VcCard>
+
+        <VcCard
           :header="$t('PRODUCT_SUBSCRIPTION.PAGES.DETAILS.CUSTOMER')"
           icon="lucide-user"
         >
@@ -366,6 +436,7 @@ const form = useBladeForm({
 });
 
 const status = computed(() => item.value.status);
+const configuration = computed(() => (item.value.configuration?.sections?.length ? item.value.configuration : undefined));
 const readonly = computed(() => status.value === "Cancelled" || !hasAccess("product-subscription:update"));
 
 const intervalOptions = computed(() =>

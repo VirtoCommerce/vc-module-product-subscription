@@ -16,7 +16,13 @@ public static class RenewalReviewReasonCode
     /// <summary>The total is higher than the one in the reminder.</summary>
     public const string PriceIncreased = "PRICE_INCREASED";
 
-    public static string[] All { get; } = [ItemsUnavailable, NoShippingMethod, PriceIncreased];
+    /// <summary>
+    /// A configured product can't be ordered with the options of the subscription (an option was removed or ran out).
+    /// The renewal never orders a different configuration: the customer skips the delivery or subscribes again.
+    /// </summary>
+    public const string ConfigurationChanged = "CONFIGURATION_CHANGED";
+
+    public static string[] All { get; } = [ItemsUnavailable, NoShippingMethod, PriceIncreased, ConfigurationChanged];
 }
 
 /// <summary>

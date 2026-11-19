@@ -136,7 +136,10 @@
       "RESUME_DATE": "Riprendi il",
       "REASON": "Motivo",
       "ONLY_OPEN": "Solo aperti",
-      "LOCATION": "Posizione"
+      "LOCATION": "Posizione",
+      "CONFIGURED_PRICE": "Prezzo configurato",
+      "CAPTURED_FROM": "Presa dall'ordine",
+      "FINGERPRINT": "Impronta"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "Motivo dell'annullamento (facoltativo)",
         "CANCEL_CONFIRM": "Annulla abbonamento",
         "KEEP": "Mantieni",
-        "DEFAULT_CANCEL_REASON": "Annullato da un amministratore"
+        "DEFAULT_CANCEL_REASON": "Annullato da un amministratore",
+        "CONFIGURATION": "Configurazione"
       },
       "RENEWALS": {
         "TITLE": "Rinnovi",

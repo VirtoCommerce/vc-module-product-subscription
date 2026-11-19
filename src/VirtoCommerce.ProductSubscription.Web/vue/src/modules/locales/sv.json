@@ -136,7 +136,10 @@
       "RESUME_DATE": "Återuppta den",
       "REASON": "Orsak",
       "ONLY_OPEN": "Endast öppna",
-      "LOCATION": "Plats"
+      "LOCATION": "Plats",
+      "CONFIGURED_PRICE": "Konfigurerat pris",
+      "CAPTURED_FROM": "Hämtad från",
+      "FINGERPRINT": "Fingeravtryck"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "Varför avslutas den? Valfritt",
         "CANCEL_CONFIRM": "Avsluta prenumeration",
         "KEEP": "Behåll",
-        "DEFAULT_CANCEL_REASON": "Avslutad av en administratör"
+        "DEFAULT_CANCEL_REASON": "Avslutad av en administratör",
+        "CONFIGURATION": "Konfiguration"
       },
       "RENEWALS": {
         "TITLE": "Förnyelser",

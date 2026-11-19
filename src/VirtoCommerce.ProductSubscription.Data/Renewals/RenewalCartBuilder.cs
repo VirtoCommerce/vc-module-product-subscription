@@ -21,7 +21,8 @@ namespace VirtoCommerce.ProductSubscription.Data.Renewals;
 public class RenewalCartBuilder(
     ICartAggregateRepository cartAggregateRepository,
     ICartAvailMethodsService cartAvailMethodsService,
-    ICustomerOrderBuilder customerOrderBuilder)
+    ICustomerOrderBuilder customerOrderBuilder,
+    IRenewalConfiguredLineBuilder configuredLineBuilder)
     : IRenewalCartBuilder
 {
     public const string RenewalCartType = "SubscriptionRenewal";
@@ -62,14 +63,28 @@ public class RenewalCartBuilder(
 
         var result = new RenewalCartResult { Aggregate = aggregate };
 
+        // Subscriptions to the same product (and, for a configurable product, the same configuration) share one cart line.
+        var configuredLines = new Dictionary<string, RenewalConfiguredLineResult>();
+
         if (activeItems.Count > 0)
         {
             var newItems = activeItems
+                .Where(x => !IsConfigured(subscriptionsById[x.SubscriptionId]))
                 .GroupBy(x => x.ProductId)
                 .Select(x => new NewCartItem(x.Key, x.Sum(i => subscriptionsById[i.SubscriptionId].Quantity)))
                 .ToList();
 
-            await aggregate.AddItemsAsync(newItems);
+            if (newItems.Count > 0)
+            {
+                await aggregate.AddItemsAsync(newItems);
+            }
+
+            foreach (var group in activeItems.Where(x => IsConfigured(subscriptionsById[x.SubscriptionId])).GroupBy(x => GetLineKey(subscriptionsById[x.SubscriptionId])))
+            {
+                var first = subscriptionsById[group.First().SubscriptionId];
+                var quantity = group.Sum(i => subscriptionsById[i.SubscriptionId].Quantity);
+                configuredLines[group.Key] = await configuredLineBuilder.AddAsync(aggregate, renewal, first.Configuration, quantity);
+            }
         }
 
         // In-memory cart lines have no ids, and validation errors point at their object by id: without ids, an error on
@@ -110,7 +125,10 @@ public class RenewalCartBuilder(
         foreach (var item in renewal.Items)
         {
             var subscription = subscriptionsById.GetValueOrDefault(item.SubscriptionId);
-            var lineItem = aggregate.Cart.Items.FirstOrDefault(x => x.ProductId == item.ProductId);
+            var configuredLine = subscription != null && IsConfigured(subscription) ? configuredLines.GetValueOrDefault(GetLineKey(subscription)) : null;
+            var lineItem = subscription != null && IsConfigured(subscription)
+                ? configuredLine?.LineItem
+                : aggregate.Cart.Items.FirstOrDefault(x => x.ProductId == item.ProductId && !x.IsConfigured);
             var copy = (RenewalItem)item.Clone();
 
             if (subscription != null)
@@ -119,6 +137,9 @@ public class RenewalCartBuilder(
                 copy.ProductName = lineItem?.Name ?? subscription.ProductName;
                 copy.ImageUrl = lineItem?.ImageUrl ?? subscription.ImageUrl;
                 copy.Sku = lineItem?.Sku ?? subscription.Sku;
+                copy.Configuration = configuredLine?.Configuration ?? (SubscriptionConfiguration)subscription.Configuration?.Clone();
+                copy.ConfigurationHash = subscription.ConfigurationHash;
+                copy.IsConfigurationChanged = configuredLine?.IsConfigurationChanged == true;
             }
 
             if (copy.IsExcluded)
@@ -132,18 +153,21 @@ public class RenewalCartBuilder(
             if (lineItem == null)
             {
                 copy.IsAvailable = false;
-                copy.Message = errors.FirstOrDefault() ?? "This product is not available right now.";
+                copy.Message = copy.IsConfigurationChanged
+                    ? configuredLine.Message
+                    : errors.FirstOrDefault() ?? "This product is not available right now.";
                 copy.ListPrice = 0;
                 copy.DiscountAmount = 0;
                 copy.Total = 0;
             }
             else
             {
-                if (!lineShares.TryGetValue(lineItem.ProductId, out var share))
+                var lineKey = GetLineKey(subscription) ?? lineItem.ProductId;
+                if (!lineShares.TryGetValue(lineKey, out var share))
                 {
-                    var subscriptionCount = activeItems.Count(x => x.ProductId == lineItem.ProductId);
+                    var subscriptionCount = activeItems.Count(x => GetLineKey(subscriptionsById[x.SubscriptionId]) == lineKey);
                     share = new LineShare(lineItem.Quantity, lineItem.ExtendedPrice, subscriptionCount);
-                    lineShares[lineItem.ProductId] = share;
+                    lineShares[lineKey] = share;
                 }
 
                 copy.IsAvailable = errors.Count == 0;
@@ -172,6 +196,25 @@ public class RenewalCartBuilder(
         result.TaxTotal = aggregate.Cart.TaxTotal;
 
         return result;
+    }
+
+    /// <summary>A configurable product, with or without options chosen: it is rebuilt as a configured line.</summary>
+    protected static bool IsConfigured(Subscription subscription)
+    {
+        return subscription?.Configuration != null;
+    }
+
+    /// <summary>Renewal lines are keyed by product and, for a configurable product, by the configuration fingerprint.</summary>
+    protected static string GetLineKey(Subscription subscription)
+    {
+        if (subscription == null)
+        {
+            return null;
+        }
+
+        return IsConfigured(subscription)
+            ? $"{subscription.ProductId}|{subscription.ConfigurationHash ?? subscription.Configuration.ComputeHash()}"
+            : subscription.ProductId;
     }
 
     public virtual async Task<CustomerOrder> PlaceOrderAsync(Renewal renewal, RenewalCartResult cartResult)

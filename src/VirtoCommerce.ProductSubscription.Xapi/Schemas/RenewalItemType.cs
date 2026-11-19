@@ -16,6 +16,11 @@ public class RenewalItemType : ExtendableGraphType<RenewalItem>
         Field(x => x.ProductName, nullable: true);
         Field(x => x.ImageUrl, nullable: true);
         Field(x => x.Quantity);
+        Field<SubscriptionConfigurationType>("configuration")
+            .Description("For a configurable product: the configuration this delivery orders; sections that can't be ordered any more have isAvailable = false.")
+            .Resolve(x => x.Source.Configuration);
+        Field(x => x.ConfigurationHash, nullable: true);
+        Field(x => x.IsConfigurationChanged).Description("True when the configuration can't be ordered as it is any more");
         Field(x => x.ListPrice);
         Field(x => x.DiscountAmount);
         Field(x => x.Total);

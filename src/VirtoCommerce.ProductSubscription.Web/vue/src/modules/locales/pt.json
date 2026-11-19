@@ -136,7 +136,10 @@
       "RESUME_DATE": "Retomar em",
       "REASON": "Motivo",
       "ONLY_OPEN": "Somente abertas",
-      "LOCATION": "Local"
+      "LOCATION": "Local",
+      "CONFIGURED_PRICE": "Preço configurado",
+      "CAPTURED_FROM": "Obtida do pedido",
+      "FINGERPRINT": "Impressão digital"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "Motivo do cancelamento (opcional)",
         "CANCEL_CONFIRM": "Cancelar assinatura",
         "KEEP": "Manter",
-        "DEFAULT_CANCEL_REASON": "Cancelada por um administrador"
+        "DEFAULT_CANCEL_REASON": "Cancelada por um administrador",
+        "CONFIGURATION": "Configuração"
       },
       "RENEWALS": {
         "TITLE": "Renovações",

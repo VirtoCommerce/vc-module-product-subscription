@@ -136,7 +136,10 @@
       "RESUME_DATE": "Resume on",
       "REASON": "Reason",
       "ONLY_OPEN": "Open only",
-      "LOCATION": "Location"
+      "LOCATION": "Location",
+      "CONFIGURED_PRICE": "Configured price",
+      "CAPTURED_FROM": "Captured from",
+      "FINGERPRINT": "Fingerprint"
     },
     "PAGES": {
       "LIST": {
@@ -162,7 +165,8 @@
         "CANCEL_PLACEHOLDER": "Why is it cancelled? Optional",
         "CANCEL_CONFIRM": "Cancel subscription",
         "KEEP": "Keep it",
-        "DEFAULT_CANCEL_REASON": "Cancelled by an administrator"
+        "DEFAULT_CANCEL_REASON": "Cancelled by an administrator",
+        "CONFIGURATION": "Configuration"
       },
       "RENEWALS": {
         "TITLE": "Renewals",

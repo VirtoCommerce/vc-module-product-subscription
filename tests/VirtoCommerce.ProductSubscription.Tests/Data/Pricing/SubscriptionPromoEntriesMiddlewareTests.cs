@@ -67,6 +67,39 @@ public class SubscriptionPromoEntriesMiddlewareTests
     }
 
     [Fact]
+    public async Task Run_ProductWithAOneTimeLineToo_GetsNoDiscount()
+    {
+        // xCart gives the reward to every line of the product, so the one-time line (another configuration) would be
+        // discounted too: the product gets none.
+        SetupChoices(new SubscriptionCartItem { CartId = CartId, LineItemId = LineId, ProductId = ProductId, PlanId = PlanId });
+        SetupPlans(CreatePlan(SubscriptionDiscountType.Percent, 10m));
+        var cart = CreateCart();
+        cart.Items.Add(new LineItem { Id = "L2", ProductId = ProductId, Quantity = 1 });
+        var entry = new ProductPromoEntry { ProductId = ProductId };
+        var map = CreateMap(cart, entry);
+
+        await CreateSut().Run(map, _ => Task.CompletedTask);
+
+        SubscriptionPromoAttributes.Get(entry).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Run_GiftOrUnselectedLineOfTheProduct_KeepsTheDiscount()
+    {
+        SetupChoices(new SubscriptionCartItem { CartId = CartId, LineItemId = LineId, ProductId = ProductId, PlanId = PlanId });
+        SetupPlans(CreatePlan(SubscriptionDiscountType.Percent, 10m));
+        var cart = CreateCart();
+        cart.Items.Add(new LineItem { Id = "gift", ProductId = ProductId, Quantity = 1, IsGift = true });
+        cart.Items.Add(new LineItem { Id = "later", ProductId = ProductId, Quantity = 1, SelectedForCheckout = false });
+        var entry = new ProductPromoEntry { ProductId = ProductId };
+        var map = CreateMap(cart, entry);
+
+        await CreateSut().Run(map, _ => Task.CompletedTask);
+
+        SubscriptionPromoAttributes.Get(entry).Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task Run_SearchesChoicesByCartId()
     {
         // Arrange
