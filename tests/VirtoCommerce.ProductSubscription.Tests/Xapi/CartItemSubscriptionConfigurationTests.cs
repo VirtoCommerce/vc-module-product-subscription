@@ -47,6 +47,8 @@ public class CartItemSubscriptionConfigurationTests
 
         choice.ConfigurationHash.Should().NotBeNullOrEmpty().And.Be(SubscriptionConfigurationMapper.GetHash(line));
         _saved.Should().ContainSingle();
+        // The cart is not saved: a copy loaded earlier would undo a change made to it in the meantime.
+        _carts.Verify(x => x.SaveChangesAsync(It.IsAny<IList<ShoppingCart>>()), Times.Never);
     }
 
     [Fact]

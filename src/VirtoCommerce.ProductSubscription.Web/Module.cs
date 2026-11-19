@@ -43,6 +43,8 @@ using VirtoCommerce.Xapi.Core.Infrastructure;
 using VirtoCommerce.Xapi.Core.Pipelines;
 using VirtoCommerce.XCart.Core.Models;
 using VirtoCommerce.XCart.Core.Services;
+using VirtoCommerce.XCart.Core.Validators;
+using VirtoCommerce.ProductSubscription.Data.Validators;
 
 namespace VirtoCommerce.ProductSubscription.Web;
 
@@ -96,6 +98,7 @@ public class Module : IModule, IHasConfiguration
         serviceCollection.AddTransient<IRenewalCartBuilder, RenewalCartBuilder>();
         serviceCollection.AddTransient<IRenewalConfiguredLineBuilder, RenewalConfiguredLineBuilder>();
         serviceCollection.AddTransient<IRenewalProcessor, RenewalProcessor>();
+        serviceCollection.AddTransient<ICartValidator<CartValidationContext>, SubscriptionTermsCartValidator>();
         serviceCollection.AddTransient<IStoredPaymentMethodUsageProvider, SubscriptionStoredPaymentMethodUsageProvider>();
         serviceCollection.AddTransient<ILegacySubscriptionImporter, LegacySubscriptionImporter>();
         serviceCollection.AddTransient<LegacySubscriptionJsonMapper>();

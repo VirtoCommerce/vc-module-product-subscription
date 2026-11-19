@@ -13,6 +13,15 @@ namespace VirtoCommerce.ProductSubscription.Core.Services;
 public interface ISubscriptionManager
 {
     Task<IList<Subscription>> CreateFromOrderAsync(CustomerOrder order);
+
+    /// <summary>
+    /// Creates the subscriptions of a new order from the given cart choices, e.g. a copy taken before the cart change
+    /// that follows checkout deleted them. Choices of another cart are ignored.
+    /// </summary>
+    Task<IList<Subscription>> CreateFromOrderAsync(CustomerOrder order, IList<SubscriptionCartItem> choices);
+
+    /// <summary>The subscription choices saved for a cart's lines.</summary>
+    Task<IList<SubscriptionCartItem>> GetCartChoicesAsync(string cartId);
     Task<IList<Subscription>> ActivateForOrderAsync(CustomerOrder order);
 
     /// <summary>

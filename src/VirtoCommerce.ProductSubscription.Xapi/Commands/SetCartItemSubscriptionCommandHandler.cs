@@ -6,12 +6,14 @@ using System.Threading.Tasks;
 using MediatR;
 using VirtoCommerce.CartModule.Core.Model;
 using VirtoCommerce.CartModule.Core.Services;
+using VirtoCommerce.Platform.Caching;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.ProductSubscription.Core;
 using VirtoCommerce.ProductSubscription.Core.Exceptions;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.ProductSubscription.Xapi.Queries;
+using CartAggregate = VirtoCommerce.XCart.Core.CartAggregate;
 
 namespace VirtoCommerce.ProductSubscription.Xapi.Commands;
 
@@ -98,6 +100,13 @@ public class SetCartItemSubscriptionCommandHandler(
         }
     }
 
-    /// <summary>Saving the cart expires xCart's cached aggregate, so the next cart query shows the subscription discount.</summary>
-    protected virtual Task TouchCartAsync(ShoppingCart cart) => cartService.SaveChangesAsync([cart]);
+    /// <summary>
+    /// Expires xCart's cached cart, so the next cart query is recalculated with the subscription discount. The cart
+    /// itself isn't saved: saving a copy loaded earlier would undo a change made to the cart in the meantime.
+    /// </summary>
+    protected virtual Task TouchCartAsync(ShoppingCart cart)
+    {
+        GenericCachingRegion<CartAggregate>.ExpireTokenForKey(cart.Id);
+        return Task.CompletedTask;
+    }
 }

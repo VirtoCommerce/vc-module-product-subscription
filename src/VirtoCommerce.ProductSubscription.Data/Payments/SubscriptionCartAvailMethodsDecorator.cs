@@ -28,7 +28,9 @@ public class SubscriptionCartAvailMethodsDecorator(
     {
         var methods = await inner.GetAvailablePaymentMethodsAsync(cartAggregate);
 
-        if (methods == null || !await HasSubscriptionLinesAsync(cartAggregate))
+        // A renewal pays with the subscription's own method, chosen at checkout; the filter is for checkout, where a
+        // subscription needs a method that can save a card.
+        if (methods == null || SubscriptionDiscountScope.Current is { Count: > 0 } || !await HasSubscriptionLinesAsync(cartAggregate))
         {
             return methods;
         }
@@ -48,12 +50,6 @@ public class SubscriptionCartAvailMethodsDecorator(
 
     protected virtual async Task<bool> HasSubscriptionLinesAsync(CartAggregate cartAggregate)
     {
-        // A renewal cart is built server-side for a subscription.
-        if (SubscriptionDiscountScope.Current is { Count: > 0 })
-        {
-            return true;
-        }
-
         var cart = cartAggregate?.Cart;
         if (string.IsNullOrEmpty(cart?.Id) || cart.Items.IsNullOrEmpty())
         {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -8,6 +9,7 @@ using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.DistributedLock;
 using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.Platform.Core.Jobs;
+using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
 
 namespace VirtoCommerce.ProductSubscription.Data.Handlers;
@@ -33,9 +35,10 @@ public class OrderChangedEventHandler(
                 continue;
             }
 
+            IList<SubscriptionCartItem> unusedChoices = null;
             if (entry.EntryState == EntryState.Added && !string.IsNullOrEmpty(order.ShoppingCartId))
             {
-                await CreateSubscriptionsAsync(order);
+                unusedChoices = await CreateSubscriptionsAsync(order);
             }
 
             if (!NeedsProcessing(entry))
@@ -47,6 +50,7 @@ public class OrderChangedEventHandler(
             var payload = AbstractTypeFactory<OrderChangedJobPayload>.TryCreateInstance();
             payload.OrderId = order.Id;
             payload.IsNew = entry.EntryState == EntryState.Added;
+            payload.Choices = unusedChoices;
 
             try
             {
@@ -105,8 +109,9 @@ public class OrderChangedEventHandler(
     /// <summary>
     /// Runs inline: right after the order is saved, xCart removes the ordered lines from the cart, and the cart change
     /// deletes their subscription choices. Creating the subscriptions here, before that, keeps the choices available.
+    /// Returns a copy of the choices when creating them failed, for the background job to retry with; null otherwise.
     /// </summary>
-    protected virtual async Task CreateSubscriptionsAsync(CustomerOrder order)
+    protected virtual async Task<IList<SubscriptionCartItem>> CreateSubscriptionsAsync(CustomerOrder order)
     {
         try
         {
@@ -114,11 +119,28 @@ public class OrderChangedEventHandler(
                 $"product-subscription:order:{order.Id}",
                 _ => subscriptionManager.CreateFromOrderAsync(order),
                 TimeSpan.FromSeconds(30));
+            return null;
         }
         catch (Exception ex)
         {
-            // Never fail checkout; the background job retries from whatever choices are left.
+            // Never fail checkout; the background job retries with a copy of the choices, taken before the cart
+            // change deletes them.
             logger.LogError(ex, "Failed to create subscriptions for order {OrderNumber}", order.Number);
+            return await CopyChoicesAsync(order);
+        }
+    }
+
+    protected virtual async Task<IList<SubscriptionCartItem>> CopyChoicesAsync(CustomerOrder order)
+    {
+        try
+        {
+            var choices = await subscriptionManager.GetCartChoicesAsync(order.ShoppingCartId);
+            return choices?.Count > 0 ? choices : null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to keep the subscription choices of order {OrderNumber} for a retry", order.Number);
+            return null;
         }
     }
 }

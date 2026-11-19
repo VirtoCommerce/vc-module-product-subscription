@@ -54,10 +54,31 @@ public class SubscriptionManager(
             return [];
         }
 
+        return await CreateFromOrderAsync(order, await GetCartChoicesAsync(order.ShoppingCartId));
+    }
+
+    public virtual async Task<IList<SubscriptionCartItem>> GetCartChoicesAsync(string cartId)
+    {
+        if (string.IsNullOrEmpty(cartId))
+        {
+            return [];
+        }
+
         var choicesCriteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
-        choicesCriteria.CartIds = [order.ShoppingCartId];
+        choicesCriteria.CartIds = [cartId];
         choicesCriteria.Take = ModuleConstants.SearchPageSize;
-        var choices = await cartItemSearchService.SearchAllNoCloneAsync(choicesCriteria);
+        return await cartItemSearchService.SearchAllAsync(choicesCriteria);
+    }
+
+    public virtual async Task<IList<Subscription>> CreateFromOrderAsync(CustomerOrder order, IList<SubscriptionCartItem> choices)
+    {
+        if (order == null || order.IsPrototype || string.IsNullOrEmpty(order.ShoppingCartId) || order.Items.IsNullOrEmpty()
+            || choices == null || choices.Count == 0)
+        {
+            return [];
+        }
+
+        choices = choices.Where(x => x.CartId == order.ShoppingCartId).ToList();
         if (choices.Count == 0)
         {
             return [];
@@ -600,7 +621,9 @@ public class SubscriptionManager(
 
     protected virtual async Task<string> FindConsentIdAsync(CustomerOrder order)
     {
+        // The latest consent of the customer for the cart (the search sorts by acceptance date, newest first).
         var criteria = AbstractTypeFactory<PaymentConsentSearchCriteria>.TryCreateInstance();
+        criteria.CustomerId = order.CustomerId;
         criteria.RelatedObjectType = ModuleConstants.ConsentObjectType;
         criteria.RelatedObjectId = order.ShoppingCartId;
         criteria.Purpose = ModuleConstants.ConsentPurpose;

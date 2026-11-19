@@ -22,7 +22,10 @@ public static class RenewalReviewReasonCode
     /// </summary>
     public const string ConfigurationChanged = "CONFIGURATION_CHANGED";
 
-    public static string[] All { get; } = [ItemsUnavailable, NoShippingMethod, PriceIncreased, ConfigurationChanged];
+    /// <summary>The payment method of the subscription can't be used any more: the customer chooses another card.</summary>
+    public const string NoPaymentMethod = "NO_PAYMENT_METHOD";
+
+    public static string[] All { get; } = [ItemsUnavailable, NoShippingMethod, PriceIncreased, ConfigurationChanged, NoPaymentMethod];
 }
 
 /// <summary>

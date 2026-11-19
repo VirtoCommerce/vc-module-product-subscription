@@ -91,17 +91,26 @@ public class RenewalProcessor(
         var seen = new HashSet<string>();
         while (true)
         {
-            var due = (await renewalSearchService.SearchAsync(criteria, clone: false)).Results.Where(x => seen.Add(x.Id)).ToList();
+            var page = (await renewalSearchService.SearchAsync(criteria, clone: false)).Results;
+            var due = page.Where(x => seen.Add(x.Id)).ToList();
             if (due.Count == 0)
             {
-                break;
+                // A whole page of renewals already tried in this run (e.g. their customers are busy): look past it,
+                // so the renewals behind it are not left for the next run.
+                if (page.Count < criteria.Take)
+                {
+                    break;
+                }
+
+                criteria.Skip += criteria.Take;
+                continue;
             }
 
             foreach (var renewal in due)
             {
                 try
                 {
-                    await ProcessAsync(renewal.Id);
+                    await ProcessScheduledAsync(renewal.Id);
                     processed++;
                 }
                 catch (Exception ex)
@@ -367,14 +376,17 @@ public class RenewalProcessor(
         }).ToList();
         renewal.AddEvent(RenewalEventType.StateChanged, isManual ? "Order now requested" : $"Renewal scheduled for {scheduledDate:yyyy-MM-dd}");
 
-        await renewalService.SaveChangesAsync([renewal]);
-
+        // The subscriptions are linked first, under an id given here: if saving the renewal then fails, they point to a
+        // renewal that doesn't exist, which doesn't block the next one. Saved the other way round, a failed link would
+        // leave an open renewal the subscriptions don't know about, and the next run would order them a second time.
+        renewal.Id ??= Guid.NewGuid().ToString("N");
         foreach (var subscription in subscriptions)
         {
             subscription.CurrentRenewalId = renewal.Id;
         }
 
         await subscriptionService.SaveChangesAsync(subscriptions);
+        await renewalService.SaveChangesAsync([renewal]);
 
         return renewal;
     }
@@ -434,7 +446,18 @@ public class RenewalProcessor(
 
     #region Commands
 
-    public virtual async Task<Renewal> ProcessAsync(string renewalId, bool ignoreSchedule = false)
+    public virtual Task<Renewal> ProcessAsync(string renewalId, bool ignoreSchedule = false)
+    {
+        return ProcessWithLockAsync(renewalId, ignoreSchedule, lockWait: null);
+    }
+
+    /// <summary>A due renewal in a scheduler run: a busy customer is not waited for long, the next run picks it up.</summary>
+    protected virtual Task<Renewal> ProcessScheduledAsync(string renewalId)
+    {
+        return ProcessWithLockAsync(renewalId, ignoreSchedule: false, _schedulerLockWait);
+    }
+
+    protected virtual async Task<Renewal> ProcessWithLockAsync(string renewalId, bool ignoreSchedule, TimeSpan? lockWait)
     {
         var customerId = (await renewalService.GetNoCloneAsync(renewalId))?.CustomerId;
         if (customerId == null)
@@ -444,7 +467,7 @@ public class RenewalProcessor(
 
         Renewal result = null;
         var ran = await distributedLock.TryRunForCustomerAsync(customerId,
-            async () => { result = await ProcessLockedAsync(renewalId, ignoreSchedule); });
+            async () => { result = await ProcessLockedAsync(renewalId, ignoreSchedule); }, lockWait);
 
         return ran ? result : await renewalService.GetByIdAsync(renewalId);
     }
@@ -592,6 +615,26 @@ public class RenewalProcessor(
         });
     }
 
+    /// <summary>
+    /// Card networks limit how often a declined card may be charged again (the store's "Max retries per 30 days"). A
+    /// customer's retry with the same card counts too; with another card it starts afresh.
+    /// </summary>
+    protected virtual async Task EnsureRetryAllowedAsync(Renewal renewal)
+    {
+        var store = await storeService.GetNoCloneAsync(renewal.StoreId);
+        var maxRetries = store?.Settings.GetValue<int>(ModuleConstants.Settings.Store.MaxRetriesPer30Days) ?? 0;
+        if (maxRetries <= 0)
+        {
+            return;
+        }
+
+        var attemptsIn30Days = renewal.Events.Count(x => x.EventType == RenewalEventType.PaymentAttempt && x.EventDate >= UtcNow.AddDays(-30));
+        if (attemptsIn30Days >= maxRetries)
+        {
+            throw new SubscriptionOperationException("This card was tried too many times. Please choose another card to pay for this delivery.");
+        }
+    }
+
     public virtual Task<Renewal> RetryPaymentAsync(string renewalId)
     {
         return WithLockAsync(renewalId, async renewal =>
@@ -615,6 +658,12 @@ public class RenewalProcessor(
             // Use the card currently set on the subscription: the customer may have just replaced it.
             var subscriptions = await LoadSubscriptionsAsync(renewal, onlyActive: false);
             var withCard = subscriptions.FirstOrDefault(x => !string.IsNullOrEmpty(x.StoredPaymentMethodId));
+            var isNewCard = withCard != null && withCard.StoredPaymentMethodId != renewal.StoredPaymentMethodId;
+            if (!isNewCard)
+            {
+                await EnsureRetryAllowedAsync(renewal);
+            }
+
             if (withCard != null)
             {
                 renewal.StoredPaymentMethodId = withCard.StoredPaymentMethodId;
@@ -859,6 +908,7 @@ public class RenewalProcessor(
     {
         if (!string.IsNullOrEmpty(renewal.OrderId))
         {
+            await AdvanceForPlacedOrderAsync(renewal);
             renewal.ChangeState(RenewalState.Ordered, "Order already placed", UtcNow);
             return;
         }
@@ -903,6 +953,26 @@ public class RenewalProcessor(
         renewal.ChangeState(RenewalState.Ordered, $"Order {order.Number} placed", UtcNow);
     }
 
+    /// <summary>
+    /// The order was placed but the run stopped before the subscriptions moved to their next date (they still point to
+    /// this renewal): move them now. Left as they were, they would be due again for the same date and ordered twice.
+    /// </summary>
+    protected virtual async Task AdvanceForPlacedOrderAsync(Renewal renewal)
+    {
+        var subscriptions = (await LoadSubscriptionsAsync(renewal, onlyActive: false))
+            .Where(x => x.CurrentRenewalId == renewal.Id)
+            .ToList();
+
+        if (subscriptions.Count == 0)
+        {
+            return;
+        }
+
+        var order = await customerOrderService.GetByIdAsync(renewal.OrderId);
+        await AdvanceSubscriptionsAsync(renewal, subscriptions, order);
+        renewal.AddEvent(RenewalEventType.StateChanged, "Subscriptions moved to their next delivery after an interrupted run");
+    }
+
     /// <summary>Why the renewal needs the customer's review before it is ordered, or null when it doesn't.</summary>
     protected virtual RenewalReviewReason GetReviewReason(Renewal renewal, RenewalCartResult cart)
     {
@@ -924,6 +994,12 @@ public class RenewalProcessor(
             return new RenewalReviewReason(RenewalReviewReasonCode.NoShippingMethod, "No shipping method is available for the delivery address.");
         }
 
+        if (HasNoPayment(cart))
+        {
+            return new RenewalReviewReason(RenewalReviewReasonCode.NoPaymentMethod,
+                "The payment method of this subscription is no longer available. Please choose another card.");
+        }
+
         if (renewal.NotifiedTotal != null && cart.Total > renewal.NotifiedTotal.Value + PriceIncreaseTolerance)
         {
             return new RenewalReviewReason(RenewalReviewReasonCode.PriceIncreased,
@@ -931,6 +1007,13 @@ public class RenewalProcessor(
         }
 
         return null;
+    }
+
+    /// <summary>A cart with something to order and no payment: the subscription's payment method is gone or turned off.</summary>
+    protected static bool HasNoPayment(RenewalCartResult cart)
+    {
+        var shoppingCart = cart.Aggregate?.Cart;
+        return shoppingCart?.Items?.Count > 0 && (shoppingCart.Payments == null || shoppingCart.Payments.Count == 0);
     }
 
     protected virtual async Task SkipUnreviewedAsync(Renewal renewal)
@@ -1024,7 +1107,18 @@ public class RenewalProcessor(
         switch (result.Outcome)
         {
             case ChargeOutcome.Succeeded:
-                await OnChargeSucceededAsync(renewal, order, payment, storedMethod, result);
+                try
+                {
+                    await OnChargeSucceededAsync(renewal, order, payment, storedMethod, result);
+                }
+                catch
+                {
+                    // The provider has accepted this charge. The next attempt sends the same idempotency key, so the
+                    // provider answers with this charge instead of authorizing the card a second time.
+                    renewal.AttemptCount--;
+                    throw;
+                }
+
                 break;
 
             case ChargeOutcome.RequiresAction:
@@ -1427,7 +1521,8 @@ public class RenewalProcessor(
         return minutes > 0 ? minutes : (int)ModuleConstants.Settings.General.AuthorizationLifetimeMinutes.DefaultValue;
     }
 
-    protected static bool IsShipped(CustomerOrder order)
+    /// <summary>Whether the order has shipped, so its authorized payment is captured. Override for custom order or shipment statuses.</summary>
+    protected virtual bool IsShipped(CustomerOrder order)
     {
         return order?.Shipments?.Any(x => x.Status is "Sent" or "Completed") == true
             || order?.Status is "Completed" or "Sent";

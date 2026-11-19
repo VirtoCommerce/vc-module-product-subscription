@@ -64,7 +64,7 @@ public class RenewalTestHarness
             .ReturnsAsync((IList<string> ids, string _, bool _) => Read(() => ids.Where(_subscriptions.ContainsKey).Select(id => Copy(_subscriptions[id])).ToList()));
         subscriptionService
             .Setup(x => x.SaveChangesAsync(It.IsAny<IList<Subscription>>()))
-            .Returns((IList<Subscription> models) => Write(() =>
+            .Returns((IList<Subscription> models) => FailSubscriptionSave?.Invoke(models) == true ? Task.FromException(new InvalidOperationException("Subscription save failed")) : Write(() =>
             {
                 foreach (var model in models)
                 {
@@ -84,7 +84,7 @@ public class RenewalTestHarness
             .ReturnsAsync((IList<string> ids, string _, bool _) => Read(() => ids.Where(_renewals.ContainsKey).Select(id => Copy(_renewals[id])).ToList()));
         renewalService
             .Setup(x => x.SaveChangesAsync(It.IsAny<IList<Renewal>>()))
-            .Returns((IList<Renewal> models) => Write(() =>
+            .Returns((IList<Renewal> models) => FailRenewalSave?.Invoke(models) == true ? Task.FromException(new InvalidOperationException("Renewal save failed")) : Write(() =>
             {
                 foreach (var model in models)
                 {
@@ -113,7 +113,7 @@ public class RenewalTestHarness
             .ReturnsAsync((IList<string> ids, string _, bool _) => Read(() => ids.Where(x => x != null && _orders.ContainsKey(x)).Select(id => _orders[id]).ToList()));
         customerOrderService
             .Setup(x => x.SaveChangesAsync(It.IsAny<IList<CustomerOrder>>()))
-            .Returns((IList<CustomerOrder> models) => Write(() =>
+            .Returns((IList<CustomerOrder> models) => FailOrderSave?.Invoke(models) == true ? Task.FromException(new InvalidOperationException("Order save failed")) : Write(() =>
             {
                 foreach (var model in models)
                 {
@@ -197,6 +197,15 @@ public class RenewalTestHarness
     public TestRenewalProcessor Processor { get; }
 
     public SubscriptionManager Manager { get; }
+
+    /// <summary>Makes a subscription save fail when it returns true (a database failure in the middle of a run).</summary>
+    public Func<IList<Subscription>, bool> FailSubscriptionSave { get; set; }
+
+    /// <summary>Makes a renewal save fail when it returns true.</summary>
+    public Func<IList<Renewal>, bool> FailRenewalSave { get; set; }
+
+    /// <summary>Makes an order save fail when it returns true.</summary>
+    public Func<IList<CustomerOrder>, bool> FailOrderSave { get; set; }
 
     /// <summary>Runs while an order is being placed, before it exists: lets a test act in the middle of order placement.</summary>
     public Func<Renewal, Task> OnPlaceOrder { get; set; }
