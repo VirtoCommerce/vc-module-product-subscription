@@ -131,26 +131,42 @@ public class SubscriptionManager(
     /// <summary>What every subscription of an order shares: delivery, payment, consent and dates.</summary>
     protected virtual async Task<OrderSubscriptionDefaults> GetOrderDefaultsAsync(CustomerOrder order)
     {
-        var shipment = order.Shipments?.FirstOrDefault();
-        var shippingAddress = ToCoreAddress(shipment?.DeliveryAddress)
-            ?? ToCoreAddress(order.Addresses?.FirstOrDefault(x => x.AddressType == AddressType.Shipping || x.AddressType == AddressType.BillingAndShipping))
-            ?? ToCoreAddress(order.Addresses?.FirstOrDefault());
-        var storedPaymentMethod = await FindStoredPaymentMethodAsync(order);
         var now = DateTime.UtcNow;
-
-        return new OrderSubscriptionDefaults
+        var defaults = new OrderSubscriptionDefaults
         {
             Now = now,
             PlacedDate = order.CreatedDate == default ? now : order.CreatedDate,
-            ShippingAddress = shippingAddress,
-            CustomerEmail = shippingAddress?.Email ?? order.Addresses?.Select(x => x.Email).FirstOrDefault(x => !string.IsNullOrEmpty(x)),
-            ShippingMethodCode = shipment?.ShipmentMethodCode,
-            ShippingMethodOption = shipment?.ShipmentMethodOption,
-            PaymentMethodCode = storedPaymentMethod?.PaymentMethodCode ?? order.InPayments?.FirstOrDefault()?.GatewayCode,
-            StoredPaymentMethodId = storedPaymentMethod?.Id,
             ConsentId = await FindConsentIdAsync(order),
             IsPaymentAuthorized = order.InPayments?.Any(x => _paidStatuses.Contains(x.PaymentStatus)) == true,
         };
+
+        SetDelivery(defaults, order);
+        SetPayment(defaults, order, await FindStoredPaymentMethodAsync(order));
+
+        return defaults;
+    }
+
+    /// <summary>The delivery of the order's first shipment; the address falls back to the order's addresses.</summary>
+    protected virtual void SetDelivery(OrderSubscriptionDefaults defaults, CustomerOrder order)
+    {
+        var shipment = order.Shipments?.FirstOrDefault();
+        defaults.ShippingMethodCode = shipment?.ShipmentMethodCode;
+        defaults.ShippingMethodOption = shipment?.ShipmentMethodOption;
+        defaults.ShippingAddress = ToCoreAddress(shipment?.DeliveryAddress) ?? ToCoreAddress(GetOrderShippingAddress(order));
+        defaults.CustomerEmail = defaults.ShippingAddress?.Email ?? order.Addresses?.Select(x => x.Email).FirstOrDefault(x => !string.IsNullOrEmpty(x));
+    }
+
+    protected static Address GetOrderShippingAddress(CustomerOrder order)
+    {
+        var addresses = order.Addresses ?? [];
+        return addresses.FirstOrDefault(x => x.AddressType is AddressType.Shipping or AddressType.BillingAndShipping) ?? addresses.FirstOrDefault();
+    }
+
+    /// <summary>The saved card the order paid with, or the order's payment method.</summary>
+    protected virtual void SetPayment(OrderSubscriptionDefaults defaults, CustomerOrder order, StoredPaymentMethod storedPaymentMethod)
+    {
+        defaults.StoredPaymentMethodId = storedPaymentMethod?.Id;
+        defaults.PaymentMethodCode = storedPaymentMethod?.PaymentMethodCode ?? order.InPayments?.FirstOrDefault()?.GatewayCode;
     }
 
     /// <summary>The subscription a cart choice becomes, from its order line and plan.</summary>
