@@ -35,8 +35,8 @@ test("the product page offers Subscribe & Save with a frequency", async ({ page 
 });
 
 // The account page lists upcoming deliveries by month. Each delivery card has a settings menu (⚙); what it offers is
-// what the store lets customers do (Product Subscription > Customer actions). The scenarios assume the defaults:
-// skip, order now and change card off; pause and change frequency on. Cancelling is always offered.
+// what the store lets customers do (Product Subscription > Customer actions: public store settings, read here the way
+// the storefront reads them). Cancelling is always offered.
 const DELIVERY = '[data-test-id^="subscription-delivery-"]';
 const MENU_BUTTON = '[data-test-id^="subscription-settings-"][data-test-id$="-button"]';
 const FREQUENCY_CHANGE = '[data-test-id^="subscription-frequency-change-"]';
@@ -44,6 +44,40 @@ const FREQUENCY_CHANGE = '[data-test-id^="subscription-frequency-change-"]';
 async function openDeliveries(page: Page) {
   await open(page, "/account/subscriptions");
   await expect(page.locator(DELIVERY).first()).toBeVisible({ timeout: 60_000 });
+}
+
+interface CustomerActions {
+  skip: boolean;
+  orderNow: boolean;
+  changeCard: boolean;
+  pause: boolean;
+  changeFrequency: boolean;
+}
+
+/** The store's Customer actions, from its public settings; a setting the store hasn't saved keeps its default. */
+async function storeCustomerActions(page: Page): Promise<CustomerActions> {
+  const settings: { name: string; value: unknown }[] = await page.evaluate(async () => {
+    const query = "query($domain: String!) { store(domain: $domain) { settings { modules { moduleId settings { name value } } } } }";
+    const response = await fetch("/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, variables: { domain: location.host } }),
+    });
+    const json = await response.json();
+    const modules: { settings: { name: string; value: unknown }[] }[] = json?.data?.store?.settings?.modules ?? [];
+    return modules.flatMap((x) => x.settings ?? []);
+  });
+  const flag = (name: string, fallback: boolean) => {
+    const value = settings.find((x) => x.name === `ProductSubscription.Customer.${name}`)?.value;
+    return value === undefined || value === null ? fallback : String(value).toLowerCase() === "true";
+  };
+  return {
+    skip: flag("AllowSkip", false),
+    orderNow: flag("AllowOrderNow", false),
+    changeCard: flag("AllowChangePaymentMethod", false),
+    pause: flag("AllowPause", true),
+    changeFrequency: flag("AllowChangeFrequency", true),
+  };
 }
 
 /** Opens the settings menu of the first delivery that has one and returns its test id prefix. */
@@ -64,10 +98,15 @@ test("the account lists upcoming deliveries by month", async ({ page }) => {
 
 test("the delivery menu offers only what the store allows", async ({ page }) => {
   await openDeliveries(page);
+  const allowed = await storeCustomerActions(page);
   const menu = await openFirstMenu(page);
   await expect(page.getByTestId(`${menu}-cancel`)).toBeVisible();
-  for (const off of ["skip", "order-now", "change-card"]) {
-    await expect(page.getByTestId(`${menu}-${off}`), `${off} is off by default`).toHaveCount(0);
+  // an action the store turned off is never offered; one it allows also depends on the delivery (e.g. not yet ordered)
+  const actions = { skip: allowed.skip, "order-now": allowed.orderNow, "change-card": allowed.changeCard };
+  for (const [action, isAllowed] of Object.entries(actions)) {
+    if (!isAllowed) {
+      await expect(page.getByTestId(`${menu}-${action}`), `${action} is turned off in the store`).toHaveCount(0);
+    }
   }
   // Escape closes the menu; its panel stays in the page, hidden
   await page.keyboard.press("Escape");
@@ -76,6 +115,7 @@ test("the delivery menu offers only what the store allows", async ({ page }) => 
 
 test("a subscription is paused and resumed", async ({ page }) => {
   await openDeliveries(page);
+  test.skip(!(await storeCustomerActions(page)).pause, "the store doesn't let customers pause");
   // the frequency dialog of one product pauses that product only; taken from a delivery not placed yet, so the
   // subscription is a healthy one (a past-due one would come back with its failed delivery still to pay)
   const change = page.locator(`[data-test-id^="subscription-delivery-upcoming-"] ${FREQUENCY_CHANGE}`).first();
