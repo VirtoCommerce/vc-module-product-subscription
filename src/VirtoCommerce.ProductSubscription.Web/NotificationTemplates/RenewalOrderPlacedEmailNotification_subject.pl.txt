@@ -1,0 +1,1 @@
+Złożono zamówienie {{ renewal.order_number }} w ramach Twojej subskrypcji

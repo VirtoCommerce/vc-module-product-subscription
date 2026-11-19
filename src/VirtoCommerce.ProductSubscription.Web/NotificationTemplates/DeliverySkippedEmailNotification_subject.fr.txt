@@ -1,0 +1,1 @@
+Votre livraison du {{ delivery_date_text }} est sautée

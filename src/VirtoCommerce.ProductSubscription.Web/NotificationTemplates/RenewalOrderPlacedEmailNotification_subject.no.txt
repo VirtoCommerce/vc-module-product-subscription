@@ -1,0 +1,1 @@
+Bestilling {{ renewal.order_number }} er lagt inn for abonnementet ditt

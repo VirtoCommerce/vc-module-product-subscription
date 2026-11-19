@@ -27,6 +27,7 @@ public static class ModuleConstants
     // Visa allows 15 attempts per 30 days.
     private const int DefaultMaxRetriesPer30Days = 15;
     private const int DefaultPaymentActionWaitDays = 7;
+    private const string DefaultEmailAccentColor = "#1f2933";
 
     /// <summary>The object a subscription consent is recorded for: the checkout cart the customer accepted the terms in.</summary>
     public const string ConsentObjectType = "ShoppingCart";
@@ -188,6 +189,24 @@ public static class ModuleConstants
                 DefaultValue = true,
             };
 
+            /// <summary>The colour of buttons and links in subscription emails (CSS colour).</summary>
+            public static SettingDescriptor EmailAccentColor { get; } = new()
+            {
+                Name = "ProductSubscription.Email.AccentColor",
+                GroupName = "Product Subscription|Notifications",
+                ValueType = SettingValueType.ShortText,
+                DefaultValue = DefaultEmailAccentColor,
+            };
+
+            /// <summary>An absolute URL of the logo shown at the top of subscription emails; empty shows the store name.</summary>
+            public static SettingDescriptor EmailLogoUrl { get; } = new()
+            {
+                Name = "ProductSubscription.Email.LogoUrl",
+                GroupName = "Product Subscription|Notifications",
+                ValueType = SettingValueType.ShortText,
+                DefaultValue = string.Empty,
+            };
+
             // What a customer can do with a subscription from the storefront. Each flag hides the action in the storefront
             // (it is public, and folded into the can* fields) and makes the xAPI refuse it. The back office is not limited.
             // Cancelling has no flag: US auto-renewal laws require that a customer can always cancel online.
@@ -249,6 +268,8 @@ public static class ModuleConstants
                     yield return TermsVersion;
                     yield return TermsText;
                     yield return AnnualReminderEnabled;
+                    yield return EmailAccentColor;
+                    yield return EmailLogoUrl;
                     yield return CustomerCanSkip;
                     yield return CustomerCanOrderNow;
                     yield return CustomerCanChangePaymentMethod;

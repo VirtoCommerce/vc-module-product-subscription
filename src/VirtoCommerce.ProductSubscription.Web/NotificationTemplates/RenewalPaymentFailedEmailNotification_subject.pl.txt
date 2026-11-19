@@ -1,0 +1,1 @@
+{% if will_retry %}Nie udało się obciążyć Twojej karty{% else %}Wymagane działanie: zaktualizuj metodę płatności{% endif %}

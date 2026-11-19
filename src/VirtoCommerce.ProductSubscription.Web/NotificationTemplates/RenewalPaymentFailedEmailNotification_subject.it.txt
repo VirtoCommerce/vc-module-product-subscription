@@ -1,0 +1,1 @@
+{% if will_retry %}Non siamo riusciti ad addebitare la tua carta{% else %}Azione richiesta: aggiorna il metodo di pagamento{% endif %}

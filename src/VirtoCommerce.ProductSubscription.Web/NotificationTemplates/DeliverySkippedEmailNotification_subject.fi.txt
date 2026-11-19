@@ -1,0 +1,1 @@
+Toimituksesi {{ delivery_date_text }} on ohitettu

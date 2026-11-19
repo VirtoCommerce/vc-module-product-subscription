@@ -1,0 +1,1 @@
+Następna dostawa: {{ delivery_date_text }}

@@ -358,9 +358,12 @@ public class SubscriptionManager(
 
             await DetachFromOpenRenewalAsync(subscription, "Skipped by customer");
 
+            var skippedDate = subscription.NextOrderDate;
             subscription.NextOrderDate = SubscriptionSchedule.AddInterval(subscription.NextOrderDate, subscription.IntervalUnit, subscription.IntervalCount, subscription.EffectiveAnchorDay);
             subscription.SkipCount++;
             await subscriptionService.SaveChangesAsync([subscription]);
+
+            await notificationService.SendAsync<DeliverySkippedEmailNotification>([subscription], configure: x => x.SkippedDate = skippedDate);
 
             return subscription;
         });
@@ -383,6 +386,8 @@ public class SubscriptionManager(
             subscription.PausedUntil = resumeDate?.ToUniversalTime();
             await subscriptionService.SaveChangesAsync([subscription]);
 
+            await notificationService.SendAsync<SubscriptionPausedEmailNotification>([subscription]);
+
             return subscription;
         });
     }
@@ -403,6 +408,8 @@ public class SubscriptionManager(
             }
 
             await subscriptionService.SaveChangesAsync([subscription]);
+
+            await notificationService.SendAsync<SubscriptionResumedEmailNotification>([subscription]);
 
             return subscription;
         });

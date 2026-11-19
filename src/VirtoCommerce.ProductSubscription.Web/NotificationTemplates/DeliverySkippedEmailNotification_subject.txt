@@ -1,0 +1,1 @@
+Your delivery of {{ delivery_date_text }} is skipped

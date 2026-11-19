@@ -1,0 +1,1 @@
+Dine abonnementer hos {{ store_name }}: årlig påminnelse

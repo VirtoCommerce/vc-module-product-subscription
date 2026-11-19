@@ -1,0 +1,1 @@
+次回のお届け：{{ delivery_date_text }}

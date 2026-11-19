@@ -76,6 +76,16 @@
           "description": "Required in California, Minnesota and Connecticut"
         }
       },
+      "Email": {
+        "AccentColor": {
+          "title": "Email button colour",
+          "description": "CSS colour of buttons and links in subscription emails, for example #1f2933"
+        },
+        "LogoUrl": {
+          "title": "Email logo URL",
+          "description": "Absolute URL of the logo at the top of subscription emails. Empty shows the store name"
+        }
+      },
       "Renewal": {
         "NumberTemplate": {
           "title": "Renewal number template",

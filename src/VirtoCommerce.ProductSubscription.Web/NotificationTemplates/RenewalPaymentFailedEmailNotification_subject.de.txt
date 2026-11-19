@@ -1,0 +1,1 @@
+{% if will_retry %}Wir konnten Ihre Karte nicht belasten{% else %}Handlungsbedarf: Aktualisieren Sie Ihre Zahlungsart{% endif %}
