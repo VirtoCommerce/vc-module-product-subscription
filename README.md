@@ -40,8 +40,8 @@ The Product Subscription module adds Subscribe & Save to Virto Commerce: item-le
 | `ProductSubscription.RetryScheduleHours` | ShortText | `24,72,120` | Comma-separated delays between payment retries after a soft decline |
 | `ProductSubscription.MaxRetriesPer30Days` | Integer | `15` | Card network limit on payment attempts per 30 days |
 | `ProductSubscription.PaymentActionWaitDays` | Integer | `7` | Days to wait for 3-D Secure confirmation or a review before the renewal fails or is skipped |
-| `ProductSubscription.Terms.Version` | ShortText | `2026-10` | Version of the subscription terms; change it with the text, and customers accept the new version at checkout |
-| `ProductSubscription.Terms.Text` | LongText | *(US auto-renewal disclosure)* | Terms shown before the payment fields at checkout |
+| `ProductSubscription.Terms.Version` | ShortText | `2026-11` | Version of the subscription terms; change it with the text, and customers accept the new version at checkout |
+| `ProductSubscription.Terms.Text` | LongText | *(US auto-renewal disclosure, Markdown)* | Terms shown before the payment fields at checkout, rendered as Markdown (bold lead-ins, a blank line between paragraphs) |
 | `ProductSubscription.AnnualReminder.Enabled` | Boolean | `true` | Send the yearly reminder (required in California, Minnesota and Connecticut) |
 
 ### Application Configuration

@@ -45,7 +45,7 @@
         },
         "Text": {
           "title": "Subscription terms text",
-          "description": "Shown before the payment fields at checkout (US auto-renewal disclosure)"
+          "description": "Shown before the payment fields at checkout (US auto-renewal disclosure). Markdown: **bold**, a blank line between paragraphs"
         }
       },
       "Customer": {
