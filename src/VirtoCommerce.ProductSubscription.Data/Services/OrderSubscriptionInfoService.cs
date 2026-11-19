@@ -20,21 +20,18 @@ public class OrderSubscriptionInfoService(
     public virtual async Task<IList<OrderSubscriptionInfo>> GetForOrdersAsync(IList<string> orderIds, string customerId = null)
     {
         var ids = orderIds?.Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList() ?? [];
-        if (ids.Count == 0)
+        var result = new List<OrderSubscriptionInfo>();
+        foreach (var batch in ids.Chunk(MaxOrders))
         {
-            return [];
+            result.AddRange(await GetForBatchAsync(batch, customerId));
         }
 
-        if (ids.Count > MaxOrders)
-        {
-            var all = new List<OrderSubscriptionInfo>();
-            foreach (var batch in ids.Chunk(MaxOrders))
-            {
-                all.AddRange(await GetForOrdersAsync(batch, customerId));
-            }
+        return result;
+    }
 
-            return all;
-        }
+    /// <summary>The subscription info of at most <see cref="MaxOrders"/> orders.</summary>
+    protected virtual async Task<IList<OrderSubscriptionInfo>> GetForBatchAsync(IList<string> ids, string customerId)
+    {
 
         var renewals = await GetRenewalsAsync(ids, customerId);
         var started = await GetStartedSubscriptionsAsync(ids, customerId);

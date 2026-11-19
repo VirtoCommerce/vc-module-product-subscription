@@ -49,7 +49,7 @@ public class SubscriptionManager(
 
     public virtual async Task<IList<Subscription>> CreateFromOrderAsync(CustomerOrder order)
     {
-        if (order == null || order.IsPrototype || string.IsNullOrEmpty(order.ShoppingCartId) || order.Items.IsNullOrEmpty())
+        if (!IsCheckoutOrder(order))
         {
             return [];
         }
@@ -57,110 +57,32 @@ public class SubscriptionManager(
         return await CreateFromOrderAsync(order, await GetCartChoicesAsync(order.ShoppingCartId));
     }
 
-    public virtual async Task<IList<SubscriptionCartItem>> GetCartChoicesAsync(string cartId)
-    {
-        if (string.IsNullOrEmpty(cartId))
-        {
-            return [];
-        }
-
-        var choicesCriteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
-        choicesCriteria.CartIds = [cartId];
-        choicesCriteria.Take = ModuleConstants.SearchPageSize;
-        return await cartItemSearchService.SearchAllAsync(choicesCriteria);
-    }
-
     public virtual async Task<IList<Subscription>> CreateFromOrderAsync(CustomerOrder order, IList<SubscriptionCartItem> choices)
     {
-        if (order == null || order.IsPrototype || string.IsNullOrEmpty(order.ShoppingCartId) || order.Items.IsNullOrEmpty()
-            || choices == null || choices.Count == 0)
+        if (!IsCheckoutOrder(order) || choices.IsNullOrEmpty())
         {
             return [];
         }
 
         choices = choices.Where(x => x.CartId == order.ShoppingCartId).ToList();
-        if (choices.Count == 0)
-        {
-            return [];
-        }
-
-        // Idempotent: never create subscriptions twice for the same order.
-        var existingCriteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
-        existingCriteria.InitialOrderId = order.Id;
-        existingCriteria.Take = 1;
-        if ((await subscriptionSearchService.SearchAsync(existingCriteria)).TotalCount > 0)
+        if (choices.Count == 0 || await HasSubscriptionsAsync(order))
         {
             return [];
         }
 
         var plans = (await planService.GetAsync(choices.Select(x => x.PlanId).Distinct().ToList())).ToDictionary(x => x.Id);
-        var storedPaymentMethod = await FindStoredPaymentMethodAsync(order);
-        var consentId = await FindConsentIdAsync(order);
-        var paymentAuthorized = order.InPayments?.Any(x => _paidStatuses.Contains(x.PaymentStatus)) == true;
-
-        var shipment = order.Shipments?.FirstOrDefault();
-        var payment = order.InPayments?.FirstOrDefault();
-        var shippingAddress = ToCoreAddress(shipment?.DeliveryAddress)
-            ?? ToCoreAddress(order.Addresses?.FirstOrDefault(x => x.AddressType == AddressType.Shipping || x.AddressType == AddressType.BillingAndShipping))
-            ?? ToCoreAddress(order.Addresses?.FirstOrDefault());
-
-        var now = DateTime.UtcNow;
+        var defaults = await GetOrderDefaultsAsync(order);
         var subscriptions = new List<Subscription>();
         var usedChoices = new List<SubscriptionCartItem>();
         var matches = MatchOrderLines(choices, order.Items.ToList());
 
         foreach (var choice in choices)
         {
-            if (!matches.TryGetValue(choice, out var lineItem) || !plans.TryGetValue(choice.PlanId, out var plan))
+            if (matches.TryGetValue(choice, out var lineItem) && plans.TryGetValue(choice.PlanId, out var plan))
             {
-                continue;
+                subscriptions.Add(CreateSubscription(order, lineItem, plan, choice, defaults));
+                usedChoices.Add(choice);
             }
-
-            var configuration = SubscriptionConfigurationMapper.FromOrderLine(lineItem, order.Id, order.Number);
-
-            var subscription = AbstractTypeFactory<Subscription>.TryCreateInstance();
-            subscription.StoreId = order.StoreId;
-            subscription.CustomerId = order.CustomerId;
-            subscription.CustomerName = order.CustomerName;
-            subscription.CustomerEmail = shippingAddress?.Email ?? order.Addresses?.Select(x => x.Email).FirstOrDefault(x => !string.IsNullOrEmpty(x));
-            subscription.OrganizationId = order.OrganizationId;
-            subscription.ProductId = lineItem.ProductId;
-            subscription.Sku = lineItem.Sku;
-            subscription.ProductName = lineItem.Name;
-            subscription.ImageUrl = lineItem.ImageUrl;
-            subscription.Quantity = Math.Max(1, lineItem.Quantity);
-            subscription.Configuration = configuration;
-            subscription.ConfigurationHash = configuration?.ComputeHash();
-            subscription.PlanId = plan.Id;
-            subscription.PlanName = plan.Name;
-            subscription.IntervalUnit = choice.IntervalUnit;
-            subscription.IntervalCount = Math.Max(1, choice.IntervalCount);
-            subscription.DiscountType = plan.DiscountType;
-            subscription.DiscountValue = plan.DiscountValue;
-            subscription.Status = paymentAuthorized ? SubscriptionStatus.Active : SubscriptionStatus.PendingActivation;
-            subscription.StartDate = now;
-            var placedDate = order.CreatedDate == default ? now : order.CreatedDate;
-            subscription.AnchorDay = placedDate.Day;
-            subscription.NextOrderDate = SubscriptionSchedule.AddInterval(placedDate, subscription.IntervalUnit, subscription.IntervalCount, subscription.AnchorDay);
-            subscription.Currency = order.Currency;
-            subscription.LanguageCode = order.LanguageCode;
-            subscription.ShippingAddress = shippingAddress;
-            subscription.ShippingMethodCode = shipment?.ShipmentMethodCode;
-            subscription.ShippingMethodOption = shipment?.ShipmentMethodOption;
-            subscription.PaymentMethodCode = storedPaymentMethod?.PaymentMethodCode ?? payment?.GatewayCode;
-            subscription.StoredPaymentMethodId = storedPaymentMethod?.Id;
-            subscription.ConsentId = consentId;
-            subscription.InitialOrderId = order.Id;
-            subscription.InitialOrderNumber = order.Number;
-            subscription.LastOrderId = order.Id;
-            subscription.LastOrderNumber = order.Number;
-            subscription.LastOrderDate = now;
-            subscription.OrdersCount = 1;
-            subscription.ReferencePrice = lineItem.PlacedPrice;
-            subscription.LastAnnualReminderDate = now;
-
-            subscriptions.Add(subscription);
-            usedChoices.Add(choice);
         }
 
         if (subscriptions.Count == 0)
@@ -176,6 +98,122 @@ public class SubscriptionManager(
         await notificationService.SendAsync<SubscriptionCreatedEmailNotification>(subscriptions);
 
         return subscriptions;
+    }
+
+    public virtual async Task<IList<SubscriptionCartItem>> GetCartChoicesAsync(string cartId)
+    {
+        if (string.IsNullOrEmpty(cartId))
+        {
+            return [];
+        }
+
+        var choicesCriteria = AbstractTypeFactory<SubscriptionCartItemSearchCriteria>.TryCreateInstance();
+        choicesCriteria.CartIds = [cartId];
+        choicesCriteria.Take = ModuleConstants.SearchPageSize;
+        return await cartItemSearchService.SearchAllAsync(choicesCriteria);
+    }
+
+    /// <summary>A placed order made from a cart, with lines: the only kind subscriptions are created from.</summary>
+    protected static bool IsCheckoutOrder(CustomerOrder order)
+    {
+        return order is { IsPrototype: false } && !string.IsNullOrEmpty(order.ShoppingCartId) && !order.Items.IsNullOrEmpty();
+    }
+
+    /// <summary>Idempotent: never create subscriptions twice for the same order.</summary>
+    protected virtual async Task<bool> HasSubscriptionsAsync(CustomerOrder order)
+    {
+        var criteria = AbstractTypeFactory<SubscriptionSearchCriteria>.TryCreateInstance();
+        criteria.InitialOrderId = order.Id;
+        criteria.Take = 1;
+        return (await subscriptionSearchService.SearchAsync(criteria)).TotalCount > 0;
+    }
+
+    /// <summary>What every subscription of an order shares: delivery, payment, consent and dates.</summary>
+    protected virtual async Task<OrderSubscriptionDefaults> GetOrderDefaultsAsync(CustomerOrder order)
+    {
+        var shipment = order.Shipments?.FirstOrDefault();
+        var shippingAddress = ToCoreAddress(shipment?.DeliveryAddress)
+            ?? ToCoreAddress(order.Addresses?.FirstOrDefault(x => x.AddressType == AddressType.Shipping || x.AddressType == AddressType.BillingAndShipping))
+            ?? ToCoreAddress(order.Addresses?.FirstOrDefault());
+        var storedPaymentMethod = await FindStoredPaymentMethodAsync(order);
+        var now = DateTime.UtcNow;
+
+        return new OrderSubscriptionDefaults
+        {
+            Now = now,
+            PlacedDate = order.CreatedDate == default ? now : order.CreatedDate,
+            ShippingAddress = shippingAddress,
+            CustomerEmail = shippingAddress?.Email ?? order.Addresses?.Select(x => x.Email).FirstOrDefault(x => !string.IsNullOrEmpty(x)),
+            ShippingMethodCode = shipment?.ShipmentMethodCode,
+            ShippingMethodOption = shipment?.ShipmentMethodOption,
+            PaymentMethodCode = storedPaymentMethod?.PaymentMethodCode ?? order.InPayments?.FirstOrDefault()?.GatewayCode,
+            StoredPaymentMethodId = storedPaymentMethod?.Id,
+            ConsentId = await FindConsentIdAsync(order),
+            IsPaymentAuthorized = order.InPayments?.Any(x => _paidStatuses.Contains(x.PaymentStatus)) == true,
+        };
+    }
+
+    /// <summary>The subscription a cart choice becomes, from its order line and plan.</summary>
+    protected virtual Subscription CreateSubscription(CustomerOrder order, LineItem lineItem, SubscriptionPlan plan, SubscriptionCartItem choice, OrderSubscriptionDefaults defaults)
+    {
+        var configuration = SubscriptionConfigurationMapper.FromOrderLine(lineItem, order.Id, order.Number);
+
+        var subscription = AbstractTypeFactory<Subscription>.TryCreateInstance();
+        subscription.StoreId = order.StoreId;
+        subscription.CustomerId = order.CustomerId;
+        subscription.CustomerName = order.CustomerName;
+        subscription.CustomerEmail = defaults.CustomerEmail;
+        subscription.OrganizationId = order.OrganizationId;
+        subscription.ProductId = lineItem.ProductId;
+        subscription.Sku = lineItem.Sku;
+        subscription.ProductName = lineItem.Name;
+        subscription.ImageUrl = lineItem.ImageUrl;
+        subscription.Quantity = Math.Max(1, lineItem.Quantity);
+        subscription.Configuration = configuration;
+        subscription.ConfigurationHash = configuration?.ComputeHash();
+        subscription.PlanId = plan.Id;
+        subscription.PlanName = plan.Name;
+        subscription.IntervalUnit = choice.IntervalUnit;
+        subscription.IntervalCount = Math.Max(1, choice.IntervalCount);
+        subscription.DiscountType = plan.DiscountType;
+        subscription.DiscountValue = plan.DiscountValue;
+        subscription.Status = defaults.IsPaymentAuthorized ? SubscriptionStatus.Active : SubscriptionStatus.PendingActivation;
+        subscription.StartDate = defaults.Now;
+        subscription.AnchorDay = defaults.PlacedDate.Day;
+        subscription.NextOrderDate = SubscriptionSchedule.AddInterval(defaults.PlacedDate, subscription.IntervalUnit, subscription.IntervalCount, subscription.AnchorDay);
+        subscription.Currency = order.Currency;
+        subscription.LanguageCode = order.LanguageCode;
+        subscription.ShippingAddress = (Address)defaults.ShippingAddress?.Clone();
+        subscription.ShippingMethodCode = defaults.ShippingMethodCode;
+        subscription.ShippingMethodOption = defaults.ShippingMethodOption;
+        subscription.PaymentMethodCode = defaults.PaymentMethodCode;
+        subscription.StoredPaymentMethodId = defaults.StoredPaymentMethodId;
+        subscription.ConsentId = defaults.ConsentId;
+        subscription.InitialOrderId = order.Id;
+        subscription.InitialOrderNumber = order.Number;
+        subscription.LastOrderId = order.Id;
+        subscription.LastOrderNumber = order.Number;
+        subscription.LastOrderDate = defaults.Now;
+        subscription.OrdersCount = 1;
+        subscription.ReferencePrice = lineItem.PlacedPrice;
+        subscription.LastAnnualReminderDate = defaults.Now;
+
+        return subscription;
+    }
+
+    /// <summary>The values every subscription created from one order shares.</summary>
+    protected class OrderSubscriptionDefaults
+    {
+        public DateTime Now { get; set; }
+        public DateTime PlacedDate { get; set; }
+        public Address ShippingAddress { get; set; }
+        public string CustomerEmail { get; set; }
+        public string ShippingMethodCode { get; set; }
+        public string ShippingMethodOption { get; set; }
+        public string PaymentMethodCode { get; set; }
+        public string StoredPaymentMethodId { get; set; }
+        public string ConsentId { get; set; }
+        public bool IsPaymentAuthorized { get; set; }
     }
 
     /// <summary>
