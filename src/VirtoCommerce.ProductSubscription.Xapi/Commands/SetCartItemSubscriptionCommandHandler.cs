@@ -13,6 +13,7 @@ using VirtoCommerce.ProductSubscription.Core.Exceptions;
 using VirtoCommerce.ProductSubscription.Core.Models;
 using VirtoCommerce.ProductSubscription.Core.Services;
 using VirtoCommerce.ProductSubscription.Xapi.Queries;
+using VirtoCommerce.XCart.Core.Services;
 using CartAggregate = VirtoCommerce.XCart.Core.CartAggregate;
 
 namespace VirtoCommerce.ProductSubscription.Xapi.Commands;
@@ -21,7 +22,8 @@ public class SetCartItemSubscriptionCommandHandler(
     IShoppingCartService cartService,
     ISubscriptionOfferService offerService,
     ISubscriptionCartItemSearchService cartItemSearchService,
-    ISubscriptionCartItemService cartItemService)
+    ISubscriptionCartItemService cartItemService,
+    ICartAggregateRepository cartAggregateRepository)
     : IRequestHandler<SetCartItemSubscriptionCommand, SubscriptionCartItem>
 {
     public virtual Task<SubscriptionCartItem> Handle(SetCartItemSubscriptionCommand request, CancellationToken cancellationToken) => CommandErrors.Run(async () =>
@@ -30,7 +32,7 @@ public class SetCartItemSubscriptionCommandHandler(
         AccessGuard.EnsureOwner(request.UserId, cart.CustomerId);
 
         var lineItem = cart.Items?.FirstOrDefault(x => x.Id == request.LineItemId) ?? throw new SubscriptionOperationException("Cart item not found.");
-        EnsureHasOwnPrice(lineItem);
+        await EnsureHasOwnPriceAsync(cart, lineItem);
         var unit = request.IntervalUnit;
         var count = Math.Max(1, request.IntervalCount);
 
@@ -74,13 +76,24 @@ public class SetCartItemSubscriptionCommandHandler(
     /// A product with variations and no price of its own (the parent of the variations) can't be delivered: the customer
     /// subscribes to one of its variations. A configured line is priced from its options, so it is allowed.
     /// </summary>
-    protected virtual void EnsureHasOwnPrice(LineItem lineItem)
+    protected virtual async Task EnsureHasOwnPriceAsync(ShoppingCart cart, LineItem lineItem)
     {
-        if (!lineItem.IsConfigured && lineItem.ListPrice <= 0 && lineItem.SalePrice <= 0)
+        if (lineItem.IsConfigured || HasPrice(lineItem))
+        {
+            return;
+        }
+
+        // A zero stored price doesn't mean the product has none: xCart's updateCartQuantity (the product page's quantity
+        // stepper) stores a new line before pricing it, and prices the lines only when it loads the cart. Ask xCart.
+        var aggregate = await cartAggregateRepository.GetCartByIdAsync(cart.Id);
+        var pricedLine = aggregate?.Cart?.Items?.FirstOrDefault(x => x.Id == lineItem.Id);
+        if (pricedLine == null || !HasPrice(pricedLine))
         {
             throw new SubscriptionOperationException("This product has no price of its own. Choose one of its variations to subscribe.");
         }
     }
+
+    protected static bool HasPrice(LineItem lineItem) => lineItem.ListPrice > 0 || lineItem.SalePrice > 0;
 
     /// <summary>
     /// The subscription discount is a promotion reward, and xCart gives a reward to every line of its product. A one-time

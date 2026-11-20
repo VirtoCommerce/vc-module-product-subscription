@@ -100,7 +100,7 @@ public class OwnershipTests
             .Setup(x => x.GetAsync(It.IsAny<IList<string>>(), It.IsAny<string>(), It.IsAny<bool>()))
             .ReturnsAsync([new ShoppingCart { Id = "cart-1", CustomerId = Owner, StoreId = "store-1", Items = [new LineItem { Id = "line-1", ProductId = "coffee", ListPrice = 5 }] }]);
         var cartItems = new Mock<ISubscriptionCartItemService>();
-        var set = new SetCartItemSubscriptionCommandHandler(carts.Object, Mock.Of<ISubscriptionOfferService>(), Mock.Of<ISubscriptionCartItemSearchService>(), cartItems.Object);
+        var set = new SetCartItemSubscriptionCommandHandler(carts.Object, Mock.Of<ISubscriptionOfferService>(), Mock.Of<ISubscriptionCartItemSearchService>(), cartItems.Object, Mock.Of<VirtoCommerce.XCart.Core.Services.ICartAggregateRepository>());
         var remove = new RemoveCartItemSubscriptionCommandHandler(carts.Object, Mock.Of<ISubscriptionCartItemSearchService>(), cartItems.Object);
 
         var setAct = () => set.Handle(new SetCartItemSubscriptionCommand { CartId = "cart-1", LineItemId = "line-1", PlanId = "plan-1", UserId = Stranger }, CancellationToken.None);
