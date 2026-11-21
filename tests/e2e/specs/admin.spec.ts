@@ -76,8 +76,12 @@ test("a subscription's schedule is edited, validated by the server and reset", a
     consoleErrors = consoleErrors.filter((e) => !e.includes("400") && !e.includes(message));
     await command(page, "Reset");
   } else {
-    // accepted: put the old quantity back
+    // accepted: wait until the blade has reloaded the saved subscription (a slow stand reloads after the fill and
+    // drops it), then put the old quantity back
+    await expect(page.getByText("Has unsaved changes")).toHaveCount(0, { timeout: 30_000 });
+    await expect(quantity).toHaveValue(String(Number(original) + 1));
     await quantity.fill(original);
+    await expect(page.getByText("Has unsaved changes")).toBeVisible();
     await command(page, "Save");
   }
   await expect(quantity).toHaveValue(original);
