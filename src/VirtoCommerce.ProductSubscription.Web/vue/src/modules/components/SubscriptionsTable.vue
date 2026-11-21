@@ -29,7 +29,7 @@
     <VcColumn
       id="status"
       :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.STATUS')"
-      width="130px"
+      width="160px"
       sortable
       mobile-role="status"
     >

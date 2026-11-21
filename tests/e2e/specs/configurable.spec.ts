@@ -49,9 +49,11 @@ async function expectSignedIn(page: Page) {
 /** Removes the configurable product's lines from the cart, so every scenario starts and ends with none. */
 async function removeConfiguredLines(page: Page) {
   await open(page, "/cart");
-  const productLine = page.locator('[data-test-id^="cart-line-subscription-change-"]');
+  // the configurable product's own lines: the buyer's cart may hold other subscribed lines
+  const lines = page.locator(".vc-line-item").filter({ hasText: /hat/i });
+  const productLine = lines.locator('[data-test-id^="cart-line-subscription-change-"]');
   for (let i = 0; i < 5; i++) {
-    const remove = page.locator(".vc-line-item").filter({ hasText: /hat/i }).getByRole("button", { name: /remove/i });
+    const remove = lines.getByRole("button", { name: /remove/i });
     if ((await remove.count()) === 0) {
       break;
     }
