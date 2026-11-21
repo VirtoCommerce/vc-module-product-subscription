@@ -66,7 +66,7 @@ const bladeToolbar = ref<IBladeToolbar[]>([
     title: computed(() => t("PRODUCT_SUBSCRIPTION.TOOLBAR.RENEWALS")),
     icon: "lucide-truck",
     permissions: "product-subscription:read",
-    clickHandler: () => openBlade({ name: "ProductSubscriptionRenewals" }),
+    clickHandler: () => openBlade({ name: "ProductSubscriptionRenewals", isWorkspace: true }),
   },
   {
     id: "runScheduler",

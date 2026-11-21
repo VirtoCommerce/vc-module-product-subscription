@@ -10,6 +10,7 @@
       :items="items"
       :total-count="items.length"
       :searchable="true"
+      search-bar
       state-key="PRODUCT_SUBSCRIPTION_PLANS"
       :active-item-id="activeChildParam"
       :show-all-columns="!activeChildParam"

@@ -7,6 +7,7 @@
     :total-count="totalCount"
     :pagination="pagination"
     :searchable="true"
+    search-bar
     :search-placeholder="$t('PRODUCT_SUBSCRIPTION.PAGES.LIST.SEARCH')"
     :state-key="stateKey"
     :active-item-id="activeItemId"
@@ -20,7 +21,7 @@
     <VcColumn
       id="number"
       :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.NUMBER')"
-      width="170px"
+      width="190px"
       sortable
       always-visible
       mobile-role="title"

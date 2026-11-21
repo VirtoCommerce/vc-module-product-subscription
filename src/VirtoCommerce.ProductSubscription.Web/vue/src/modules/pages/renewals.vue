@@ -13,6 +13,7 @@
       :total-count="totalCount"
       :pagination="pagination"
       :searchable="true"
+      search-bar
       :search-placeholder="$t('PRODUCT_SUBSCRIPTION.PAGES.RENEWALS.SEARCH')"
       state-key="PRODUCT_SUBSCRIPTION_RENEWALS"
       :active-item-id="activeChildParam"
@@ -26,7 +27,7 @@
       <VcColumn
         id="number"
         :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.NUMBER')"
-        width="150px"
+        width="190px"
         sortable
         always-visible
         mobile-role="title"
@@ -104,7 +105,14 @@ import { renewalStates, statusVariant, useFormat, useProductSubscriptionClient, 
 defineBlade({
   url: "/product-subscription-renewals",
   name: "ProductSubscriptionRenewals",
+  // a workspace of its own: six columns don't fit beside an open subscription
+  isWorkspace: true,
   permissions: ["product-subscription:read"],
+  menuItem: {
+    title: "PRODUCT_SUBSCRIPTION.TOOLBAR.RENEWALS",
+    icon: "lucide-truck",
+    priority: 948,
+  },
 });
 
 const STATE_KEY = "PRODUCT_SUBSCRIPTION_RENEWALS";

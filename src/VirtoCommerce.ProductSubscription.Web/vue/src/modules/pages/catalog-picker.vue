@@ -15,6 +15,7 @@
       :total-count="totalCount"
       :pagination="pagination"
       :searchable="true"
+      search-bar
       :search-placeholder="$t('PRODUCT_SUBSCRIPTION.PAGES.PICKER.SEARCH')"
       state-key="PRODUCT_SUBSCRIPTION_CATALOG_PICKER"
       :global-filters="globalFilters"
@@ -30,42 +31,27 @@
         width="72px"
         mobile-role="image"
       />
+      <!-- one column for what tells entries apart: the type as an icon, the name, then the code and where it sits
+           (names repeat across catalogs); separate columns left the name a few letters wide beside the plan -->
       <VcColumn
         id="name"
         :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.NAME')"
         always-visible
         mobile-role="title"
-      />
-      <VcColumn
-        id="type"
-        :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.TYPE')"
-        width="140px"
-        always-visible
-        mobile-role="status"
       >
         <template #body="{ data: e }">
-          <span class="ps-type">
-            <VcIcon
-              :icon="e.type === 'category' ? 'lucide-folder' : 'lucide-package'"
-              size="s"
-            />
-            {{ e.type === "category" ? $t("PRODUCT_SUBSCRIPTION.FIELDS.CATEGORY") : $t("PRODUCT_SUBSCRIPTION.FIELDS.PRODUCT") }}
-          </span>
+          <div class="ps-pick">
+            <span class="ps-pick__name">
+              <VcIcon
+                :icon="e.type === 'category' ? 'lucide-folder' : 'lucide-package'"
+                size="s"
+                :aria-label="e.type === 'category' ? $t('PRODUCT_SUBSCRIPTION.FIELDS.CATEGORY') : $t('PRODUCT_SUBSCRIPTION.FIELDS.PRODUCT')"
+              />
+              {{ e.name }}
+            </span>
+            <span class="ps-pick__meta">{{ [e.code, (e.path ?? []).slice(0, -1).join(" › ")].filter(Boolean).join(" · ") }}</span>
+          </div>
         </template>
-      </VcColumn>
-      <VcColumn
-        id="code"
-        :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.CODE')"
-        width="160px"
-        mobile-role="field"
-      />
-      <!-- the catalog and parent categories: names repeat across catalogs -->
-      <VcColumn
-        id="path"
-        :title="$t('PRODUCT_SUBSCRIPTION.FIELDS.LOCATION')"
-        mobile-role="field"
-      >
-        <template #body="{ data: e }">{{ (e.path ?? []).slice(0, -1).join(" › ") || "—" }}</template>
       </VcColumn>
     </VcDataTable>
   </VcBlade>

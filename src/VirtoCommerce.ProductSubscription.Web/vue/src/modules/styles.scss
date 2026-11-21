@@ -281,13 +281,6 @@
   }
 }
 
-.ps-type {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--neutrals-700);
-}
-
 // a renewal's history, newest first (nested for the host's "[dir] ol" reset)
 .ps-page .ps-timeline {
   list-style: none;
@@ -413,5 +406,28 @@ li:last-child > .ps-row {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+}
+
+// a catalog picker entry: the type icon and name over its code and location
+.ps-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  &__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--neutrals-900);
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+
+  &__meta {
+    color: var(--neutrals-500);
+    font-size: 12px;
+    overflow-wrap: anywhere;
   }
 }
