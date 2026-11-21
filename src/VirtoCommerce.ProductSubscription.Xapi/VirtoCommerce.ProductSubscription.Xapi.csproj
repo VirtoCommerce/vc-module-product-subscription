@@ -5,7 +5,7 @@
     <NoWarn>1591;NU1608;NU1603</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="VirtoCommerce.Platform.Security" Version="3.1097.0" />
+    <PackageReference Include="VirtoCommerce.Platform.Security" Version="3.1101.0" />
     <PackageReference Include="VirtoCommerce.Xapi.Core" Version="3.1032.0" />
     <PackageReference Include="VirtoCommerce.XOrder.Core" Version="3.1018.0" />
     <PackageReference Include="VirtoCommerce.XCatalog.Core" Version="3.1026.0" />
