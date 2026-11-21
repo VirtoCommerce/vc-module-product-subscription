@@ -134,7 +134,7 @@ public static class SubscriptionEmailTexts
             return DefaultLanguage;
         }
 
-        var language = languageCode.Split('-', '_')[0].ToLowerInvariant();
+        var language = languageCode.Split(['-', '_'])[0].ToLowerInvariant();
         // Norwegian Bokmål stores use "nb-NO"; its texts are filed under "no".
         if (language is "nb" or "nn")
         {
@@ -160,28 +160,58 @@ public static class SubscriptionEmailTexts
         return string.Format(CultureInfo.InvariantCulture, type == SubscriptionDiscountType.Percent ? texts.Percent : texts.Amount, value);
     }
 
+    // The forms of a four-form message (vue-i18n's order): zero, one, few, many. Two-form messages: one, other.
+    private const int FourForms = 4;
+    private const int ZeroForm = 0;
+    private const int OneForm = 1;
+    private const int FewForm = 2;
+    private const int ManyForm = 3;
+
     /// <summary>The form to use for <paramref name="count"/>, by the same rule as the storefront's plural messages.</summary>
     public static int PluralIndex(string language, int count, int formCount)
     {
-        if (formCount < 4)
+        if (formCount < FourForms)
         {
             return count == 1 ? 0 : Math.Min(1, formCount - 1);
         }
 
         if (count == 0)
         {
-            return 0;
+            return ZeroForm;
         }
-
-        var mod10 = count % 10;
-        var mod100 = count % 100;
-        var isFew = mod10 is >= 2 and <= 4 && mod100 is < 12 or > 14;
 
         return language switch
         {
-            "ru" => mod10 == 1 && mod100 != 11 ? 1 : isFew ? 2 : 3,
-            "pl" => count == 1 ? 1 : isFew ? 2 : 3,
-            _ => count == 1 ? 1 : 3,
+            "ru" => RussianForm(count),
+            "pl" => PolishForm(count),
+            _ => count == 1 ? OneForm : ManyForm,
         };
+    }
+
+    // 1, 21, 101: one; 2-4, 22-24: few; the rest: many
+    private static int RussianForm(int count)
+    {
+        if (count % 10 == 1 && count % 100 is not 11)
+        {
+            return OneForm;
+        }
+
+        return IsFew(count) ? FewForm : ManyForm;
+    }
+
+    // 1: one; 2-4, 22-24: few; the rest (21 too): many
+    private static int PolishForm(int count)
+    {
+        if (count == 1)
+        {
+            return OneForm;
+        }
+
+        return IsFew(count) ? FewForm : ManyForm;
+    }
+
+    private static bool IsFew(int count)
+    {
+        return count % 10 is >= 2 and <= 4 && count % 100 is < 12 or > 14;
     }
 }

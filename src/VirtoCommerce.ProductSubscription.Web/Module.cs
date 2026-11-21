@@ -93,6 +93,7 @@ public class Module : IModule, IHasConfiguration
         serviceCollection.AddTransient<ISubscriptionTermsService, SubscriptionTermsService>();
         serviceCollection.AddTransient<IOrderSubscriptionInfoService, OrderSubscriptionInfoService>();
         serviceCollection.AddTransient<ISubscriptionCustomerActionsService, SubscriptionCustomerActionsService>();
+        serviceCollection.AddTransient<SubscriptionEmailLookup>();
         serviceCollection.AddTransient<ISubscriptionNotificationService, SubscriptionNotificationService>();
         serviceCollection.AddTransient<ISubscriptionManager, SubscriptionManager>();
         serviceCollection.AddTransient<IRenewalCartBuilder, RenewalCartBuilder>();

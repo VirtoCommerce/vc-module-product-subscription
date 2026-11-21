@@ -18,9 +18,10 @@ namespace VirtoCommerce.ProductSubscription.Tests.Web.Notifications;
 /// Every email template (each language) parses as Liquid, the way the Notifications module renders it, and renders
 /// with its notification's model without unknown variables.
 /// </summary>
-public class NotificationTemplatesTests
+public partial class NotificationTemplatesTests
 {
-    private static readonly Regex FileName = new(@"^(?<type>\w+)_(?<part>body|subject)(\.(?<lang>[a-z]{2}(-[A-Za-z]{2})?))?\.(html|txt)$");
+    [GeneratedRegex(@"^(?<type>\w+)_(?<part>body|subject)(\.(?<lang>[a-z]{2}(-[A-Za-z]{2})?))?\.(html|txt)$")]
+    private static partial Regex FileName();
 
     public static TheoryData<string> TemplateFiles()
     {
@@ -37,7 +38,7 @@ public class NotificationTemplatesTests
     public void Every_notification_has_a_body_and_a_subject_in_every_language_of_its_templates()
     {
         var files = Directory.EnumerateFiles(TemplatesPath).Select(Path.GetFileName).ToList();
-        var parsed = files.Select(x => FileName.Match(x)).ToList();
+        var parsed = files.Select(x => FileName().Match(x)).ToList();
         parsed.Should().OnlyContain(x => x.Success, "every file follows {Type}_{body|subject}[.{lang}].{ext}");
 
         var languages = parsed.Select(x => x.Groups["lang"].Value).Distinct().ToList();
@@ -58,7 +59,7 @@ public class NotificationTemplatesTests
     [MemberData(nameof(TemplateFiles))]
     public async Task Template_parses_as_liquid_and_renders_with_its_model(string fileName)
     {
-        var match = FileName.Match(fileName);
+        var match = FileName().Match(fileName);
         match.Success.Should().BeTrue();
 
         var notificationType = typeof(SubscriptionEmailNotificationBase).Assembly.GetType(

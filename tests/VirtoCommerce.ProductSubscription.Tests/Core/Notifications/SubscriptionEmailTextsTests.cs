@@ -19,6 +19,9 @@ public class SubscriptionEmailTextsTests
     [InlineData("pl-PL", SubscriptionIntervalUnit.Week, 22, "Co 22 tygodnie")]
     [InlineData("pl-PL", SubscriptionIntervalUnit.Year, 12, "Co 12 lat")]
     [InlineData("nb-NO", SubscriptionIntervalUnit.Month, 1, "Hver måned")]
+    [InlineData("de_DE", SubscriptionIntervalUnit.Month, 3, "Alle 3 Monate")]
+    [InlineData("ru-RU", SubscriptionIntervalUnit.Day, 11, "Раз в 11 дней")]
+    [InlineData("pl-PL", SubscriptionIntervalUnit.Week, 21, "Co 21 tygodni")]
     [InlineData("xx-XX", SubscriptionIntervalUnit.Day, 1, "Every day")]
     public void Frequency_is_in_the_email_language(string language, SubscriptionIntervalUnit unit, int count, string expected)
     {

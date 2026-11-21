@@ -30,7 +30,7 @@ public class SubscriptionNotificationServiceTests
             .Should().Be("November 21, 2026");
     }
 
-    private sealed class TestService() : SubscriptionNotificationService(null, null, null, null, null, null, null, null)
+    private sealed class TestService() : SubscriptionNotificationService(null, null, null, null, null, null, null)
     {
         public static string Format(DateTime date, CultureInfo culture, TimeZoneInfo timeZone)
         {

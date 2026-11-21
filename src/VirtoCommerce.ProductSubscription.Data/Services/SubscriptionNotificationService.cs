@@ -11,7 +11,6 @@ using VirtoCommerce.CustomerModule.Core.Model;
 using VirtoCommerce.CustomerModule.Core.Services;
 using VirtoCommerce.NotificationsModule.Core.Extensions;
 using VirtoCommerce.NotificationsModule.Core.Services;
-using VirtoCommerce.PaymentModule.Core.Services;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Settings;
@@ -25,20 +24,20 @@ using VirtoCommerce.Xapi.Core.Extensions;
 
 namespace VirtoCommerce.ProductSubscription.Data.Services;
 
-public class SubscriptionNotificationService(
+public partial class SubscriptionNotificationService(
     INotificationSearchService notificationSearchService,
     INotificationSender notificationSender,
     IStoreService storeService,
     IMemberService memberService,
     Func<UserManager<ApplicationUser>> userManagerFactory,
-    ICurrencyService currencyService,
-    IStoredPaymentMethodService storedPaymentMethodService,
+    SubscriptionEmailLookup lookup,
     ILogger<SubscriptionNotificationService> logger)
     : ISubscriptionNotificationService
 {
     // The culture's long date without the weekday: "November 20, 2026", "20. November 2026", "20 ноября 2026 г.".
     // The weekday would sit in the nominative inside sentences ("доставка на пятница").
-    private static readonly Regex Weekday = new(@"[,\s]*dddd[,\s]*", RegexOptions.Compiled);
+    [GeneratedRegex(@"[,\s]*dddd[,\s]*")]
+    private static partial Regex Weekday();
 
     public virtual async Task SendAsync<T>(IList<Subscription> subscriptions, Renewal renewal = null, Action<T> configure = null)
         where T : SubscriptionEmailNotificationBase
@@ -123,16 +122,7 @@ public class SubscriptionNotificationService(
         var timeZone = GetTimeZone(store);
         var currencyCode = renewal?.Currency ?? subscriptions.FirstOrDefault()?.Currency ?? store.DefaultCurrency;
         var currency = await GetCurrencyAsync(currencyCode, culture.Name);
-        var subscriptionsById = subscriptions.Where(x => !string.IsNullOrEmpty(x.Id)).ToDictionary(x => x.Id);
-
-        notification.Lines = renewal != null
-            ? renewal.Items
-                .Where(x => !x.IsExcluded)
-                .Select(item => CreateLine(subscriptionsById.GetValueOrDefault(item.SubscriptionId), item, currency, culture, timeZone, languageCode, storeUrl))
-                .ToList()
-            : subscriptions
-                .Select(subscription => CreateLine(subscription, item: null, currency, culture, timeZone, languageCode, storeUrl))
-                .ToList();
+        notification.Lines = CreateLines(subscriptions, renewal, currency, culture, timeZone, languageCode, storeUrl);
 
         if (renewal != null)
         {
@@ -145,18 +135,42 @@ public class SubscriptionNotificationService(
             .Where(x => x.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue)
             .Select(x => (DateTime?)x.NextOrderDate)
             .Min();
-        notification.NextDeliveryDateText = next == null ? string.Empty : FormatDate(next.Value, culture, timeZone);
+        notification.NextDeliveryDateText = FormatDate(next, culture, timeZone);
 
         notification.CardText = await GetCardTextAsync(renewal?.StoredPaymentMethodId ?? subscriptions.FirstOrDefault()?.StoredPaymentMethodId);
 
+        FillEventTexts(notification, subscriptions, renewal, culture, timeZone);
+    }
+
+    /// <summary>A renewal's lines (its items that weren't excluded), or one line per subscription.</summary>
+    protected virtual IList<SubscriptionEmailLine> CreateLines(IList<Subscription> subscriptions, Renewal renewal, Currency currency,
+        CultureInfo culture, TimeZoneInfo timeZone, string languageCode, string storeUrl)
+    {
+        if (renewal == null)
+        {
+            return subscriptions
+                .Select(subscription => CreateLine(subscription, item: null, currency, culture, timeZone, languageCode, storeUrl))
+                .ToList();
+        }
+
+        var subscriptionsById = subscriptions.Where(x => !string.IsNullOrEmpty(x.Id)).ToDictionary(x => x.Id);
+        return renewal.Items
+            .Where(x => !x.IsExcluded)
+            .Select(item => CreateLine(subscriptionsById.GetValueOrDefault(item.SubscriptionId), item, currency, culture, timeZone, languageCode, storeUrl))
+            .ToList();
+    }
+
+    /// <summary>The texts only some emails have: the skipped date, the date a pause ends.</summary>
+    protected virtual void FillEventTexts(SubscriptionEmailNotificationBase notification, IList<Subscription> subscriptions, Renewal renewal,
+        CultureInfo culture, TimeZoneInfo timeZone)
+    {
         switch (notification)
         {
             case DeliverySkippedEmailNotification { SkippedDate: not null } skipped when renewal == null:
                 skipped.DeliveryDateText = FormatDate(skipped.SkippedDate.Value, culture, timeZone);
                 break;
             case SubscriptionPausedEmailNotification paused:
-                var pausedUntil = subscriptions.Select(x => x.PausedUntil).FirstOrDefault(x => x != null);
-                paused.PausedUntilText = pausedUntil == null ? string.Empty : FormatDate(pausedUntil.Value, culture, timeZone);
+                paused.PausedUntilText = FormatDate(subscriptions.Select(x => x.PausedUntil).FirstOrDefault(x => x != null), culture, timeZone);
                 break;
         }
     }
@@ -200,36 +214,61 @@ public class SubscriptionNotificationService(
         line.ProductName = item?.ProductName ?? subscription?.ProductName;
         line.Quantity = item?.Quantity ?? subscription?.Quantity ?? 0;
         line.ManageUrl = GetManageUrl(storeUrl, line.SubscriptionId);
+        line.ConfigurationLines = CreateConfigurationLines(item?.Configuration ?? subscription?.Configuration);
+        FillItemTexts(line, item, currency, culture);
+        FillSubscriptionTexts(line, subscription, currency, culture, timeZone, languageCode);
+        return line;
+    }
+
+    /// <summary>What a renewal item says: its total, whether it can be delivered and why not.</summary>
+    protected virtual void FillItemTexts(SubscriptionEmailLine line, RenewalItem item, Currency currency, CultureInfo culture)
+    {
         line.TotalText = item == null ? string.Empty : FormatMoney(item.Total, currency, culture);
         line.IsAvailable = item?.IsAvailable ?? true;
         line.Message = item?.Message ?? string.Empty;
-        line.ConfigurationLines = CreateConfigurationLines(item?.Configuration ?? subscription?.Configuration);
+    }
 
-        if (subscription != null)
-        {
-            line.FrequencyText = SubscriptionEmailTexts.Frequency(languageCode, subscription.IntervalUnit, subscription.IntervalCount);
-            line.NextDateText = FormatDate(subscription.NextOrderDate, culture, timeZone);
-            line.DiscountText = subscription.DiscountValue > 0 && subscription.DiscountType != SubscriptionDiscountType.None
-                ? SubscriptionEmailTexts.Discount(languageCode, subscription.DiscountType,
-                    subscription.DiscountType == SubscriptionDiscountType.Percent
-                        ? subscription.DiscountValue.ToString("0.##", culture)
-                        : FormatMoney(subscription.DiscountValue, currency, culture))
-                : string.Empty;
-        }
-        else
+    /// <summary>What the subscription says: its frequency, next date and discount; empty without a subscription.</summary>
+    protected virtual void FillSubscriptionTexts(SubscriptionEmailLine line, Subscription subscription, Currency currency, CultureInfo culture,
+        TimeZoneInfo timeZone, string languageCode)
+    {
+        if (subscription == null)
         {
             line.FrequencyText = string.Empty;
             line.NextDateText = string.Empty;
             line.DiscountText = string.Empty;
+            return;
         }
 
-        return line;
+        line.FrequencyText = SubscriptionEmailTexts.Frequency(languageCode, subscription.IntervalUnit, subscription.IntervalCount);
+        line.NextDateText = FormatDate(subscription.NextOrderDate, culture, timeZone);
+        line.DiscountText = GetDiscountText(subscription, currency, culture, languageCode);
+    }
+
+    /// <summary>"Save 10%" or "Save $1.00"; empty without a discount.</summary>
+    protected virtual string GetDiscountText(Subscription subscription, Currency currency, CultureInfo culture, string languageCode)
+    {
+        if (subscription.DiscountValue <= 0 || subscription.DiscountType == SubscriptionDiscountType.None)
+        {
+            return string.Empty;
+        }
+
+        var value = subscription.DiscountType == SubscriptionDiscountType.Percent
+            ? subscription.DiscountValue.ToString("0.##", culture)
+            : FormatMoney(subscription.DiscountValue, currency, culture);
+        return SubscriptionEmailTexts.Discount(languageCode, subscription.DiscountType, value);
+    }
+
+    /// <summary>The date in the customer's language and the store's time zone; empty when there is none.</summary>
+    protected virtual string FormatDate(DateTime? date, CultureInfo culture, TimeZoneInfo timeZone)
+    {
+        return date == null ? string.Empty : FormatDate(date.Value, culture, timeZone);
     }
 
     protected virtual string FormatDate(DateTime date, CultureInfo culture, TimeZoneInfo timeZone)
     {
         var utc = date.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(date, DateTimeKind.Utc) : date.ToUniversalTime();
-        var pattern = Weekday.Replace(culture.DateTimeFormat.LongDatePattern, " ").Trim();
+        var pattern = Weekday().Replace(culture.DateTimeFormat.LongDatePattern, " ").Trim();
         return TimeZoneInfo.ConvertTimeFromUtc(utc, timeZone).ToString(pattern, culture);
     }
 
@@ -243,37 +282,15 @@ public class SubscriptionNotificationService(
         return amount.ToString("N2", culture);
     }
 
-    protected virtual async Task<Currency> GetCurrencyAsync(string currencyCode, string cultureName)
+    protected virtual Task<Currency> GetCurrencyAsync(string currencyCode, string cultureName)
     {
-        if (string.IsNullOrEmpty(currencyCode))
-        {
-            return null;
-        }
-
-        var currencies = (await currencyService.GetAllCurrenciesAsync()).ToList();
-        if (!currencies.Any(x => x.Code.EqualsIgnoreCase(currencyCode)))
-        {
-            return null;
-        }
-
-        return currencies.GetCurrencyForLanguage(currencyCode, cultureName);
+        return lookup.GetCurrencyAsync(currencyCode, cultureName);
     }
 
     /// <summary>"Visa •••• 4242", or empty when the card is unknown.</summary>
-    protected virtual async Task<string> GetCardTextAsync(string storedPaymentMethodId)
+    protected virtual Task<string> GetCardTextAsync(string storedPaymentMethodId)
     {
-        if (string.IsNullOrEmpty(storedPaymentMethodId))
-        {
-            return string.Empty;
-        }
-
-        var card = await storedPaymentMethodService.GetNoCloneAsync(storedPaymentMethodId);
-        if (card == null || string.IsNullOrEmpty(card.Last4))
-        {
-            return string.Empty;
-        }
-
-        return string.IsNullOrEmpty(card.Brand) ? $"•••• {card.Last4}" : $"{card.Brand} •••• {card.Last4}";
+        return lookup.GetCardTextAsync(storedPaymentMethodId);
     }
 
     /// <summary>
@@ -300,10 +317,18 @@ public class SubscriptionNotificationService(
     protected virtual string GetAccentColor(Store store)
     {
         var color = store.Settings.GetValue<string>(ModuleConstants.Settings.Store.EmailAccentColor);
-        // The value lands in a style attribute: accept only a plain CSS colour, never markup or other declarations.
-        return !string.IsNullOrWhiteSpace(color) && color.All(x => char.IsLetterOrDigit(x) || x is '#' or '(' or ')' or ',' or '.' or ' ' or '%')
-            ? color.Trim()
-            : ModuleConstants.Settings.Store.EmailAccentColor.DefaultValue?.ToString();
+        return IsPlainCssColor(color) ? color.Trim() : ModuleConstants.Settings.Store.EmailAccentColor.DefaultValue?.ToString();
+    }
+
+    // The value lands in a style attribute: accept only a plain CSS colour, never markup or other declarations.
+    protected static bool IsPlainCssColor(string color)
+    {
+        return !string.IsNullOrWhiteSpace(color) && color.All(IsCssColorChar);
+    }
+
+    private static bool IsCssColorChar(char x)
+    {
+        return char.IsLetterOrDigit(x) || "#(),. %".Contains(x);
     }
 
     protected virtual string GetManageUrl(string storeUrl, string subscriptionId)
