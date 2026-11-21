@@ -227,21 +227,43 @@ public partial class SubscriptionNotificationService(
     /// <summary>Which subscription and product the line is: a renewal item's own values win over the subscription's.</summary>
     protected virtual void FillProduct(SubscriptionEmailLine line, Subscription subscription, RenewalItem item, string storeUrl)
     {
-        line.SubscriptionId = subscription?.Id ?? item?.SubscriptionId;
-        line.SubscriptionNumber = subscription?.Number ?? string.Empty;
-        line.ManageUrl = GetManageUrl(storeUrl, line.SubscriptionId);
-
         if (item != null)
         {
-            line.ProductName = item.ProductName ?? subscription?.ProductName;
-            line.Quantity = item.Quantity;
-            line.ConfigurationLines = CreateConfigurationLines(item.Configuration ?? subscription?.Configuration);
+            FillProductFromItem(line, item, subscription);
+        }
+        else
+        {
+            FillProductFromSubscription(line, subscription);
+        }
+
+        line.ManageUrl = GetManageUrl(storeUrl, line.SubscriptionId);
+    }
+
+    /// <summary>A renewal item's product, quantity and configuration; the subscription fills what the item lacks.</summary>
+    protected virtual void FillProductFromItem(SubscriptionEmailLine line, RenewalItem item, Subscription subscription)
+    {
+        line.SubscriptionId = subscription?.Id ?? item.SubscriptionId;
+        line.SubscriptionNumber = subscription?.Number ?? string.Empty;
+        line.ProductName = item.ProductName ?? subscription?.ProductName;
+        line.Quantity = item.Quantity;
+        line.ConfigurationLines = CreateConfigurationLines(item.Configuration ?? subscription?.Configuration);
+    }
+
+    /// <summary>The subscription's own product, quantity and configuration; an empty line without one.</summary>
+    protected virtual void FillProductFromSubscription(SubscriptionEmailLine line, Subscription subscription)
+    {
+        if (subscription == null)
+        {
+            line.SubscriptionNumber = string.Empty;
+            line.ConfigurationLines = CreateConfigurationLines(null);
             return;
         }
 
-        line.ProductName = subscription?.ProductName;
-        line.Quantity = subscription?.Quantity ?? 0;
-        line.ConfigurationLines = CreateConfigurationLines(subscription?.Configuration);
+        line.SubscriptionId = subscription.Id;
+        line.SubscriptionNumber = subscription.Number ?? string.Empty;
+        line.ProductName = subscription.ProductName;
+        line.Quantity = subscription.Quantity;
+        line.ConfigurationLines = CreateConfigurationLines(subscription.Configuration);
     }
 
     /// <summary>What a renewal item says: its total, whether it can be delivered and why not.</summary>
