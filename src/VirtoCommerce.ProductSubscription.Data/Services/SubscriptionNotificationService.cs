@@ -120,16 +120,11 @@ public partial class SubscriptionNotificationService(
     {
         var culture = GetCulture(languageCode);
         var timeZone = GetTimeZone(store);
-        var currencyCode = renewal?.Currency ?? subscriptions.FirstOrDefault()?.Currency ?? store.DefaultCurrency;
-        var currency = await GetCurrencyAsync(currencyCode, culture.Name);
+        var first = subscriptions.FirstOrDefault();
+        var currency = await GetCurrencyAsync(renewal?.Currency ?? first?.Currency ?? store.DefaultCurrency, culture.Name);
         notification.Lines = CreateLines(subscriptions, renewal, currency, culture, timeZone, languageCode, storeUrl);
 
-        if (renewal != null)
-        {
-            notification.DeliveryDateText = FormatDate(renewal.ScheduledDate, culture, timeZone);
-            notification.CutoffDateText = FormatDate(renewal.CutoffDate, culture, timeZone);
-            notification.TotalText = FormatMoney(renewal.OrderTotal ?? renewal.NotifiedTotal ?? renewal.PreviewTotal, currency, culture);
-        }
+        FillRenewalTexts(notification, renewal, currency, culture, timeZone);
 
         var next = subscriptions
             .Where(x => x.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue)
@@ -137,9 +132,23 @@ public partial class SubscriptionNotificationService(
             .Min();
         notification.NextDeliveryDateText = FormatDate(next, culture, timeZone);
 
-        notification.CardText = await GetCardTextAsync(renewal?.StoredPaymentMethodId ?? subscriptions.FirstOrDefault()?.StoredPaymentMethodId);
+        notification.CardText = await GetCardTextAsync(renewal?.StoredPaymentMethodId ?? first?.StoredPaymentMethodId);
 
         FillEventTexts(notification, subscriptions, renewal, culture, timeZone);
+    }
+
+    /// <summary>A renewal's delivery and cut-off dates and its total: the order's, or else the one the reminder stated.</summary>
+    protected virtual void FillRenewalTexts(SubscriptionEmailNotificationBase notification, Renewal renewal, Currency currency, CultureInfo culture,
+        TimeZoneInfo timeZone)
+    {
+        if (renewal == null)
+        {
+            return;
+        }
+
+        notification.DeliveryDateText = FormatDate(renewal.ScheduledDate, culture, timeZone);
+        notification.CutoffDateText = FormatDate(renewal.CutoffDate, culture, timeZone);
+        notification.TotalText = FormatMoney(renewal.OrderTotal ?? renewal.NotifiedTotal ?? renewal.PreviewTotal, currency, culture);
     }
 
     /// <summary>A renewal's lines (its items that weren't excluded), or one line per subscription.</summary>
@@ -209,15 +218,30 @@ public partial class SubscriptionNotificationService(
         TimeZoneInfo timeZone, string languageCode, string storeUrl)
     {
         var line = AbstractTypeFactory<SubscriptionEmailLine>.TryCreateInstance();
-        line.SubscriptionId = subscription?.Id ?? item?.SubscriptionId;
-        line.SubscriptionNumber = subscription?.Number ?? string.Empty;
-        line.ProductName = item?.ProductName ?? subscription?.ProductName;
-        line.Quantity = item?.Quantity ?? subscription?.Quantity ?? 0;
-        line.ManageUrl = GetManageUrl(storeUrl, line.SubscriptionId);
-        line.ConfigurationLines = CreateConfigurationLines(item?.Configuration ?? subscription?.Configuration);
+        FillProduct(line, subscription, item, storeUrl);
         FillItemTexts(line, item, currency, culture);
         FillSubscriptionTexts(line, subscription, currency, culture, timeZone, languageCode);
         return line;
+    }
+
+    /// <summary>Which subscription and product the line is: a renewal item's own values win over the subscription's.</summary>
+    protected virtual void FillProduct(SubscriptionEmailLine line, Subscription subscription, RenewalItem item, string storeUrl)
+    {
+        line.SubscriptionId = subscription?.Id ?? item?.SubscriptionId;
+        line.SubscriptionNumber = subscription?.Number ?? string.Empty;
+        line.ManageUrl = GetManageUrl(storeUrl, line.SubscriptionId);
+
+        if (item != null)
+        {
+            line.ProductName = item.ProductName ?? subscription?.ProductName;
+            line.Quantity = item.Quantity;
+            line.ConfigurationLines = CreateConfigurationLines(item.Configuration ?? subscription?.Configuration);
+            return;
+        }
+
+        line.ProductName = subscription?.ProductName;
+        line.Quantity = subscription?.Quantity ?? 0;
+        line.ConfigurationLines = CreateConfigurationLines(subscription?.Configuration);
     }
 
     /// <summary>What a renewal item says: its total, whether it can be delivered and why not.</summary>

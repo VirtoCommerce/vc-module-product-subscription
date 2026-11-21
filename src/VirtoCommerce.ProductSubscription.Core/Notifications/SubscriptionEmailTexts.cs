@@ -167,6 +167,15 @@ public static class SubscriptionEmailTexts
     private const int FewForm = 2;
     private const int ManyForm = 3;
 
+    // The digits Slavic plural rules look at: the last one, the last two, and the teens that break the rule.
+    private const int LastDigit = 10;
+    private const int LastTwoDigits = 100;
+    private const int FewFirst = 2;
+    private const int FewLast = 4;
+    private const int TeenOne = 11;
+    private const int TeenFewFirst = 12;
+    private const int TeenFewLast = 14;
+
     /// <summary>The form to use for <paramref name="count"/>, by the same rule as the storefront's plural messages.</summary>
     public static int PluralIndex(string language, int count, int formCount)
     {
@@ -191,7 +200,7 @@ public static class SubscriptionEmailTexts
     // 1, 21, 101: one; 2-4, 22-24: few; the rest: many
     private static int RussianForm(int count)
     {
-        if (count % 10 == 1 && count % 100 is not 11)
+        if (count % LastDigit == 1 && count % LastTwoDigits is not TeenOne)
         {
             return OneForm;
         }
@@ -212,6 +221,6 @@ public static class SubscriptionEmailTexts
 
     private static bool IsFew(int count)
     {
-        return count % 10 is >= 2 and <= 4 && count % 100 is < 12 or > 14;
+        return count % LastDigit is >= FewFirst and <= FewLast && count % LastTwoDigits is < TeenFewFirst or > TeenFewLast;
     }
 }
