@@ -1,0 +1,481 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
+using VirtoCommerce.CoreModule.Core.Currency;
+using VirtoCommerce.CustomerModule.Core.Model;
+using VirtoCommerce.CustomerModule.Core.Services;
+using VirtoCommerce.NotificationsModule.Core.Extensions;
+using VirtoCommerce.NotificationsModule.Core.Services;
+using VirtoCommerce.Platform.Core.Common;
+using VirtoCommerce.Platform.Core.Security;
+using VirtoCommerce.Platform.Core.Settings;
+using VirtoCommerce.ProductSubscription.Core;
+using VirtoCommerce.ProductSubscription.Core.Models;
+using VirtoCommerce.ProductSubscription.Core.Notifications;
+using VirtoCommerce.ProductSubscription.Core.Services;
+using VirtoCommerce.StoreModule.Core.Model;
+using VirtoCommerce.StoreModule.Core.Services;
+using VirtoCommerce.Xapi.Core.Extensions;
+
+namespace VirtoCommerce.ProductSubscription.Data.Services;
+
+public partial class SubscriptionNotificationService(
+    INotificationSearchService notificationSearchService,
+    INotificationSender notificationSender,
+    IStoreService storeService,
+    IMemberService memberService,
+    Func<UserManager<ApplicationUser>> userManagerFactory,
+    SubscriptionEmailLookup lookup,
+    ILogger<SubscriptionNotificationService> logger)
+    : ISubscriptionNotificationService
+{
+    // The culture's long date without the weekday: "November 20, 2026", "20. November 2026", "20 ноября 2026 г.".
+    // The weekday would sit in the nominative inside sentences ("доставка на пятница").
+    [GeneratedRegex(@"[,\s]*dddd[,\s]*")]
+    private static partial Regex Weekday();
+
+    public virtual async Task SendAsync<T>(IList<Subscription> subscriptions, Renewal renewal = null, Action<T> configure = null)
+        where T : SubscriptionEmailNotificationBase
+    {
+        try
+        {
+            var first = subscriptions?.FirstOrDefault();
+            var storeId = renewal?.StoreId ?? first?.StoreId;
+            if (string.IsNullOrEmpty(storeId))
+            {
+                return;
+            }
+
+            var store = await storeService.GetNoCloneAsync(storeId, StoreResponseGroup.Full.ToString());
+            if (store == null)
+            {
+                return;
+            }
+
+            var notification = await notificationSearchService.GetNotificationAsync<T>(new TenantIdentity(store.Id, nameof(Store)));
+            if (notification == null || !notification.IsActive.GetValueOrDefault(true))
+            {
+                return;
+            }
+
+            var customerId = renewal?.CustomerId ?? first?.CustomerId;
+            var contact = await GetContactAsync(customerId);
+            var email = renewal?.CustomerEmail ?? first?.CustomerEmail ?? await GetCustomerEmailAsync(customerId);
+            if (string.IsNullOrEmpty(email))
+            {
+                logger.LogInformation("Skipped {Notification}: no email for customer {CustomerId}", typeof(T).Name, customerId);
+                return;
+            }
+
+            subscriptions ??= new List<Subscription>();
+            var storeUrl = GetStoreUrl(store);
+            var languageCode = renewal?.LanguageCode ?? first?.LanguageCode ?? store.DefaultLanguage;
+
+            notification.Subscriptions = subscriptions;
+            notification.Renewal = renewal;
+            notification.CustomerName = renewal?.CustomerName ?? first?.CustomerName;
+            notification.FirstName = contact?.FirstName?.Trim() ?? string.Empty;
+            notification.StoreName = store.Name;
+            notification.StoreUrl = storeUrl;
+            notification.LogoUrl = store.Settings.GetValue<string>(ModuleConstants.Settings.Store.EmailLogoUrl) ?? string.Empty;
+            notification.AccentColor = GetAccentColor(store);
+            notification.SubscriptionsUrl = $"{storeUrl}account/subscriptions";
+            notification.ManageUrl = GetManageUrl(storeUrl, renewal?.Items.FirstOrDefault(x => !x.IsExcluded)?.SubscriptionId ?? first?.Id);
+            notification.OrderUrl = string.IsNullOrEmpty(renewal?.OrderId) ? string.Empty : $"{storeUrl}account/orders/{renewal.OrderId}";
+            notification.From = store.EmailWithName ?? store.Email;
+            notification.To = email;
+            notification.LanguageCode = GetTemplateLanguage(notification, languageCode);
+            notification.TenantIdentity = renewal != null
+                ? new TenantIdentity(renewal.Id, nameof(Renewal))
+                : new TenantIdentity(first.Id, nameof(Subscription));
+
+            // Before the texts: an event may pass what they are built from (the skipped date).
+            configure?.Invoke(notification);
+
+            await FillTextsAsync(notification, store, subscriptions, renewal, storeUrl, languageCode);
+
+            await notificationSender.ScheduleSendNotificationAsync(notification);
+        }
+        catch (Exception ex)
+        {
+            // Notifications must never break the subscription flow.
+            logger.LogError(ex, "Failed to send {Notification}", typeof(T).Name);
+        }
+    }
+
+    public virtual async Task<string> GetStoreUrlAsync(string storeId)
+    {
+        var store = await storeService.GetNoCloneAsync(storeId, StoreResponseGroup.StoreInfo.ToString());
+        return store == null ? "/" : GetStoreUrl(store);
+    }
+
+    /// <summary>Formats the dates, amounts, frequencies and the card of the email in its language and the store's currency.</summary>
+    protected virtual async Task FillTextsAsync(SubscriptionEmailNotificationBase notification, Store store, IList<Subscription> subscriptions,
+        Renewal renewal, string storeUrl, string languageCode)
+    {
+        var culture = GetCulture(languageCode);
+        var timeZone = GetTimeZone(store);
+        var first = subscriptions.FirstOrDefault();
+        var currency = await GetCurrencyAsync(renewal?.Currency ?? first?.Currency ?? store.DefaultCurrency, culture.Name);
+        notification.Lines = CreateLines(subscriptions, renewal, currency, culture, timeZone, languageCode, storeUrl);
+
+        FillRenewalTexts(notification, renewal, currency, culture, timeZone);
+
+        var next = subscriptions
+            .Where(x => x.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue)
+            .Select(x => (DateTime?)x.NextOrderDate)
+            .Min();
+        notification.NextDeliveryDateText = FormatDate(next, culture, timeZone);
+
+        notification.CardText = await GetCardTextAsync(renewal?.StoredPaymentMethodId ?? first?.StoredPaymentMethodId);
+
+        FillEventTexts(notification, subscriptions, renewal, culture, timeZone);
+    }
+
+    /// <summary>A renewal's delivery and cut-off dates and its total: the order's, or else the one the reminder stated.</summary>
+    protected virtual void FillRenewalTexts(SubscriptionEmailNotificationBase notification, Renewal renewal, Currency currency, CultureInfo culture,
+        TimeZoneInfo timeZone)
+    {
+        if (renewal == null)
+        {
+            return;
+        }
+
+        notification.DeliveryDateText = FormatDate(renewal.ScheduledDate, culture, timeZone);
+        notification.CutoffDateText = FormatDate(renewal.CutoffDate, culture, timeZone);
+        notification.TotalText = FormatMoney(renewal.OrderTotal ?? renewal.NotifiedTotal ?? renewal.PreviewTotal, currency, culture);
+    }
+
+    /// <summary>A renewal's lines (its items that weren't excluded), or one line per subscription.</summary>
+    protected virtual IList<SubscriptionEmailLine> CreateLines(IList<Subscription> subscriptions, Renewal renewal, Currency currency,
+        CultureInfo culture, TimeZoneInfo timeZone, string languageCode, string storeUrl)
+    {
+        if (renewal == null)
+        {
+            return subscriptions
+                .Select(subscription => CreateLine(subscription, item: null, currency, culture, timeZone, languageCode, storeUrl))
+                .ToList();
+        }
+
+        var subscriptionsById = subscriptions.Where(x => !string.IsNullOrEmpty(x.Id)).ToDictionary(x => x.Id);
+        return renewal.Items
+            .Where(x => !x.IsExcluded)
+            .Select(item => CreateLine(subscriptionsById.GetValueOrDefault(item.SubscriptionId), item, currency, culture, timeZone, languageCode, storeUrl))
+            .ToList();
+    }
+
+    /// <summary>The texts only some emails have: the skipped date, the date a pause ends.</summary>
+    protected virtual void FillEventTexts(SubscriptionEmailNotificationBase notification, IList<Subscription> subscriptions, Renewal renewal,
+        CultureInfo culture, TimeZoneInfo timeZone)
+    {
+        switch (notification)
+        {
+            case DeliverySkippedEmailNotification { SkippedDate: not null } skipped when renewal == null:
+                skipped.DeliveryDateText = FormatDate(skipped.SkippedDate.Value, culture, timeZone);
+                break;
+            case SubscriptionPausedEmailNotification paused:
+                paused.PausedUntilText = FormatDate(subscriptions.Select(x => x.PausedUntil).FirstOrDefault(x => x != null), culture, timeZone);
+                break;
+        }
+    }
+
+    /// <summary>One text per section of a configured product: the chosen product and quantity, or the text and files.</summary>
+    protected virtual IList<SubscriptionEmailConfigurationLine> CreateConfigurationLines(SubscriptionConfiguration configuration)
+    {
+        if (configuration?.Sections == null)
+        {
+            return [];
+        }
+
+        return configuration.Sections
+            .Select(section =>
+            {
+                var line = AbstractTypeFactory<SubscriptionEmailConfigurationLine>.TryCreateInstance();
+                line.Text = $"{section.Name}: {GetSectionValue(section)}";
+                line.IsAvailable = section.IsAvailable != false;
+                return line;
+            })
+            .ToList();
+    }
+
+    protected static string GetSectionValue(SubscriptionConfigurationSection section)
+    {
+        if (!string.IsNullOrEmpty(section.ProductName))
+        {
+            return $"{section.ProductName} × {section.Quantity}";
+        }
+
+        var files = section.Files?.Select(x => x.Name).Where(x => !string.IsNullOrEmpty(x)) ?? [];
+        return string.Join(", ", new[] { section.CustomText }.Where(x => !string.IsNullOrEmpty(x)).Concat(files));
+    }
+
+    protected virtual SubscriptionEmailLine CreateLine(Subscription subscription, RenewalItem item, Currency currency, CultureInfo culture,
+        TimeZoneInfo timeZone, string languageCode, string storeUrl)
+    {
+        var line = AbstractTypeFactory<SubscriptionEmailLine>.TryCreateInstance();
+        FillProduct(line, subscription, item, storeUrl);
+        FillItemTexts(line, item, currency, culture);
+        FillSubscriptionTexts(line, subscription, currency, culture, timeZone, languageCode);
+        return line;
+    }
+
+    /// <summary>Which subscription and product the line is: a renewal item's own values win over the subscription's.</summary>
+    protected virtual void FillProduct(SubscriptionEmailLine line, Subscription subscription, RenewalItem item, string storeUrl)
+    {
+        if (item != null)
+        {
+            FillProductFromItem(line, item, subscription);
+        }
+        else
+        {
+            FillProductFromSubscription(line, subscription);
+        }
+
+        line.ManageUrl = GetManageUrl(storeUrl, line.SubscriptionId);
+    }
+
+    /// <summary>A renewal item's product, quantity and configuration; the subscription fills what the item lacks.</summary>
+    protected virtual void FillProductFromItem(SubscriptionEmailLine line, RenewalItem item, Subscription subscription)
+    {
+        line.SubscriptionId = subscription?.Id ?? item.SubscriptionId;
+        line.SubscriptionNumber = subscription?.Number ?? string.Empty;
+        line.ProductName = item.ProductName ?? subscription?.ProductName;
+        line.Quantity = item.Quantity;
+        line.ConfigurationLines = CreateConfigurationLines(item.Configuration ?? subscription?.Configuration);
+    }
+
+    /// <summary>The subscription's own product, quantity and configuration; an empty line without one.</summary>
+    protected virtual void FillProductFromSubscription(SubscriptionEmailLine line, Subscription subscription)
+    {
+        if (subscription == null)
+        {
+            line.SubscriptionNumber = string.Empty;
+            line.ConfigurationLines = CreateConfigurationLines(null);
+            return;
+        }
+
+        line.SubscriptionId = subscription.Id;
+        line.SubscriptionNumber = subscription.Number ?? string.Empty;
+        line.ProductName = subscription.ProductName;
+        line.Quantity = subscription.Quantity;
+        line.ConfigurationLines = CreateConfigurationLines(subscription.Configuration);
+    }
+
+    /// <summary>What a renewal item says: its total, whether it can be delivered and why not.</summary>
+    protected virtual void FillItemTexts(SubscriptionEmailLine line, RenewalItem item, Currency currency, CultureInfo culture)
+    {
+        line.TotalText = item == null ? string.Empty : FormatMoney(item.Total, currency, culture);
+        line.IsAvailable = item?.IsAvailable ?? true;
+        line.Message = item?.Message ?? string.Empty;
+    }
+
+    /// <summary>What the subscription says: its frequency, next date and discount; empty without a subscription.</summary>
+    protected virtual void FillSubscriptionTexts(SubscriptionEmailLine line, Subscription subscription, Currency currency, CultureInfo culture,
+        TimeZoneInfo timeZone, string languageCode)
+    {
+        if (subscription == null)
+        {
+            line.FrequencyText = string.Empty;
+            line.NextDateText = string.Empty;
+            line.DiscountText = string.Empty;
+            return;
+        }
+
+        line.FrequencyText = SubscriptionEmailTexts.Frequency(languageCode, subscription.IntervalUnit, subscription.IntervalCount);
+        line.NextDateText = FormatDate(subscription.NextOrderDate, culture, timeZone);
+        line.DiscountText = GetDiscountText(subscription, currency, culture, languageCode);
+    }
+
+    /// <summary>"Save 10%" or "Save $1.00"; empty without a discount.</summary>
+    protected virtual string GetDiscountText(Subscription subscription, Currency currency, CultureInfo culture, string languageCode)
+    {
+        if (subscription.DiscountValue <= 0 || subscription.DiscountType == SubscriptionDiscountType.None)
+        {
+            return string.Empty;
+        }
+
+        var value = subscription.DiscountType == SubscriptionDiscountType.Percent
+            ? subscription.DiscountValue.ToString("0.##", culture)
+            : FormatMoney(subscription.DiscountValue, currency, culture);
+        return SubscriptionEmailTexts.Discount(languageCode, subscription.DiscountType, value);
+    }
+
+    /// <summary>The date in the customer's language and the store's time zone; empty when there is none.</summary>
+    protected virtual string FormatDate(DateTime? date, CultureInfo culture, TimeZoneInfo timeZone)
+    {
+        return date == null ? string.Empty : FormatDate(date.Value, culture, timeZone);
+    }
+
+    protected virtual string FormatDate(DateTime date, CultureInfo culture, TimeZoneInfo timeZone)
+    {
+        var utc = date.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(date, DateTimeKind.Utc) : date.ToUniversalTime();
+        var pattern = Weekday().Replace(culture.DateTimeFormat.LongDatePattern, " ").Trim();
+        return TimeZoneInfo.ConvertTimeFromUtc(utc, timeZone).ToString(pattern, culture);
+    }
+
+    protected virtual string FormatMoney(decimal amount, Currency currency, CultureInfo culture)
+    {
+        if (currency != null)
+        {
+            return new Money(amount, currency).FormattedAmount;
+        }
+
+        return amount.ToString("N2", culture);
+    }
+
+    protected virtual Task<Currency> GetCurrencyAsync(string currencyCode, string cultureName)
+    {
+        return lookup.GetCurrencyAsync(currencyCode, cultureName);
+    }
+
+    /// <summary>"Visa •••• 4242", or empty when the card is unknown.</summary>
+    protected virtual Task<string> GetCardTextAsync(string storedPaymentMethodId)
+    {
+        return lookup.GetCardTextAsync(storedPaymentMethodId);
+    }
+
+    /// <summary>
+    /// The language to pick the template by. The platform matches it exactly, while the module ships templates per language
+    /// ("de") and stores use cultures ("de-DE"): a template for the culture wins, then one for its language.
+    /// </summary>
+    protected virtual string GetTemplateLanguage(SubscriptionEmailNotificationBase notification, string languageCode)
+    {
+        if (string.IsNullOrEmpty(languageCode) || notification.Templates == null)
+        {
+            return languageCode;
+        }
+
+        if (notification.Templates.Any(x => x.LanguageCode.EqualsIgnoreCase(languageCode)))
+        {
+            return languageCode;
+        }
+
+        // The module's Norwegian templates are "no"; stores use "nb-NO" (Bokmål) or "no-NO".
+        var language = SubscriptionEmailTexts.GetLanguage(languageCode);
+        return notification.Templates.Any(x => x.LanguageCode.EqualsIgnoreCase(language)) ? language : languageCode;
+    }
+
+    protected virtual string GetAccentColor(Store store)
+    {
+        var color = store.Settings.GetValue<string>(ModuleConstants.Settings.Store.EmailAccentColor);
+        return IsPlainCssColor(color) ? color.Trim() : ModuleConstants.Settings.Store.EmailAccentColor.DefaultValue?.ToString();
+    }
+
+    // The value lands in a style attribute: accept only a plain CSS colour, never markup or other declarations.
+    protected static bool IsPlainCssColor(string color)
+    {
+        return !string.IsNullOrWhiteSpace(color) && color.All(IsCssColorChar);
+    }
+
+    private static bool IsCssColorChar(char x)
+    {
+        return char.IsLetterOrDigit(x) || "#(),. %".Contains(x);
+    }
+
+    protected virtual string GetManageUrl(string storeUrl, string subscriptionId)
+    {
+        var url = $"{storeUrl}account/subscriptions";
+        return string.IsNullOrEmpty(subscriptionId) ? url : $"{url}?subscription={Uri.EscapeDataString(subscriptionId)}";
+    }
+
+    protected virtual CultureInfo GetCulture(string languageCode)
+    {
+        if (!string.IsNullOrEmpty(languageCode))
+        {
+            try
+            {
+                return CultureInfo.GetCultureInfo(languageCode);
+            }
+            catch (CultureNotFoundException)
+            {
+                // Fall back to English below.
+            }
+        }
+
+        return CultureInfo.GetCultureInfo("en-US");
+    }
+
+    /// <summary>The store's time zone, so dates fall on the customer's day rather than the server's; UTC when not set.</summary>
+    protected virtual TimeZoneInfo GetTimeZone(Store store)
+    {
+        if (!string.IsNullOrEmpty(store.TimeZone))
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(store.TimeZone);
+            }
+            catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+            {
+                logger.LogWarning("Unknown time zone {TimeZone} of store {StoreId}; emails use UTC", store.TimeZone, store.Id);
+            }
+        }
+
+        return TimeZoneInfo.Utc;
+    }
+
+    protected virtual string GetStoreUrl(Store store)
+    {
+        var url = string.IsNullOrEmpty(store.SecureUrl) ? store.Url : store.SecureUrl;
+        if (string.IsNullOrEmpty(url))
+        {
+            return "/";
+        }
+
+        return url.EndsWith('/') ? url : url + "/";
+    }
+
+    protected virtual async Task<string> GetCustomerEmailAsync(string customerId)
+    {
+        if (string.IsNullOrEmpty(customerId))
+        {
+            return null;
+        }
+
+        // Orders keep the customer's user account id, not the contact id: same lookup as the Orders module.
+        var member = await memberService.GetByIdAsync(customerId);
+        if (member != null)
+        {
+            return member.Emails?.FirstOrDefault();
+        }
+
+        using var userManager = userManagerFactory();
+        var user = await userManager.FindByIdAsync(customerId);
+        if (!string.IsNullOrEmpty(user?.Email))
+        {
+            return user.Email;
+        }
+
+        var contact = string.IsNullOrEmpty(user?.MemberId) ? null : await memberService.GetByIdAsync(user.MemberId);
+        return contact?.Emails?.FirstOrDefault();
+    }
+
+    /// <summary>
+    /// The customer's contact, for the first name. Orders keep the customer's user account id, not the contact id: same lookup as the Orders module.
+    /// </summary>
+    protected virtual async Task<Contact> GetContactAsync(string customerId)
+    {
+        if (string.IsNullOrEmpty(customerId))
+        {
+            return null;
+        }
+
+        if (await memberService.GetByIdAsync(customerId) is Contact contact)
+        {
+            return contact;
+        }
+
+        using var userManager = userManagerFactory();
+        var user = await userManager.FindByIdAsync(customerId);
+        if (string.IsNullOrEmpty(user?.MemberId))
+        {
+            return null;
+        }
+
+        return await memberService.GetByIdAsync(user.MemberId) as Contact;
+    }
+}

@@ -1,0 +1,1 @@
+Sprawdź dostawę zaplanowaną na {{ delivery_date_text }}

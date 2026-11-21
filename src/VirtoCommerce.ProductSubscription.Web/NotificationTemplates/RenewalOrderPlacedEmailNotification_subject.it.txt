@@ -1,0 +1,1 @@
+L’ordine {{ renewal.order_number }} del tuo abbonamento è stato effettuato

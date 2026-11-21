@@ -1,0 +1,1 @@
+Tus suscripciones en {{ store_name }}: recordatorio anual

@@ -1,0 +1,1 @@
+La tua prossima consegna: {{ delivery_date_text }}

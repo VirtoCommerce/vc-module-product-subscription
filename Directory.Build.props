@@ -11,5 +11,11 @@
   </PropertyGroup>
   <ItemGroup>
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rvv3-g6hj-g44x" />
+    <!-- TEMPORARY: transitive packages from the platform; remove once the platform packages update them. -->
+    <!-- AutoMapper 12.0.1 (NU1903) -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-6vhm-j9h7-f9gh" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-gpwp-5797-mjff" />
+    <!-- MySqlConnector 2.5.0 (NU1902) -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-473q-m89c-ghf8" />
   </ItemGroup>
 </Project>

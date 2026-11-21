@@ -1,0 +1,1 @@
+Bitte prüfen Sie Ihre Lieferung vom {{ delivery_date_text }}

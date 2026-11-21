@@ -1,0 +1,358 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using FluentValidation.Results;
+using VirtoCommerce.CartModule.Core.Model;
+using VirtoCommerce.CoreModule.Core.Common;
+using VirtoCommerce.OrdersModule.Core.Services;
+using VirtoCommerce.Platform.Core.Common;
+using VirtoCommerce.ProductSubscription.Core.Models;
+using VirtoCommerce.ProductSubscription.Data.Pricing;
+using VirtoCommerce.XCart.Core;
+using VirtoCommerce.XCart.Core.Models;
+using VirtoCommerce.XCart.Core.Services;
+using CartAddress = VirtoCommerce.CartModule.Core.Model.Address;
+using CoreAddress = VirtoCommerce.CoreModule.Core.Common.Address;
+using CustomerOrder = VirtoCommerce.OrdersModule.Core.Model.CustomerOrder;
+
+namespace VirtoCommerce.ProductSubscription.Data.Renewals;
+
+public class RenewalCartBuilder(
+    ICartAggregateRepository cartAggregateRepository,
+    ICartAvailMethodsService cartAvailMethodsService,
+    ICustomerOrderBuilder customerOrderBuilder,
+    IRenewalConfiguredLineBuilder configuredLineBuilder)
+    : IRenewalCartBuilder
+{
+    public const string RenewalCartType = "SubscriptionRenewal";
+
+    public virtual async Task<RenewalCartResult> BuildAsync(Renewal renewal, IList<Subscription> subscriptions)
+    {
+        ArgumentNullException.ThrowIfNull(renewal);
+
+        var subscriptionsById = subscriptions.ToDictionary(x => x.Id);
+        var activeItems = renewal.Items.Where(x => !x.IsExcluded && subscriptionsById.ContainsKey(x.SubscriptionId)).ToList();
+
+        var discounts = activeItems
+            .Select(x => subscriptionsById[x.SubscriptionId])
+            .GroupBy(x => x.ProductId)
+            .ToDictionary(x => x.Key, x =>
+            {
+                var s = x.First();
+                return new SubscriptionLineDiscount(s.PlanId, s.PlanName, s.DiscountType, s.DiscountValue);
+            });
+
+        using var scope = SubscriptionDiscountScope.Begin(discounts);
+
+        var cart = AbstractTypeFactory<ShoppingCart>.TryCreateInstance();
+        cart.StoreId = renewal.StoreId;
+        cart.CustomerId = renewal.CustomerId;
+        cart.CustomerName = renewal.CustomerName;
+        cart.OrganizationId = renewal.OrganizationId;
+        cart.Currency = renewal.Currency;
+        cart.LanguageCode = renewal.LanguageCode;
+        cart.Name = $"Subscription renewal {renewal.Number}";
+        cart.Type = RenewalCartType;
+        cart.Items = new List<LineItem>();
+        cart.Shipments = new List<Shipment>();
+        cart.Payments = new List<Payment>();
+        cart.Addresses = new List<CartAddress>();
+
+        var aggregate = await cartAggregateRepository.GetCartForShoppingCartAsync(cart, renewal.LanguageCode);
+
+        var result = new RenewalCartResult { Aggregate = aggregate };
+
+        // Subscriptions to the same product (and, for a configurable product, the same configuration) share one cart line.
+        var configuredLines = new Dictionary<string, RenewalConfiguredLineResult>();
+
+        if (activeItems.Count > 0)
+        {
+            var newItems = activeItems
+                .Where(x => !IsConfigured(subscriptionsById[x.SubscriptionId]))
+                .GroupBy(x => x.ProductId)
+                .Select(x => new NewCartItem(x.Key, x.Sum(i => subscriptionsById[i.SubscriptionId].Quantity)))
+                .ToList();
+
+            if (newItems.Count > 0)
+            {
+                await aggregate.AddItemsAsync(newItems);
+            }
+
+            foreach (var group in activeItems.Where(x => IsConfigured(subscriptionsById[x.SubscriptionId])).GroupBy(x => GetLineKey(subscriptionsById[x.SubscriptionId])))
+            {
+                var first = subscriptionsById[group.First().SubscriptionId];
+                var quantity = group.Sum(i => subscriptionsById[i.SubscriptionId].Quantity);
+                configuredLines[group.Key] = await configuredLineBuilder.AddAsync(aggregate, renewal, first.Configuration, quantity);
+            }
+        }
+
+        // In-memory cart lines have no ids, and validation errors point at their object by id: without ids, an error on
+        // any line (or on the shipment) would match every line.
+        foreach (var lineItem in aggregate.Cart.Items.Where(x => string.IsNullOrEmpty(x.Id)))
+        {
+            lineItem.Id = Guid.NewGuid().ToString("N");
+        }
+
+        var deliveryAddress = ToCartAddress(renewal.ShippingAddress, AddressType.Shipping);
+        if (deliveryAddress != null)
+        {
+            aggregate.Cart.Addresses.Add(deliveryAddress);
+        }
+
+        if (aggregate.Cart.Items.Count > 0)
+        {
+            await AddShipmentAsync(aggregate, renewal, deliveryAddress);
+            await AddPaymentAsync(aggregate, renewal, deliveryAddress);
+        }
+
+        await aggregate.RecalculateAsync();
+
+        // The payment amount must equal the cart total, as checkout does.
+        var payment = aggregate.Cart.Payments.FirstOrDefault();
+        if (payment != null)
+        {
+            payment.Amount = aggregate.Cart.Total;
+            await aggregate.RecalculateAsync();
+            payment.Amount = aggregate.Cart.Total;
+        }
+
+        var validationErrors = (await aggregate.ValidateAsync("items")).Concat(aggregate.OperationValidationErrors).ToList();
+
+        // Subscriptions to the same product share one cart line: each gets its quantity's share of the line.
+        var lineShares = new Dictionary<string, LineShare>();
+
+        foreach (var item in renewal.Items)
+        {
+            var subscription = subscriptionsById.GetValueOrDefault(item.SubscriptionId);
+            var configuredLine = subscription != null && IsConfigured(subscription) ? configuredLines.GetValueOrDefault(GetLineKey(subscription)) : null;
+            var lineItem = subscription != null && IsConfigured(subscription)
+                ? configuredLine?.LineItem
+                : aggregate.Cart.Items.FirstOrDefault(x => x.ProductId == item.ProductId && !x.IsConfigured);
+            var copy = (RenewalItem)item.Clone();
+
+            if (subscription != null)
+            {
+                copy.Quantity = subscription.Quantity;
+                copy.ProductName = lineItem?.Name ?? subscription.ProductName;
+                copy.ImageUrl = lineItem?.ImageUrl ?? subscription.ImageUrl;
+                copy.Sku = lineItem?.Sku ?? subscription.Sku;
+                copy.Configuration = configuredLine?.Configuration ?? (SubscriptionConfiguration)subscription.Configuration?.Clone();
+                copy.ConfigurationHash = subscription.ConfigurationHash;
+                copy.IsConfigurationChanged = configuredLine?.IsConfigurationChanged == true;
+            }
+
+            if (copy.IsExcluded)
+            {
+                result.Items.Add(copy);
+                continue;
+            }
+
+            var errors = GetLineErrors(validationErrors, lineItem, item.ProductId);
+
+            if (lineItem == null)
+            {
+                copy.IsAvailable = false;
+                copy.Message = (copy.IsConfigurationChanged ? configuredLine?.Message : null)
+                    ?? errors.FirstOrDefault()
+                    ?? "This product is not available right now.";
+                copy.ListPrice = 0;
+                copy.DiscountAmount = 0;
+                copy.Total = 0;
+            }
+            else
+            {
+                var lineKey = GetLineKey(subscription) ?? lineItem.ProductId;
+                if (!lineShares.TryGetValue(lineKey, out var share))
+                {
+                    var subscriptionCount = activeItems.Count(x => GetLineKey(subscriptionsById[x.SubscriptionId]) == lineKey);
+                    share = new LineShare(lineItem.Quantity, lineItem.ExtendedPrice, subscriptionCount);
+                    lineShares[lineKey] = share;
+                }
+
+                copy.IsAvailable = errors.Count == 0;
+                copy.Message = errors.FirstOrDefault();
+                copy.ListPrice = lineItem.ListPrice;
+                copy.DiscountAmount = lineItem.DiscountAmount * copy.Quantity;
+                copy.Total = share.Take(copy.Quantity);
+            }
+
+            if (!copy.IsAvailable)
+            {
+                result.Problems.Add($"{copy.ProductName}: {copy.Message}");
+            }
+
+            result.Items.Add(copy);
+        }
+
+        if (aggregate.Cart.Items.Count > 0 && aggregate.Cart.Shipments.Count == 0)
+        {
+            result.Problems.Add("No shipping method is available for the delivery address.");
+        }
+
+        result.Total = aggregate.Cart.Total;
+        result.DiscountTotal = aggregate.Cart.DiscountTotal;
+        result.ShippingTotal = aggregate.Cart.ShippingTotal;
+        result.TaxTotal = aggregate.Cart.TaxTotal;
+
+        return result;
+    }
+
+    /// <summary>A configurable product, with or without options chosen: it is rebuilt as a configured line.</summary>
+    protected static bool IsConfigured(Subscription subscription)
+    {
+        return subscription?.Configuration != null;
+    }
+
+    /// <summary>Renewal lines are keyed by product and, for a configurable product, by the configuration fingerprint.</summary>
+    protected static string GetLineKey(Subscription subscription)
+    {
+        if (subscription == null)
+        {
+            return null;
+        }
+
+        return IsConfigured(subscription)
+            ? $"{subscription.ProductId}|{subscription.ConfigurationHash ?? subscription.Configuration.ComputeHash()}"
+            : subscription.ProductId;
+    }
+
+    public virtual async Task<CustomerOrder> PlaceOrderAsync(Renewal renewal, RenewalCartResult cartResult)
+    {
+        var cart = cartResult.Aggregate.Cart;
+
+        // The converter maps cart lines, shipments and payments by id; give the in-memory cart's objects ids.
+        foreach (var lineItem in cart.Items.Where(x => string.IsNullOrEmpty(x.Id)))
+        {
+            lineItem.Id = Guid.NewGuid().ToString("N");
+        }
+
+        foreach (var shipment in cart.Shipments.Where(x => string.IsNullOrEmpty(x.Id)))
+        {
+            shipment.Id = Guid.NewGuid().ToString("N");
+        }
+
+        foreach (var payment in cart.Payments.Where(x => string.IsNullOrEmpty(x.Id)))
+        {
+            payment.Id = Guid.NewGuid().ToString("N");
+        }
+
+        cart.Comment = $"Subscription renewal {renewal.Number}";
+
+        return await customerOrderBuilder.PlaceCustomerOrderFromCartAsync(cart);
+    }
+
+    /// <summary>
+    /// Splits a cart line's total between the subscriptions that share it, by quantity. The last one gets the rest, so the
+    /// shares always add up to the line's total.
+    /// </summary>
+    protected sealed class LineShare
+    {
+        private readonly int _lineQuantity;
+        private readonly decimal _lineTotal;
+        private decimal _remainingTotal;
+        private int _remainingShares;
+
+        public LineShare(int lineQuantity, decimal lineTotal, int subscriptionCount)
+        {
+            _lineQuantity = lineQuantity;
+            _lineTotal = lineTotal;
+            _remainingTotal = lineTotal;
+            _remainingShares = subscriptionCount;
+        }
+
+        public decimal Take(int quantity)
+        {
+            if (--_remainingShares <= 0 || _lineQuantity <= 0)
+            {
+                var rest = _remainingTotal;
+                _remainingTotal = 0;
+                return rest;
+            }
+
+            var share = Math.Round(_lineTotal * quantity / _lineQuantity, 2, MidpointRounding.AwayFromZero);
+            _remainingTotal -= share;
+            return share;
+        }
+    }
+
+    /// <summary>The validation messages about one renewal line: errors on its cart line, or on its product.</summary>
+    public static IList<string> GetLineErrors(IEnumerable<ValidationFailure> validationErrors, LineItem lineItem, string productId)
+    {
+        return validationErrors
+            .OfType<CartValidationError>()
+            .Where(x => !string.IsNullOrEmpty(x.ObjectId)
+                && ((!string.IsNullOrEmpty(lineItem?.Id) && x.ObjectId == lineItem.Id) || x.ObjectId == productId))
+            .Select(x => x.ErrorMessage)
+            .ToList();
+    }
+
+    protected virtual async Task AddShipmentAsync(CartAggregate aggregate, Renewal renewal, CartAddress deliveryAddress)
+    {
+        var rates = (await cartAvailMethodsService.GetAvailableShippingRatesAsync(aggregate))?.ToList() ?? [];
+        if (rates.Count == 0)
+        {
+            return;
+        }
+
+        var rate = rates.FirstOrDefault(x => x.ShippingMethod?.Code == renewal.ShippingMethodCode && (string.IsNullOrEmpty(renewal.ShippingMethodOption) || x.OptionName == renewal.ShippingMethodOption))
+            ?? rates.FirstOrDefault(x => x.ShippingMethod?.Code == renewal.ShippingMethodCode)
+            ?? rates.OrderBy(x => x.Rate).First();
+
+        var shipment = AbstractTypeFactory<Shipment>.TryCreateInstance();
+        shipment.ShipmentMethodCode = rate.ShippingMethod?.Code;
+        shipment.ShipmentMethodOption = rate.OptionName;
+        shipment.Currency = aggregate.Cart.Currency;
+        shipment.DeliveryAddress = deliveryAddress;
+        // xCart prices a shipment from its rate only for a saved cart, and its validator rejects a price that differs from
+        // the rate. The renewal cart lives in memory, so a paid method would fail with "The shipment method price is
+        // changed": price the shipment here.
+        shipment.Price = rate.Rate;
+        shipment.DiscountAmount = rate.DiscountAmount;
+
+        await aggregate.AddShipmentAsync(shipment, rates);
+    }
+
+    protected virtual async Task AddPaymentAsync(CartAggregate aggregate, Renewal renewal, CartAddress billingAddress)
+    {
+        var methods = (await cartAvailMethodsService.GetAvailablePaymentMethodsAsync(aggregate))?.ToList() ?? [];
+        var method = methods.FirstOrDefault(x => x.Code == renewal.PaymentMethodCode);
+        if (method == null)
+        {
+            return;
+        }
+
+        var payment = AbstractTypeFactory<Payment>.TryCreateInstance();
+        payment.PaymentGatewayCode = method.Code;
+        payment.Currency = aggregate.Cart.Currency;
+        payment.BillingAddress = billingAddress == null ? null : ToCartAddress(billingAddress, AddressType.Billing);
+
+        await aggregate.AddPaymentAsync(payment, methods);
+    }
+
+    protected static CartAddress ToCartAddress(CoreAddress source, AddressType addressType)
+    {
+        if (source == null)
+        {
+            return null;
+        }
+
+        var result = AbstractTypeFactory<CartAddress>.TryCreateInstance();
+        result.AddressType = addressType;
+        result.Name = source.Name;
+        result.FirstName = source.FirstName;
+        result.LastName = source.LastName;
+        result.Organization = source.Organization;
+        result.Line1 = source.Line1;
+        result.Line2 = source.Line2;
+        result.City = source.City;
+        result.PostalCode = source.PostalCode;
+        result.RegionId = source.RegionId;
+        result.RegionName = source.RegionName;
+        result.CountryCode = source.CountryCode;
+        result.CountryName = source.CountryName;
+        result.Phone = source.Phone;
+        result.Email = source.Email;
+        return result;
+    }
+}
