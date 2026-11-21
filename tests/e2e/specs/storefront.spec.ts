@@ -332,12 +332,12 @@ test("each variation row offers Subscribe & Save, in the list and in the table",
 test("a variation added with Subscribe & Save is subscribed in the cart", async ({ page }) => {
   test.setTimeout(240_000);
   await clearFirstVariationRow(page);
-  await open(page, "/cart");
-  const before = await page.locator(CART_LINE_SUBSCRIPTION).count();
-
-  await openB2bVariations(page);
   const row = page.locator(".purchase-options--compact").first();
   const stepper = row.getByTestId("quantity-stepper");
+  // the variation's own cart line, by its name: other lines may be subscribed too, and the subscription part of a line
+  // renders after the line itself, so counting subscribed lines races the page
+  const name = (await page.locator(".purchase-options--compact").first()
+    .locator("xpath=ancestor::*[.//a][1]").locator("a").first().innerText()).trim();
   try {
     await subscribeRow(row);
     const value = await stepper.locator("input").inputValue();
@@ -347,10 +347,10 @@ test("a variation added with Subscribe & Save is subscribed in the cart", async 
     await expect(row.locator(".purchase-options__status")).toContainText("In your cart as a subscription", { timeout: 30_000 });
 
     // the cart shows the line subscribed
-    await expect(async () => {
-      await open(page, "/cart");
-      await expect(page.locator(CART_LINE_SUBSCRIPTION)).toHaveCount(before + 1, { timeout: 5_000 });
-    }).toPass({ timeout: 60_000 });
+    await open(page, "/cart");
+    const line = page.locator(".vc-line-item").filter({ hasText: name });
+    await expect(line).toHaveCount(1, { timeout: 60_000 });
+    await expect(line.locator(CART_LINE_SUBSCRIPTION)).toBeVisible({ timeout: 60_000 });
   } finally {
     // the scenario leaves the variation out of the cart
     await clearFirstVariationRow(page);

@@ -40,14 +40,22 @@ test("subscriptions are listed and searchable", async ({ page }) => {
   expect(numbers.length).toBeGreaterThan(0);
 
   const number = numbers[numbers.length - 1].trim();
-  await blade.getByPlaceholder("Search by number, product, SKU or customer").fill(number);
-  await expect(blade.getByText(SUBSCRIPTION_NUMBER)).toHaveCount(1);
-  await expect(blade.getByText(number)).toBeVisible();
+  // the search bar: its placeholder is shorter on a phone, its accessible name is the same everywhere
+  await blade.getByRole("combobox", { name: "Search by number, product, SKU or customer" }).fill(number);
+  // count the table's cells (rows on a desktop, cards on a phone), not the search bar repeating the text
+  const cells = blade.locator(".vc-table-cell-default").filter({ hasText: SUBSCRIPTION_NUMBER });
+  await expect(cells).toHaveCount(1);
+  await expect(cells.first()).toHaveText(number);
 });
 
 test("a subscription's schedule is edited, validated by the server and reset", async ({ page }) => {
-  await openRoute(page, "/product-subscriptions");
-  await topBlade(page).getByText(SUBSCRIPTION_NUMBER).first().click();
+  // an active subscription: a cancelled or paused one (the list may open on one) has its schedule read-only
+  const search = await (
+    await page.request.post("/api/product-subscription/subscriptions/search", { data: { statuses: ["Active"], take: 1 } })
+  ).json();
+  const subscriptionId = search.results?.[0]?.id as string;
+  expect(subscriptionId, "an active subscription").toBeTruthy();
+  await openRoute(page, `/product-subscriptions/product-subscription/${subscriptionId}`);
   const blade = topBlade(page);
   await expect(blade.getByText("Schedule")).toBeVisible();
   await expect(blade.getByText("Customer and delivery")).toBeVisible();
@@ -145,8 +153,9 @@ test("a plan's products are picked from the catalog, then the change is reset", 
   await plan.getByRole("button", { name: "Add products or categories" }).click();
   const picker = topBlade(page);
   await expect(picker.getByText("Type to search products and categories of every catalog.")).toBeVisible();
-  await picker.getByPlaceholder("Search products and categories").fill("pepsi");
-  const result = picker.getByText(/PEPSI/i).first();
+  await picker.getByRole("combobox", { name: "Search products and categories" }).fill("pepsi");
+  // a result row's name: the search bar repeats the search text, so plain text matching finds the bar first
+  const result = picker.locator(".ps-pick__name", { hasText: /PEPSI/i }).first();
   // the catalog's first keyword search after a while can take several seconds
   await expect(result).toBeVisible({ timeout: 60_000 });
   // a tap selects (phones have no checkboxes)
@@ -207,7 +216,8 @@ test("the customer emails are rendered: created, reminder with the price, paymen
   expect(reminder, "a renewal reminder").toBeTruthy();
   expect(reminder.subject).toMatch(/next delivery/i);
   // the reminder carries the maximum price of the delivery (US auto-renewal rules)
-  expect(reminder.body).toMatch(/\d+\.\d{2} [A-Z]{3}/);
+  // a money amount: the store currency's symbol ($220.50) or, without one, the code (220.50 USD)
+  expect(reminder.body).toMatch(/[$€£]\d[\d,]*\.\d{2}|\d+\.\d{2} [A-Z]{3}/);
   expect(reminder.body).toContain("charge more than this without asking you");
   expect(reminder.to).toContain("@");
 
