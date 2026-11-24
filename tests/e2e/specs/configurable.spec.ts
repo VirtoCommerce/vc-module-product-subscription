@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 // Subscribe & Save on a configurable product, on a desktop and on a phone, as a signed-in buyer: the product page
 // prices the subscription from the chosen options, the cart and the checkout terms show what every delivery brings,
@@ -24,16 +24,6 @@ async function openConfigurableProduct(page: Page) {
   await expect(page.getByTestId("purchase-option-subscribe")).toBeVisible({ timeout: 60_000 });
 }
 
-/** "$1,234.50" → 1234.5 */
-function amountOf(text: string | null): number {
-  return Number((text ?? "").replace(/[^\d.,-]/g, "").replace(/,/g, ""));
-}
-
-async function priceOf(locator: Locator): Promise<number> {
-  await expect(locator).toBeVisible();
-  return amountOf(await locator.textContent());
-}
-
 /** Picks the n-th product of the first section that offers more than one (its radio: the card's name is a link). */
 async function pickOption(page: Page, index: number) {
   const section = page.getByTestId("section").filter({ has: page.getByTestId("product-option").nth(1) }).first();
@@ -50,17 +40,23 @@ async function expectSignedIn(page: Page) {
 async function removeConfiguredLines(page: Page) {
   await open(page, "/cart");
   // the configurable product's own lines: the buyer's cart may hold other subscribed lines
-  const lines = page.locator(".vc-line-item").filter({ hasText: /hat/i });
-  const productLine = lines.locator('[data-test-id^="cart-line-subscription-change-"]');
-  for (let i = 0; i < 5; i++) {
-    const remove = lines.getByRole("button", { name: /remove/i });
-    if ((await remove.count()) === 0) {
+  // count only once the cart has loaded: before that it has no lines and the loop would stop at once
+  await expect(page.getByText(/Subtotal|cart is empty/i).first()).toBeVisible({ timeout: 60_000 });
+  // cart lines only: the checkout's subscription terms list the same product in line items too, with no remove button
+  const lines = page
+    .locator(".vc-line-item")
+    .filter({ hasText: /hat/i })
+    .filter({ has: page.getByRole("button", { name: /remove from cart/i }) });
+  // every line, however many earlier runs left: a leftover one-time line makes the next subscription refused
+  for (let i = 0; i < 30; i++) {
+    const count = await lines.count();
+    if (count === 0) {
       break;
     }
-    await remove.first().click();
-    await page.waitForLoadState("networkidle");
+    await lines.first().getByRole("button", { name: /remove/i }).click();
+    await expect(lines).toHaveCount(count - 1, { timeout: 30_000 });
   }
-  await expect(productLine).toHaveCount(0);
+  await expect(lines).toHaveCount(0);
 }
 
 /**
@@ -81,7 +77,9 @@ async function guardAgainstOrders(page: Page) {
   return blocked;
 }
 
-test("a configurable product offers Subscribe & Save priced from its options", async ({ page }) => {
+// VCST-6861 / VCST-6986: the purchase options show no price, as for simple products and variations. The price stays in
+// the block's Price row, and for a configured product that row follows the chosen options.
+test("a configurable product offers Subscribe & Save with no prices in the options", async ({ page }) => {
   test.setTimeout(180_000);
   await openConfigurableProduct(page);
 
@@ -89,22 +87,20 @@ test("a configurable product offers Subscribe & Save priced from its options", a
   await expect(page.getByTestId("purchase-option-frequency")).toBeVisible();
   // every delivery is this configuration: said next to the choice
   await expect(page.getByTestId("purchase-option-configuration-note")).toBeVisible();
+  await expect(page.getByTestId(ONCE_PRICE)).toHaveCount(0);
+  await expect(page.getByTestId(SUBSCRIBE_PRICE)).toHaveCount(0);
+  await expect(page.getByTestId("purchase-option-subscribe").locator("s")).toHaveCount(0);
 
-  await pickOption(page, 0);
-  const once = await priceOf(page.getByTestId(ONCE_PRICE));
-  const subscribed = await priceOf(page.getByTestId(SUBSCRIBE_PRICE));
-  expect(subscribed, "the subscription price includes the plan discount").toBeLessThanOrEqual(once);
-
-  // another option: both prices follow the configured price, and the discount keeps its share of it
-  await pickOption(page, 1);
-  await expect(async () => {
-    const nextOnce = await priceOf(page.getByTestId(ONCE_PRICE));
-    const nextSubscribed = await priceOf(page.getByTestId(SUBSCRIBE_PRICE));
-    expect(nextSubscribed).toBeLessThanOrEqual(nextOnce);
-    if (once > 0 && nextOnce !== once) {
-      expect(nextSubscribed / nextOnce).toBeCloseTo(subscribed / once, 2);
-    }
-  }).toPass({ timeout: 15_000 });
+  // the Price row follows the options (desktop: the price block; a phone shows its price elsewhere)
+  const priceRow = page.locator(".product-price-block__product-price").first();
+  if ((await priceRow.count()) > 0) {
+    await pickOption(page, 0);
+    const first = await priceRow.innerText();
+    await pickOption(page, 1);
+    await expect(async () => {
+      expect(await priceRow.innerText()).not.toBe(first);
+    }).toPass({ timeout: 15_000 });
+  }
 });
 
 test("a configured line is subscribed in the cart and the checkout shows its composition", async ({ page }) => {

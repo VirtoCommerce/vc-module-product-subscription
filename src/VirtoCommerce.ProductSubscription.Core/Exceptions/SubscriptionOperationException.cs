@@ -21,4 +21,15 @@ public class SubscriptionOperationException : InvalidOperationException
         : base(message, innerException)
     {
     }
+
+    /// <param name="message">What the customer is told when the storefront has no text of its own for the reason.</param>
+    /// <param name="reason">One of <see cref="SubscriptionErrorReasons"/>.</param>
+    public SubscriptionOperationException(string message, string reason)
+        : base(message)
+    {
+        Reason = reason;
+    }
+
+    /// <summary>The reason's code (<see cref="SubscriptionErrorReasons"/>), or null when the message is all there is.</summary>
+    public string Reason { get; }
 }

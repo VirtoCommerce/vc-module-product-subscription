@@ -89,7 +89,8 @@ public class SetCartItemSubscriptionCommandHandler(
         var pricedLine = aggregate?.Cart?.Items?.FirstOrDefault(x => x.Id == lineItem.Id);
         if (pricedLine == null || !HasPrice(pricedLine))
         {
-            throw new SubscriptionOperationException("This product has no price of its own. Choose one of its variations to subscribe.");
+            throw new SubscriptionOperationException("This product has no price of its own. Choose one of its variations to subscribe.",
+                SubscriptionErrorReasons.NoOwnPrice);
         }
     }
 
@@ -109,7 +110,8 @@ public class SetCartItemSubscriptionCommandHandler(
 
         if (hasOneTimeLine)
         {
-            throw new SubscriptionOperationException("This product is in your cart more than once. Subscribe to each of its lines, or remove the others, to subscribe to this one.");
+            throw new SubscriptionOperationException("This product is in your cart more than once. Subscribe to each of its lines, or remove the others, to subscribe to this one.",
+                SubscriptionErrorReasons.ProductInCartMoreThanOnce);
         }
     }
 

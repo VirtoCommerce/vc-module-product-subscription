@@ -26,7 +26,14 @@ internal static class CommandErrors
         }
         catch (SubscriptionOperationException ex)
         {
-            throw new ExecutionError(ex.Message) { Code = "SUBSCRIPTION_ERROR" };
+            var error = new ExecutionError(ex.Message) { Code = "SUBSCRIPTION_ERROR" };
+            if (!string.IsNullOrEmpty(ex.Reason))
+            {
+                // extensions.data.reason: the storefront says it in the customer's language
+                error.Data["reason"] = ex.Reason;
+            }
+
+            throw error;
         }
     }
 }
