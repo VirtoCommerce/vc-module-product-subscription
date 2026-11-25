@@ -27,11 +27,16 @@ public class SubscriptionTermsCartValidator : AbstractValidator<CartValidationCo
 
     private readonly ISubscriptionCartItemSearchService _cartItemSearchService;
     private readonly IPaymentConsentSearchService _consentSearchService;
+    private readonly ISubscriptionTermsService _termsService;
 
-    public SubscriptionTermsCartValidator(ISubscriptionCartItemSearchService cartItemSearchService, IPaymentConsentSearchService consentSearchService)
+    public SubscriptionTermsCartValidator(
+        ISubscriptionCartItemSearchService cartItemSearchService,
+        IPaymentConsentSearchService consentSearchService,
+        ISubscriptionTermsService termsService)
     {
         _cartItemSearchService = cartItemSearchService;
         _consentSearchService = consentSearchService;
+        _termsService = termsService;
 
         RuleSet(XCartModuleConstants.ValidationRuleSets.OrderCreate, () =>
             RuleFor(x => x).CustomAsync(ValidateConsentAsync));
@@ -72,15 +77,26 @@ public class SubscriptionTermsCartValidator : AbstractValidator<CartValidationCo
         return choices.Any(x => orderedLineIds.Contains(x.LineItemId));
     }
 
+    /// <summary>
+    /// A consent given for this checkout (the cart's CheckoutId, which xOrder replaces after each order), not revoked, to
+    /// the store's current terms: a consent from an earlier order, or to terms that have changed since, doesn't count.
+    /// </summary>
     protected virtual async Task<bool> HasConsentAsync(ShoppingCart cart)
     {
         var criteria = AbstractTypeFactory<PaymentConsentSearchCriteria>.TryCreateInstance();
         criteria.CustomerId = cart.CustomerId;
         criteria.RelatedObjectType = ModuleConstants.ConsentObjectType;
-        criteria.RelatedObjectId = cart.Id;
+        criteria.RelatedObjectId = string.IsNullOrEmpty(cart.CheckoutId) ? cart.Id : cart.CheckoutId;
         criteria.Purpose = ModuleConstants.ConsentPurpose;
-        criteria.Take = 0;
+        criteria.Take = ModuleConstants.SearchPageSize;
 
-        return (await _consentSearchService.SearchAsync(criteria)).TotalCount > 0;
+        var consents = (await _consentSearchService.SearchAsync(criteria))?.Results ?? [];
+        if (consents.Count == 0)
+        {
+            return false;
+        }
+
+        var terms = await _termsService.GetTermsAsync(cart.StoreId);
+        return consents.Any(x => x.RevokedDate == null && (string.IsNullOrEmpty(terms?.Hash) || x.TermsHash == terms.Hash));
     }
 }

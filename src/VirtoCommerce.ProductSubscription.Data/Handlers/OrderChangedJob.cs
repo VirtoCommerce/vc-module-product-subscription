@@ -26,7 +26,7 @@ public class OrderChangedJob(
 {
     public virtual Task Execute(OrderChangedJobPayload payload, IJobExecutionContext context, CancellationToken cancellationToken = default)
     {
-        return ProcessAsync(payload.OrderId, payload.IsNew, payload.Choices);
+        return ProcessAsync(payload.OrderId, payload.IsNew, payload.Choices, payload.ConsentId);
     }
 
     public virtual Task ProcessAsync(string orderId, bool isNew)
@@ -34,13 +34,18 @@ public class OrderChangedJob(
         return ProcessAsync(orderId, isNew, choices: null);
     }
 
-    public virtual async Task ProcessAsync(string orderId, bool isNew, IList<SubscriptionCartItem> choices)
+    public virtual Task ProcessAsync(string orderId, bool isNew, IList<SubscriptionCartItem> choices)
     {
-        // The "order created" and "payment authorized" jobs for one order can run at the same time.
-        await distributedLock.ExecuteAsync($"product-subscription:order:{orderId}", _ => ProcessLockedAsync(orderId, choices), TimeSpan.FromSeconds(60));
+        return ProcessAsync(orderId, isNew, choices, consentId: null);
     }
 
-    protected virtual async Task ProcessLockedAsync(string orderId, IList<SubscriptionCartItem> choices)
+    public virtual async Task ProcessAsync(string orderId, bool isNew, IList<SubscriptionCartItem> choices, string consentId)
+    {
+        // The "order created" and "payment authorized" jobs for one order can run at the same time.
+        await distributedLock.ExecuteAsync($"product-subscription:order:{orderId}", _ => ProcessLockedAsync(orderId, choices, consentId), TimeSpan.FromSeconds(60));
+    }
+
+    protected virtual async Task ProcessLockedAsync(string orderId, IList<SubscriptionCartItem> choices, string consentId)
     {
         var order = await customerOrderService.GetByIdAsync(orderId);
         if (order == null || order.IsPrototype)
@@ -55,7 +60,7 @@ public class OrderChangedJob(
                 // The copy taken at checkout when creating them failed; otherwise the choices still saved for the cart.
                 if (choices?.Count > 0)
                 {
-                    await subscriptionManager.CreateFromOrderAsync(order, choices);
+                    await subscriptionManager.CreateFromOrderAsync(order, choices, consentId);
                 }
                 else
                 {

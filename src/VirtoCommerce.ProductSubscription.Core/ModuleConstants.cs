@@ -30,7 +30,11 @@ public static class ModuleConstants
     private const string DefaultEmailAccentColor = "#1f2933";
 
     /// <summary>The object a subscription consent is recorded for: the checkout cart the customer accepted the terms in.</summary>
-    public const string ConsentObjectType = "ShoppingCart";
+    /// <summary>
+    /// A consent is given for one checkout: it is recorded against the cart's CheckoutId, which xOrder replaces after each
+    /// order. The cart id itself outlives every order of a signed-in customer, so it can't tell one checkout from the next.
+    /// </summary>
+    public const string ConsentObjectType = "ShoppingCartCheckout";
 
     public static class Security
     {

@@ -36,9 +36,14 @@ public class OrderChangedEventHandler(
             }
 
             IList<SubscriptionCartItem> unusedChoices = null;
+            string consentId = null;
             if (entry.EntryState == EntryState.Added && !string.IsNullOrEmpty(order.ShoppingCartId))
             {
                 unusedChoices = await CreateSubscriptionsAsync(order);
+                if (unusedChoices != null)
+                {
+                    consentId = await GetCheckoutConsentIdAsync(order);
+                }
             }
 
             if (!NeedsProcessing(entry))
@@ -51,6 +56,7 @@ public class OrderChangedEventHandler(
             payload.OrderId = order.Id;
             payload.IsNew = entry.EntryState == EntryState.Added;
             payload.Choices = unusedChoices;
+            payload.ConsentId = consentId;
 
             try
             {
@@ -127,6 +133,20 @@ public class OrderChangedEventHandler(
             // change deletes them.
             logger.LogError(ex, "Failed to create subscriptions for order {OrderNumber}", order.Number);
             return await CopyChoicesAsync(order);
+        }
+    }
+
+    /// <summary>The consent given for the order's checkout, kept for the retry before xOrder replaces the cart's CheckoutId.</summary>
+    protected virtual async Task<string> GetCheckoutConsentIdAsync(CustomerOrder order)
+    {
+        try
+        {
+            return await subscriptionManager.GetCheckoutConsentIdAsync(order.ShoppingCartId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to keep the subscription consent of order {OrderNumber} for a retry", order.Number);
+            return null;
         }
     }
 

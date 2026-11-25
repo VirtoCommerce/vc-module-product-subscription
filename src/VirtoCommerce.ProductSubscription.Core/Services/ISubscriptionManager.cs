@@ -20,6 +20,15 @@ public interface ISubscriptionManager
     /// </summary>
     Task<IList<Subscription>> CreateFromOrderAsync(CustomerOrder order, IList<SubscriptionCartItem> choices);
 
+    /// <summary>
+    /// Creates the subscriptions from a copy of the cart's choices, with the consent given for the order's checkout (taken
+    /// before xOrder replaced the cart's CheckoutId).
+    /// </summary>
+    Task<IList<Subscription>> CreateFromOrderAsync(CustomerOrder order, IList<SubscriptionCartItem> choices, string consentId);
+
+    /// <summary>The customer's consent to the subscription terms for the cart's current checkout, or null.</summary>
+    Task<string> GetCheckoutConsentIdAsync(string cartId);
+
     /// <summary>The subscription choices saved for a cart's lines.</summary>
     Task<IList<SubscriptionCartItem>> GetCartChoicesAsync(string cartId);
     Task<IList<Subscription>> ActivateForOrderAsync(CustomerOrder order);

@@ -34,11 +34,15 @@ public class OrderChoicesSnapshotTests
         var manager = new Mock<ISubscriptionManager>();
         manager.Setup(x => x.CreateFromOrderAsync(It.IsAny<CustomerOrder>())).ThrowsAsync(new InvalidOperationException("database is down"));
         manager.Setup(x => x.GetCartChoicesAsync("cart-1")).ReturnsAsync(_choices);
+        manager.Setup(x => x.GetCheckoutConsentIdAsync("cart-1")).ReturnsAsync("consent-1");
         var handler = new RecordingOrderChangedEventHandler(manager.Object);
 
         await handler.Handle(new OrderChangedEvent([new GenericChangedEntry<CustomerOrder>(Order(), EntryState.Added)]));
 
-        handler.Enqueued.Should().ContainSingle().Which.Choices.Should().BeEquivalentTo(_choices);
+        var payload = handler.Enqueued.Should().ContainSingle().Subject;
+        payload.Choices.Should().BeEquivalentTo(_choices);
+        // VCST-6993: the consent of this checkout, taken before xOrder gives the cart a new CheckoutId
+        payload.ConsentId.Should().Be("consent-1");
     }
 
     [Fact]
@@ -61,12 +65,12 @@ public class OrderChoicesSnapshotTests
         var orders = new Mock<ICustomerOrderService>();
         orders.Setup(x => x.GetAsync(It.IsAny<IList<string>>(), It.IsAny<string>(), It.IsAny<bool>())).ReturnsAsync([order]);
         var manager = new Mock<ISubscriptionManager>();
-        manager.Setup(x => x.CreateFromOrderAsync(It.IsAny<CustomerOrder>(), It.IsAny<IList<SubscriptionCartItem>>())).ReturnsAsync(new List<Subscription>());
+        manager.Setup(x => x.CreateFromOrderAsync(It.IsAny<CustomerOrder>(), It.IsAny<IList<SubscriptionCartItem>>(), It.IsAny<string>())).ReturnsAsync(new List<Subscription>());
         var job = new OrderChangedJob(orders.Object, manager.Object, Mock.Of<IRenewalProcessor>(), new InProcessDistributedLock(), NullLogger<OrderChangedJob>.Instance);
 
-        await job.Execute(new OrderChangedJobPayload { OrderId = order.Id, IsNew = true, Choices = _choices }, context: null, TestContext.Current.CancellationToken);
+        await job.Execute(new OrderChangedJobPayload { OrderId = order.Id, IsNew = true, Choices = _choices, ConsentId = "consent-1" }, context: null, TestContext.Current.CancellationToken);
 
-        manager.Verify(x => x.CreateFromOrderAsync(order, It.Is<IList<SubscriptionCartItem>>(c => c.Single().Id == "choice-1")), Times.Once);
+        manager.Verify(x => x.CreateFromOrderAsync(order, It.Is<IList<SubscriptionCartItem>>(c => c.Single().Id == "choice-1"), "consent-1"), Times.Once);
         manager.Verify(x => x.CreateFromOrderAsync(It.IsAny<CustomerOrder>()), Times.Never);
     }
 

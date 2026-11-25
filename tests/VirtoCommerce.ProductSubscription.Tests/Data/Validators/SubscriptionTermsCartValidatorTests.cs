@@ -27,7 +27,14 @@ public class SubscriptionTermsCartValidatorTests
 
     private readonly Mock<ISubscriptionCartItemSearchService> _choices = new();
     private readonly Mock<IPaymentConsentSearchService> _consents = new();
+    private readonly Mock<ISubscriptionTermsService> _terms = new();
     private PaymentConsentSearchCriteria _consentCriteria;
+
+    public SubscriptionTermsCartValidatorTests()
+    {
+        _terms.Setup(x => x.GetTermsAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(new SubscriptionTerms { Version = "v2", Hash = "hash-v2", Text = "Terms" });
+    }
 
     [Fact]
     public async Task SubscribedLineWithoutConsent_RefusesTheOrder()
@@ -38,7 +45,8 @@ public class SubscriptionTermsCartValidatorTests
         var result = await Validate(Cart(new LineItem { Id = "line-1" }), OrderCreate);
 
         result.Errors.Should().ContainSingle().Which.ErrorCode.Should().Be(SubscriptionTermsCartValidator.ErrorCode);
-        _consentCriteria.RelatedObjectId.Should().Be("cart-1");
+        _consentCriteria.RelatedObjectType.Should().Be("ShoppingCartCheckout");
+        _consentCriteria.RelatedObjectId.Should().Be("checkout-1");
         _consentCriteria.CustomerId.Should().Be("customer-1");
     }
 
@@ -51,6 +59,40 @@ public class SubscriptionTermsCartValidatorTests
         var result = await Validate(Cart(new LineItem { Id = "line-1" }), OrderCreate);
 
         result.Errors.Should().BeEmpty();
+    }
+
+    // VCST-6993: xOrder gives the cart a new CheckoutId after each order, so a consent for an earlier checkout doesn't pass
+    [Fact]
+    public async Task ConsentForAnEarlierCheckout_RefusesTheOrder()
+    {
+        SetupChoice("line-1");
+        SetupConsents(1, checkoutId: "checkout-earlier");
+
+        var result = await Validate(Cart(new LineItem { Id = "line-1" }), OrderCreate);
+
+        result.Errors.Should().ContainSingle().Which.ErrorCode.Should().Be(SubscriptionTermsCartValidator.ErrorCode);
+    }
+
+    [Fact]
+    public async Task ConsentToTermsThatHaveSinceChanged_RefusesTheOrder()
+    {
+        SetupChoice("line-1");
+        SetupConsents(1, termsHash: "hash-v1");
+
+        var result = await Validate(Cart(new LineItem { Id = "line-1" }), OrderCreate);
+
+        result.Errors.Should().ContainSingle().Which.ErrorCode.Should().Be(SubscriptionTermsCartValidator.ErrorCode);
+    }
+
+    [Fact]
+    public async Task RevokedConsent_RefusesTheOrder()
+    {
+        SetupChoice("line-1");
+        SetupConsents(1, revoked: true);
+
+        var result = await Validate(Cart(new LineItem { Id = "line-1" }), OrderCreate);
+
+        result.Errors.Should().ContainSingle().Which.ErrorCode.Should().Be(SubscriptionTermsCartValidator.ErrorCode);
     }
 
     [Fact]
@@ -78,7 +120,7 @@ public class SubscriptionTermsCartValidatorTests
 
     private Task<FluentValidation.Results.ValidationResult> Validate(ShoppingCart cart, string ruleSet)
     {
-        var validator = new SubscriptionTermsCartValidator(_choices.Object, _consents.Object);
+        var validator = new SubscriptionTermsCartValidator(_choices.Object, _consents.Object, _terms.Object);
         var context = new CartValidationContext { CartAggregate = new TestCartAggregate(cart) };
         return validator.ValidateAsync(context, options => options.IncludeRuleSets(ruleSet));
     }
@@ -94,17 +136,25 @@ public class SubscriptionTermsCartValidatorTests
             });
     }
 
-    private void SetupConsents(int count)
+    /// <summary>The customer's consents, each given for <paramref name="checkoutId"/>; the search filters by checkout.</summary>
+    private void SetupConsents(int count, string checkoutId = "checkout-1", string termsHash = "hash-v2", bool revoked = false)
     {
+        var consents = Enumerable.Range(1, count)
+            .Select(i => new PaymentConsent { Id = $"consent-{i}", ObjectId = checkoutId, TermsHash = termsHash, RevokedDate = revoked ? System.DateTime.UtcNow : null })
+            .ToList();
         _consents
             .Setup(x => x.SearchAsync(It.IsAny<PaymentConsentSearchCriteria>(), It.IsAny<bool>()))
             .Callback((PaymentConsentSearchCriteria criteria, bool _) => _consentCriteria = criteria)
-            .ReturnsAsync(new PaymentConsentSearchResult { TotalCount = count, Results = new List<PaymentConsent>() });
+            .ReturnsAsync((PaymentConsentSearchCriteria criteria, bool _) =>
+            {
+                var found = consents.Where(x => x.ObjectId == criteria.RelatedObjectId).ToList();
+                return new PaymentConsentSearchResult { TotalCount = found.Count, Results = found };
+            });
     }
 
     private static ShoppingCart Cart(params LineItem[] lines)
     {
-        return new ShoppingCart { Id = "cart-1", CustomerId = "customer-1", StoreId = "store-1", Items = lines.ToList() };
+        return new ShoppingCart { Id = "cart-1", CheckoutId = "checkout-1", CustomerId = "customer-1", StoreId = "store-1", Items = lines.ToList() };
     }
 
     private sealed class TestCartAggregate : CartAggregate

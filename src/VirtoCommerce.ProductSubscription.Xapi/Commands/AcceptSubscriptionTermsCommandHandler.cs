@@ -45,9 +45,15 @@ public class AcceptSubscriptionTermsCommandHandler(
         consent.UserAgent = httpContext?.Request.Headers.UserAgent.ToString();
         consent.AcceptedDate = DateTime.UtcNow;
         consent.ObjectType = ModuleConstants.ConsentObjectType;
-        consent.ObjectId = cart.Id;
+        consent.ObjectId = GetCheckoutId(cart);
 
         await consentService.SaveChangesAsync([consent]);
         return consent.Id;
     });
+
+    /// <summary>The checkout the consent is given for (<see cref="ModuleConstants.ConsentObjectType"/>).</summary>
+    protected static string GetCheckoutId(VirtoCommerce.CartModule.Core.Model.ShoppingCart cart)
+    {
+        return string.IsNullOrEmpty(cart.CheckoutId) ? cart.Id : cart.CheckoutId;
+    }
 }

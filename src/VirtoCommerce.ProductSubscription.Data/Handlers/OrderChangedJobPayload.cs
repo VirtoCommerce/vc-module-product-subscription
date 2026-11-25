@@ -16,4 +16,8 @@ public class OrderChangedJobPayload
     /// right after checkout deletes them, so the job creates the subscriptions from this copy.
     /// </summary>
     public IList<SubscriptionCartItem> Choices { get; set; }
+
+    /// <summary>The consent given for the order's checkout, taken with <see cref="Choices"/>: xOrder replaces the cart's
+    /// CheckoutId after the order, so the job could no longer find it.</summary>
+    public string ConsentId { get; set; }
 }

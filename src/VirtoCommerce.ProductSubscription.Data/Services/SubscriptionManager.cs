@@ -4,6 +4,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using CartResponseGroup = VirtoCommerce.CartModule.Core.Model.CartResponseGroup;
+using VirtoCommerce.CartModule.Core.Services;
 using VirtoCommerce.CatalogModule.Core.Model;
 using VirtoCommerce.CatalogModule.Core.Services;
 using VirtoCommerce.CoreModule.Core.Common;
@@ -36,6 +38,7 @@ public class SubscriptionManager(
     IStoredPaymentMethodService storedPaymentMethodService,
     IStoredPaymentMethodSearchService storedPaymentMethodSearchService,
     IPaymentConsentSearchService paymentConsentSearchService,
+    IShoppingCartService shoppingCartService,
     ISubscriptionNotificationService notificationService,
     IItemService itemService,
     IStoreService storeService,
@@ -64,6 +67,17 @@ public class SubscriptionManager(
             return [];
         }
 
+        // Right after the order is saved the cart still has the checkout's id: xOrder replaces it only afterwards.
+        return await CreateFromOrderAsync(order, choices, await GetCheckoutConsentIdAsync(order.ShoppingCartId));
+    }
+
+    public virtual async Task<IList<Subscription>> CreateFromOrderAsync(CustomerOrder order, IList<SubscriptionCartItem> choices, string consentId)
+    {
+        if (!IsCheckoutOrder(order) || choices.IsNullOrEmpty())
+        {
+            return [];
+        }
+
         choices = choices.Where(x => x.CartId == order.ShoppingCartId).ToList();
         if (choices.Count == 0 || await HasSubscriptionsAsync(order))
         {
@@ -71,7 +85,7 @@ public class SubscriptionManager(
         }
 
         var plans = (await planService.GetAsync(choices.Select(x => x.PlanId).Distinct().ToList())).ToDictionary(x => x.Id);
-        var defaults = await GetOrderDefaultsAsync(order);
+        var defaults = await GetOrderDefaultsAsync(order, consentId);
         var subscriptions = new List<Subscription>();
         var usedChoices = new List<SubscriptionCartItem>();
         var matches = MatchOrderLines(choices, order.Items.ToList());
@@ -129,14 +143,14 @@ public class SubscriptionManager(
     }
 
     /// <summary>What every subscription of an order shares: delivery, payment, consent and dates.</summary>
-    protected virtual async Task<OrderSubscriptionDefaults> GetOrderDefaultsAsync(CustomerOrder order)
+    protected virtual async Task<OrderSubscriptionDefaults> GetOrderDefaultsAsync(CustomerOrder order, string consentId)
     {
         var now = DateTime.UtcNow;
         var defaults = new OrderSubscriptionDefaults
         {
             Now = now,
             PlacedDate = order.CreatedDate == default ? now : order.CreatedDate,
-            ConsentId = await FindConsentIdAsync(order),
+            ConsentId = consentId,
             IsPaymentAuthorized = order.InPayments?.Any(x => _paidStatuses.Contains(x.PaymentStatus)) == true,
         };
 
@@ -680,16 +694,27 @@ public class SubscriptionManager(
                ?? cards.FirstOrDefault(x => x.IsDefault);
     }
 
-    protected virtual async Task<string> FindConsentIdAsync(CustomerOrder order)
+    public virtual async Task<string> GetCheckoutConsentIdAsync(string cartId)
     {
-        // The latest consent of the customer for the cart (the search sorts by acceptance date, newest first).
+        if (string.IsNullOrEmpty(cartId))
+        {
+            return null;
+        }
+
+        var cart = await shoppingCartService.GetNoCloneAsync(cartId, CartResponseGroup.Default.ToString());
+        if (cart == null)
+        {
+            return null;
+        }
+
+        // The latest consent for this checkout (the search sorts by acceptance date, newest first).
         var criteria = AbstractTypeFactory<PaymentConsentSearchCriteria>.TryCreateInstance();
-        criteria.CustomerId = order.CustomerId;
+        criteria.CustomerId = cart.CustomerId;
         criteria.RelatedObjectType = ModuleConstants.ConsentObjectType;
-        criteria.RelatedObjectId = order.ShoppingCartId;
+        criteria.RelatedObjectId = string.IsNullOrEmpty(cart.CheckoutId) ? cart.Id : cart.CheckoutId;
         criteria.Purpose = ModuleConstants.ConsentPurpose;
         criteria.Take = 1;
-        return (await paymentConsentSearchService.SearchAsync(criteria)).Results.FirstOrDefault()?.Id;
+        return (await paymentConsentSearchService.SearchAsync(criteria)).Results.FirstOrDefault(x => x.RevokedDate == null)?.Id;
     }
 
     protected static Address ToCoreAddress(Address source)

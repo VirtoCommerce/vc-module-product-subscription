@@ -168,6 +168,7 @@ public class RenewalTestHarness
             storedPaymentMethodService.Object,
             Mock.Of<IStoredPaymentMethodSearchService>(x => x.SearchAsync(It.IsAny<StoredPaymentMethodSearchCriteria>(), It.IsAny<bool>()) == Task.FromResult(new StoredPaymentMethodSearchResult { Results = new List<StoredPaymentMethod>() })),
             Mock.Of<IPaymentConsentSearchService>(x => x.SearchAsync(It.IsAny<PaymentConsentSearchCriteria>(), It.IsAny<bool>()) == Task.FromResult(new PaymentConsentSearchResult { Results = new List<PaymentConsent>() })),
+            Mock.Of<VirtoCommerce.CartModule.Core.Services.IShoppingCartService>(),
             Notifications.Object,
             Mock.Of<IItemService>(),
             storeService.Object,
