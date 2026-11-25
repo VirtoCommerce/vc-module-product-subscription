@@ -247,6 +247,9 @@ test("cancelling a subscription takes one confirmation", async ({ page }) => {
   await expect(page.locator(MENU_BUTTON).first()).toBeVisible();
 });
 
+// the last digits of the buyer's saved test card that asks for 3-D Secure (the mock bank's 4000 0000 0000 3220)
+const THREE_DS_CARD_LAST4 = process.env.E2E_3DS_CARD_LAST4 ?? "3220";
+
 test("a renewal waiting for 3-D Secure is confirmed and authorized", async ({ page }, testInfo) => {
   // completes the payment for good: once, on the phone (the more demanding layout)
   test.skip(!isPhone(testInfo), "runs once, on the phone");
@@ -258,6 +261,9 @@ test("a renewal waiting for 3-D Secure is confirmed and authorized", async ({ pa
   await confirmButton.click();
   await expect(page).toHaveURL(/\/account\/orders\/.+\/payment/);
   await expect(page.getByTestId("mock-card-payment")).toBeVisible();
+  // pay with a saved card the mock bank challenges, whatever card is the default (another scenario may leave a
+  // declining one as the default)
+  await page.getByTestId("mock-card-payment").getByText(`•••• ${THREE_DS_CARD_LAST4}`).first().click();
   await page.getByTestId("mock-card-pay").click();
   // the mock bank asks for 3-D Secure, as the real one did for this card
   await page.getByTestId("mock-3ds-approve").click();
