@@ -2807,9 +2807,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@vc-frontend/core@file:.yalc/@vc-frontend/core::locator=product-subscription%40workspace%3A.":
-  version: 0.2.17
-  resolution: "@vc-frontend/core@file:.yalc/@vc-frontend/core#.yalc/@vc-frontend/core::hash=53b425&locator=product-subscription%40workspace%3A."
+"@vc-frontend/core@https://github.com/VirtoCommerce/vc-frontend/releases/download/core-v0.2.17-alpha.12.vcst-6507/vc-frontend-core-0.2.17-alpha.12.vcst-6507.tgz":
+  version: 0.2.17-alpha.12.vcst-6507
+  resolution: "@vc-frontend/core@https://github.com/VirtoCommerce/vc-frontend/releases/download/core-v0.2.17-alpha.12.vcst-6507/vc-frontend-core-0.2.17-alpha.12.vcst-6507.tgz"
   peerDependencies:
     "@apollo/client": ^3.14.0
     "@floating-ui/vue": ^2.0.1
@@ -2837,7 +2837,7 @@ __metadata:
       optional: true
     tw-elements:
       optional: true
-  checksum: 10c0/748b198261092b79c65d0c3414dabd5299e3bdd5c4e7b9ce633169027b518653038409ecf994c8e1b798aab82ad738ba97dcb0aaf1bd8fa771fbe5755f5d3c7c
+  checksum: 10c0/ebdf76e70899ccf289e4cd4a83189690abefbf35151530797286d617d40dbf1e17ac9e3f642b666c46a280efc59ac7cc55273fc0146016aab9c92006ae920b9e
   languageName: node
   linkType: hard
 
@@ -6409,7 +6409,7 @@ __metadata:
     "@tailwindcss/container-queries": "npm:^0.1.1"
     "@types/lodash-es": "npm:^4.17.12"
     "@unhead/vue": "npm:^3.2.1"
-    "@vc-frontend/core": "file:.yalc/@vc-frontend/core"
+    "@vc-frontend/core": "https://github.com/VirtoCommerce/vc-frontend/releases/download/core-v0.2.17-alpha.12.vcst-6507/vc-frontend-core-0.2.17-alpha.12.vcst-6507.tgz"
     "@vitejs/plugin-vue": "npm:^6.0.10"
     "@vue/apollo-composable": "npm:^4.2.2"
     "@vue/eslint-config-typescript": "npm:^14.9.0"
