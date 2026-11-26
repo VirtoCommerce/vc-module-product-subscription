@@ -65,4 +65,5 @@
     </ItemGroup>
     <Copy SourceFiles="@(AdminShellPlugin)" DestinationFiles="$(PublishDir)\..\plugins\%(RecursiveDir)%(Filename)%(Extension)" />
   </Target>
+  <Import Project="StorefrontApp\storefront-plugin.targets" />
 </Project>

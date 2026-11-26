@@ -1,0 +1,7 @@
+{
+  "id": "product-subscription",
+  "remote": {
+    "name": "product-subscription",
+    "exposed": "./plugin"
+  }
+}
