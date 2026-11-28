@@ -1,0 +1,1 @@
+{% if will_retry %}Emme voineet veloittaa korttiasi{% else %}Toimenpiteitä tarvitaan: päivitä maksutapasi{% endif %}

@@ -1,0 +1,1 @@
+注文 {{ renewal.order_number }} のお支払いを確認してください

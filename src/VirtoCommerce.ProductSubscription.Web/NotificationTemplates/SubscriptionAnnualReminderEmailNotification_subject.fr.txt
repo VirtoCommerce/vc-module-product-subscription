@@ -1,0 +1,1 @@
+Vos abonnements chez {{ store_name }} : rappel annuel

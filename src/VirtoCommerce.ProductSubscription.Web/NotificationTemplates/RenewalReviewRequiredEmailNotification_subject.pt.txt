@@ -1,0 +1,1 @@
+Revise sua entrega de {{ delivery_date_text }}

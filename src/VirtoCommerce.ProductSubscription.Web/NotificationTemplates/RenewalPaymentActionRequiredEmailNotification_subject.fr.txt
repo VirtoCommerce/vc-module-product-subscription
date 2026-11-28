@@ -1,0 +1,1 @@
+Confirmez votre paiement pour la commande {{ renewal.order_number }}

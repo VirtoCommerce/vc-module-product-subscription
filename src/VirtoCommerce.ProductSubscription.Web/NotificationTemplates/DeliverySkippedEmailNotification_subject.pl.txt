@@ -1,0 +1,1 @@
+Dostawa zaplanowana na {{ delivery_date_text }} została pominięta

@@ -1,0 +1,1 @@
+I tuoi abbonamenti presso {{ store_name }}: promemoria annuale

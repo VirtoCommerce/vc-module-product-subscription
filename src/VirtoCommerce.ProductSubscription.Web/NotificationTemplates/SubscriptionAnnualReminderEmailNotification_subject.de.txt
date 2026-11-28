@@ -1,0 +1,1 @@
+Ihre Abonnements bei {{ store_name }}: jährliche Erinnerung

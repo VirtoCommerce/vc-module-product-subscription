@@ -1,0 +1,1 @@
+Veuillez vérifier votre livraison du {{ delivery_date_text }}
